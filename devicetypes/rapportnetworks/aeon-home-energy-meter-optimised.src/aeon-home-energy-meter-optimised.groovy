@@ -76,8 +76,11 @@ def parse(String description) {
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
-	log.debug "Parse returned ${result?.descriptionText}"
-	return result
+	if (result) {
+		log.debug "Parse returned ${result?.descriptionText}"
+		return result
+	} else {
+	}
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.meterv1.MeterReport cmd) {
@@ -88,6 +91,25 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv1.MeterReport cmd) {
 	} else {
 		[name: "volts", value: cmd.scaledMeterValue, unit: "V"]
 	}
+}
+
+// *** added processing of configuration report command
+def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
+	log.debug "ConfigurationReport: $cmd"
+	def result = []
+	def nparam = "${cmd.parameterNumber}"
+	def nvalue = "${cmd.scaledConfigurationValue}"
+	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+	def cP = [:]
+	cP = state.configuredParameters
+	cP.put("${nparam}", "${nvalue}")
+	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+    cPReport = cPReport.sort()
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    cPReport = toKeyValue(cPReport)
+	updateDataValue("configuredParameters", cPReport)
+	state.configuredParameters = cP
+	return result
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -135,22 +157,4 @@ def configure() {
 		request << zwave.configurationV1.configurationGet(parameterNumber: n).format()
 	}
 	delayBetween(request)
-}
-
-// *** added processing of configuration report command
-def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
-	log.debug "ConfigurationReport: $cmd"
-
-	def nparam = "${cmd.parameterNumber}"
-	def nvalue = "${cmd.scaledConfigurationValue}"
-	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-	def cP = [:]
-	cP = state.configuredParameters
-	cP.put("${nparam}", "${nvalue}")
-	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-    cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-    cPReport = toKeyValue(cPReport)
-	updateDataValue("configuredParameters", cPReport)
-	state.configuredParameters = cP
 }

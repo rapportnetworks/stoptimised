@@ -249,7 +249,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	state.lastbatt = now()
 	result << createEvent(map)
 	if (device.latestValue("powerSource") != "dc"){
-		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false)
+		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false, isStateChange: true) // *** added "isStateChange: true" to ensure value ise propagated through ST system even if it hasn't changed)
 	}
 	result
 }
@@ -429,10 +429,10 @@ def configure() {
 
 	//7. *** set LED blinking - added this in
 	request << zwave.configurationV1.configurationSet(parameterNumber: 81, size: 1,
-		 	scaledConfigurationValue:
+			scaledConfigurationValue:
 				ledBlinking == "Enabled" ? 0 :
 						ledBlinking == "Only Motion" ? 1 :
-								ledBlinking == "Disabled" ? 2 : 2) // *** set LED blinking - default: disabled
+								ledBlinking == "Disabled" ? 255 : 255) // *** set LED blinking - default: disabled - trying 255 to set all bits
 
 	//8. query sensor data
 	request << zwave.batteryV1.batteryGet()

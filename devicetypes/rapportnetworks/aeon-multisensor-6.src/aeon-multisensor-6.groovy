@@ -14,7 +14,7 @@
  */
 
 metadata {
-	definition (name: "Aeon Multisensor 6 - Optimised", namespace: "rapportnetworks", author: "SmartThings") {
+	definition (name: "Aeon Multisensor 6", namespace: "rapportnetworks", author: "SmartThings") {
 		capability "Motion Sensor"
 		capability "Temperature Measurement"
 		capability "Relative Humidity Measurement"

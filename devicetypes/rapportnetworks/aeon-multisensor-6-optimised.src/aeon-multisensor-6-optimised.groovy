@@ -432,7 +432,7 @@ def configure() {
 			scaledConfigurationValue:
 				ledBlinking == "Enabled" ? 0 :
 						ledBlinking == "Only Motion" ? 1 :
-								ledBlinking == "Disabled" ? 255 : 255) // *** set LED blinking - default: disabled - trying 255 to set all bits
+								ledBlinking == "Disabled" ? 2 : 2) // *** set LED blinking - default: disabled
 
 	//8. query sensor data
 	request << zwave.batteryV1.batteryGet()

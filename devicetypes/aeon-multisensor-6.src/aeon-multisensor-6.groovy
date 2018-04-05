@@ -74,15 +74,15 @@ metadata {
 				title: "Advanced Configuration", displayDuringSetup: true, type: "paragraph", element: "paragraph"
 
 		input "motionDelayTime", "enum", title: "Motion Sensor Delay Time",
-				options: ["10 seconds", "20 seconds", "40 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes"], defaultValue: "${motionDelayTime}", displayDuringSetup: true
+				options: ["10 seconds", "20 seconds", "40 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes"], defaultValue: "10 seconds", displayDuringSetup: true
 
-		input "motionSensitivity", "enum", title: "Motion Sensor Sensitivity", options: ["normal","maximum","minimum"], defaultValue: "${motionSensitivity}", displayDuringSetup: true
+		input "motionSensitivity", "enum", title: "Motion Sensor Sensitivity", options: ["Off", "Minimum", "Normal", "Maximum"], defaultValue: "Maximum", displayDuringSetup: true
 
 		input "reportInterval", "enum", title: "Sensors Report Interval",
-				options: ["8 minutes", "15 minutes", "30 minutes", "1 hour", "6 hours", "12 hours", "18 hours", "24 hours"], defaultValue: "${reportInterval}", displayDuringSetup: true
+				options: ["8 minutes", "15 minutes", "30 minutes", "1 hour", "6 hours", "12 hours", "18 hours", "24 hours"], defaultValue: "1 hour", displayDuringSetup: true
 
 		input "ledBlinking", "enum", title: "LED Blinking Setting",
-						options: ["Enabled", "Only Motion", "Disabled"], defaultValue: "${ledBlinking}", displayDuringSetup: true
+						options: ["Enabled", "Only Motion", "Disabled"], defaultValue: "Disabled", displayDuringSetup: true
 	}
 
 	tiles(scale: 2) {
@@ -408,12 +408,13 @@ def configure() {
 	//3. no-motion report x seconds after motion stops (default 20 secs)
 	request << zwave.configurationV1.configurationSet(parameterNumber: 3, size: 2, scaledConfigurationValue: timeOptionValueMap[motionDelayTime] ?: 10) // *** set defualt value to 10
 
-	//4. motionSensitivity 3 levels: 64-normal (default), 127-maximum, 0-minimum
-	request << zwave.configurationV1.configurationSet(parameterNumber: 6, size: 1,
+	//4. motionSensitivity (0-6): 0-off, 1-minimum, 3-normal, 5-maximum
+	request << zwave.configurationV1.configurationSet(parameterNumber: 4, size: 1,
 			scaledConfigurationValue:
-					motionSensitivity == "normal" ? 64 :
-							motionSensitivity == "maximum" ? 127 :
-									motionSensitivity == "minimum" ? 0 : 127) // *** set default value to 127
+				motionSensitivity == "Off" ? 0 :
+					motionSensitivity == "Minimum" ? 1 :
+						motionSensitivity == "Normal" ? 3 :
+							motionSensitivity == "Maximum" ? 5 : 5)
 
 	//5. report every x minutes (threshold reports don't work on battery power, default 8 mins)
 	request << zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: timeOptionValueMap[reportInterval] ?: 1*60*60) //association group 1 *** set default value to 1 hour
@@ -421,7 +422,7 @@ def configure() {
 	request << zwave.configurationV1.configurationSet(parameterNumber: 112, size: 4, scaledConfigurationValue: 6*60*60)  //association group 2
 
 	//6. report automatically on threshold change
-	request << zwave.configurationV1.configurationSet(parameterNumber: 40, size: 1, scaledConfigurationValue: 1)
+	request << zwave.configurationV1.configurationSet(parameterNumber: 40, size: 1, scaledConfigurationValue: 0)
 
 	//7. *** set LED blinking - added this in
 	request << zwave.configurationV1.configurationSet(parameterNumber: 81, size: 1,
@@ -441,7 +442,7 @@ def configure() {
 
 
 	log.debug "Requesting Configuration Report"
-	def params = [3, 6, 81, 101, 102, 111, 112]
+	def params = [3, 4, 40, 81, 101, 102, 111, 112]
 	params.each { n ->
 		request << zwave.configurationV1.configurationGet(parameterNumber: n)
 	}
@@ -456,7 +457,7 @@ def configure() {
 	}
 	sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
-	commands(request) + ["delay 20000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()]
+	commands(request) + ["delay 30000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
 }
 
 private def getTimeOptionValueMap() { [
@@ -471,7 +472,7 @@ private def getTimeOptionValueMap() { [
 		"8 minutes"  : 8*60,
 		"15 minutes" : 15*60,
 		"30 minutes" : 30*60,
-		"1 hours"    : 1*60*60,
+		"1 hour"    : 1*60*60,
 		"6 hours"    : 6*60*60,
 		"12 hours"   : 12*60*60,
 		"18 hours"   : 18*60*60,

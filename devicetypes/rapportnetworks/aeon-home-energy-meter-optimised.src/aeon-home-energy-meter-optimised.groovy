@@ -109,7 +109,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
     cPReport = toKeyValue(cPReport)
 	updateDataValue("configuredParameters", cPReport)
 	state.configuredParameters = cP
-	return result
+//	return result
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -149,12 +149,13 @@ def configure() {
 	cmd
 
 	// get configuration report
-	log.debug "Requesting Configuration Report"
 	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
 	def request = []
 	def params = [2, 3, 4, 8, 101, 102, 103, 111, 112, 113]
 	params.each { n ->
 		request << zwave.configurationV1.configurationGet(parameterNumber: n).format()
 	}
-	delayBetween(request)
+	def report = delayBetween(request)
+	log.debug "Requesting Configuration Report: ${report}"
+	report
 }

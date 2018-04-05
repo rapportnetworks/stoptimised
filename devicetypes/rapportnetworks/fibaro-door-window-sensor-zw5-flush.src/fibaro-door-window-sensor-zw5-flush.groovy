@@ -12,9 +12,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Modified 2018 Alasdair Thin, Rapport Networks CIC
  */
 metadata {
-	definition (name: "Fibaro Door/Window Sensor ZW5", namespace: "fibargroup", author: "Fibar Group S.A.", ocfDeviceType: "x.com.st.d.sensor.contact") {
+	definition (name: "Fibaro Door/Window Sensor ZW5 Flush", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.contact") {
 		capability "Battery"
 		capability "Contact Sensor"
 		capability "Sensor"
@@ -32,8 +33,8 @@ metadata {
     tiles(scale: 2) {
     	multiAttributeTile(name:"FGK", type:"lighting", width:6, height:4) {//with generic type secondary control text is not displayed in Android app
         	tileAttribute("device.contact", key:"PRIMARY_CONTROL") {
-                attributeState("open", label: "open", icon:"st.contact.contact.open", backgroundColor:"#e86d13")
-                attributeState("closed", label: "closed", icon:"st.contact.contact.closed", backgroundColor:"#00a0dc")
+            	attributeState("flushing", label:"Flushing", icon:"st.contact.contact.open", backgroundColor:"#e86d13")
+                attributeState("full", label:"Full", icon:"st.contact.contact.closed", backgroundColor:"#00a0dc")
             }
 
             tileAttribute("device.tamper", key:"SECONDARY_CONTROL") {
@@ -57,7 +58,7 @@ def installed() {
 
 def updated() {
 	def tamperValue = device.latestValue("tamper")
-    
+
     if (tamperValue == "active") {
     	sendEvent(name: "tamper", value: "detected", displayed: false)
     } else if (tamperValue == "inactive") {
@@ -127,14 +128,14 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     	switch (cmd.event) {
         	case 22:
             	map.name = "contact"
-                map.value = "open"
-                map.descriptionText = "${device.displayName} is open"
+                map.value = "full"
+                map.descriptionText = "${device.displayName} is full"
             	break
 
             case 23:
             	map.name = "contact"
-                map.value = "closed"
-                map.descriptionText = "${device.displayName} is closed"
+                map.value = "flushing"
+                map.descriptionText = "${device.displayName} is flushing"
             	break
         }
     } else if (cmd.notificationType == 7) {
@@ -214,13 +215,13 @@ def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLoca
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
 	def map = [:]
-	map.value = cmd.sensorValue ? "open" : "closed"
+	map.value = cmd.sensorValue ? "full" : "flushing"
 	map.name = "contact"
-	if (map.value == "open") {
-		map.descriptionText = "${device.displayName} is open"
+	if (map.value == "full") {
+		map.descriptionText = "${device.displayName} is full"
 	}
 	else {
-		map.descriptionText = "${device.displayName} is closed"
+		map.descriptionText = "${device.displayName} is flushing"
 	}
 	createEvent(map)
 }

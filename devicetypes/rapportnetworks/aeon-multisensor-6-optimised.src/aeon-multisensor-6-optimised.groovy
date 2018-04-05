@@ -345,7 +345,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	cP.put("${nparam}", "${nvalue}")
 	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
     cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
     cPReport = toKeyValue(cPReport)
 	updateDataValue("configuredParameters", cPReport)
 	state.configuredParameters = cP
@@ -399,6 +399,9 @@ def configure() {
 
 	request << zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:zwaveHubNodeId)
 
+	//1a. set increase duration of wakeup from 15 to 30 seconds
+	request << zwave.configurationV1.configurationSet(parameterNumber: 8, size: 1, scaledConfigurationValue: 30)
+
 	//2. automatic report flags
 	// param 101 -103 [4 bytes] 128 light sensor, 64 humidity, 32 temperature sensor, 16 ultraviolet sensor, 1 battery sensor -> send command 241 to get all reports
 	request << zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 240) //association group 1
@@ -442,7 +445,7 @@ def configure() {
 
 
 	log.debug "Requesting Configuration Report"
-	def params = [3, 4, 40, 81, 101, 102, 111, 112]
+	def params = [3, 4, 8, 40, 81, 101, 102, 111, 112]
 	params.each { n ->
 		request << zwave.configurationV1.configurationGet(parameterNumber: n)
 	}

@@ -132,7 +132,7 @@ def configure() {
 	def request = []
 	def params = [2, 3, 4, 8, 101, 102, 103, 111, 112, 113]
 	params.each { n ->
-		request << zwave.configurationV1.configurationGet(parameterNumber: n)
+		request << zwave.configurationV1.configurationGet(parameterNumber: n).format()
 	}
 	delayBetween(request)
 }

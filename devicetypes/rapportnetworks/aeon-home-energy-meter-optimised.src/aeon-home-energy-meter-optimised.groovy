@@ -74,9 +74,10 @@ def parse(String description) {
 	def result = null
 	def cmd = zwave.parse(description, [0x31: 1, 0x32: 1, 0x60: 3, 0x70: 1]) // *** added v1 for cc 70
 	if (cmd) {
-		result = createEvent(zwaveEvent(cmd))
+		result = zwaveEvent(cmd)
 	}
 	if (result) {
+		result = createEvent(result)
 		log.debug "Parse returned ${result?.descriptionText}"
 		return result
 	} else {

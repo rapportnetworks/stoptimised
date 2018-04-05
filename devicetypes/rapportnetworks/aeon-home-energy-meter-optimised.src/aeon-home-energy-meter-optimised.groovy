@@ -106,7 +106,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
 	cP.put("${nparam}", "${nvalue}")
 	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
     cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
     cPReport = toKeyValue(cPReport)
 	updateDataValue("configuredParameters", cPReport)
 	state.configuredParameters = cP

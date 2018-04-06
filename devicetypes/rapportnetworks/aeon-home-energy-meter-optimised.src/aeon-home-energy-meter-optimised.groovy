@@ -133,6 +133,10 @@ def reset() {
 	]
 }
 
+def updated() {
+	configure()
+}
+
 def configure() {
 	def cmd = delayBetween([
 		zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: 0).format(),   // report absolute power, energy

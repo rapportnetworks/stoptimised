@@ -137,8 +137,8 @@ def configure() {
 	def cmd = delayBetween([
 		zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: 0).format(),   // report absolute power, energy
 		zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: 1).format(),   // enable selective reporting
-		zwave.configurationV1.configurationSet(parameterNumber: 4, size: 2, scaledConfigurationValue: 10).format(),   // absolute threshold watts to trigger report (try 10W)
-		zwave.configurationV1.configurationSet(parameterNumber: 8, size: 1, scaledConfigurationValue: 10).format(),   // relative threshold watts to trigger report (try 10%)
+		zwave.configurationV1.configurationSet(parameterNumber: 4, size: 2, scaledConfigurationValue: 5).format(),   // absolute threshold watts to trigger report (try 5W)
+		zwave.configurationV1.configurationSet(parameterNumber: 8, size: 1, scaledConfigurationValue: 20).format(),   // relative threshold watts to trigger report (try 20%)
 		zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 2).format(),   // combined power in watts
 		zwave.configurationV1.configurationSet(parameterNumber: 111, size: 4, scaledConfigurationValue: 5).format(), // every 5 seconds
 		zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 1).format(),   // combined energy in kWh

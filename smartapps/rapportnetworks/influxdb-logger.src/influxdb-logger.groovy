@@ -30,8 +30,8 @@
 
 
 definition (
-    name: "InfluxDB Smart Logger",
-    namespace: "rapport",
+    name: "InfluxDB Logger",
+    namespace: "rapportnetworks",
     author: "Alasdair Thin",
     description: "Log SmartThings device states to InfluxDB",
     category: "My Apps",

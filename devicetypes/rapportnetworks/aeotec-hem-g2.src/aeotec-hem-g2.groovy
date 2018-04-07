@@ -94,7 +94,7 @@ metadata {
 					element: "paragraph"
 				)
 				optionMap().each { opt ->
-					input ( name: "${param.key}${opt.key}", title: opt.name , type: "boolean", required: false, defaultValue: (opt.def && opt.def?.contains(param.num)) ? 1:0 )
+					input ( name: "${param.key}${opt.key}", title: opt.name , type: "boolean", required: false, defaultValue: (opt.def && opt.def?.contains(param.num)) ? true : false )
 				}
 			} else {
 				getPrefsFor(param)
@@ -454,7 +454,7 @@ private parameterMap() {[
 	//	3: "3 - positive/negative power, energy negative part"],
 	//	def: "0", title: "Power and Energy mode",
 	//	descr: "For parameters of 101 ~ 103, power, energy detection mode configuration"],
-	[key: "reportingThreshold", num: 3, size: 1, type: "enum", options: [0: "0 - disable,", 1: "1 - enable"], def: "1 - enable", title: "Reporting Threshold",
+	[key: "reportingThreshold", num: 3, size: 1, type: "enum", options: [0: "0 - disable,", 1: "1 - enable"], def: 1, title: "Reporting Threshold",
 		descr: "Enable selective reporting only when power change reaches a certain threshold or percentage set in 4-11 below"],
 	[key: "thresholdHEM", num: 4, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "HEM threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Whole HEM)\n0-60000 W"],

@@ -268,19 +268,19 @@ def syncCheck() {
 		logging("${device.displayName} - Sync Complete","info")
 		sendEvent(name: "combinedMeter", value: "SYNC OK.", displayed: false)
 
-		logging("${device.displayName} - Creating Configuration Report","info")
+		logging("${device.displayName} - Creating Configuration Parameters Report","info")
 		def cP = [:]
 		parameterMap().each {
 			if (state."$it.key"?.value) {
 				cP << ["${it.num}": "${state."$it.key".value}"]
 			}
 		}
-		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-		cPReport = cPReport.sort()
+		def cPR = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+		cPR = cPR.sort()
 		def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-		cPReport = toKeyValue(cPReport)
-		logging("${device.displayName} - Configuration Report: ${cPReport}","info")
-		updateDataValue("configuredParameters", cPReport)
+		cPR = toKeyValue(cPR)
+		logging("${device.displayName} - Configuration Parameters Report: ${cPR}","info")
+		updateDataValue("configuredParameters", cPR)
 
 	} else {
 		logging("${device.displayName} Sync Incomplete","info")
@@ -474,13 +474,13 @@ private parameterMap() {[
 		descr: "Enable selective reporting only when power change reaches a certain threshold or percentage set in 4-11 below"],
 	[key: "thresholdHEM", num: 4, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "HEM threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Whole HEM)\n0-60000 W"],
-	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 1 threshold",
+	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 1 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 1)\n0-60000 W"],
 	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 2 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 2)\n0-60000 W"],
 	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 3 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 3)\n0-60000W"],
-	[key: "percentageHEM", num: 8, size: 1, type: "number", def: null, min: 0, max: 100, title: "HEM percentage",
+	[key: "percentageHEM", num: 8, size: 1, type: "number", def: 10, min: 0, max: 100, title: "HEM percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Whole HEM)\n0-100%"],
 	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 1 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 1)\n0-100%"],

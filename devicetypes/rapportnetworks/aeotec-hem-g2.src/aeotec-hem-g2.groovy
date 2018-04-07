@@ -500,7 +500,7 @@ private parameterMap() {[
 		descr: "The time interval for Report group 1\n0-268435456s"],
 	[key: "timeGroup2", num: 112, size: 4, type: "number", def: 300, min: 0, max: 268435456, title: "Group 2 time interval",
 		descr: "The time interval for Report group 2\n0-268435456s"],
-	[key: "timeGroup3", num: 113, size: 4, type: "number", def: 300, min: 0, max: 268435456, title: "Group 3 time interval",
+	[key: "timeGroup3", num: 113, size: 4, type: "number", def: null, min: 0, max: 268435456, title: "Group 3 time interval",
 		descr: "The time interval for Report group 3\n0-268435456s"]
 ]}
 

@@ -271,8 +271,8 @@ def syncCheck() {
 		logging("${device.displayName} - Creating Configuration Report","info")
 		def cP = [:]
 		parameterMap().each {
-			if (state."$it.key"?.num) {
-				cP << [(state."$it.key".num): (state."$it.key".value)]
+			if (state."$it.key"?.value) {
+				cP << [(it.num): (state."$it.key".value)]
 			}
 		}
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }

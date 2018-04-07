@@ -272,7 +272,7 @@ def syncCheck() {
 		def cP = [:]
 		parameterMap().each {
 			if (state."$it.key"?.value) {
-				cP << [(it.num): (state."$it.key".value)]
+				cP << ["${it.num}": "${state."$it.key".value}"]
 			}
 		}
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }

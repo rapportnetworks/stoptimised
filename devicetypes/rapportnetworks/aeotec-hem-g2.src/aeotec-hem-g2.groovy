@@ -259,7 +259,7 @@ def syncCheck() {
 	def Integer count = 0
 	if (device.currentValue("combinedMeter")?.contains("SYNC") && device.currentValue("combinedMeter") != "SYNC OK.") {
 		parameterMap().each {
-			if (state?."$it.key".state == "notSynced" ) {
+			if (state."$it.key"?.state == "notSynced" ) {
 				count = count + 1
 			}
 		}

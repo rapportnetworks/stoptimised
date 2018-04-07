@@ -270,7 +270,7 @@ def syncCheck() {
 
 		logging("${device.displayName} - Creating Configuration Report","info")
 		def cP = [:]
-		parameterMap().each { if (state."$it.key"?.num) cP << [(state."$it.key".num): state."$it.key".value] }
+		parameterMap().each { if (state."$it.key"?.num) cP << [(state."$it.key".num): (state."$it.key".value)] }
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
 		cPReport = cPReport.sort()
 		def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }

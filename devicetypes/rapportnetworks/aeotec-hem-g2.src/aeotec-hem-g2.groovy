@@ -267,6 +267,16 @@ def syncCheck() {
 	if (count == 0) {
 		logging("${device.displayName} - Sync Complete","info")
 		sendEvent(name: "combinedMeter", value: "SYNC OK.", displayed: false)
+
+		logging("${device.displayName} - Creating Configuration Report","info")
+		def cP = [:]
+		parameterMap().each { if (state."$it.key"?.num) cP << [state."$it.key".num: state."$it.key".value] }
+		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+		cPReport = cPReport.sort()
+		def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+		cPReport = toKeyValue(cPReport)
+		updateDataValue("configuredParameters", cPReport)
+
 	} else {
 		logging("${device.displayName} Sync Incomplete","info")
 		if (device.currentValue("combinedMeter") != "SYNC FAILED!") {
@@ -284,19 +294,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		state."$paramKey".state = "synced"
 	runIn(10, syncCheck)
 	}
-
-	// *** added processing of configuration report to update data value
-		def nparam = "${cmd.parameterNumber}"
-		def nvalue = "${cmd.scaledConfigurationValue}"
-		log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-		state.configuredParameters.put(nparam, nvalue)
-		def cPReport = state.configuredParameters.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-	    cPReport = cPReport.sort()
-	    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-	    cPReport = toKeyValue(cPReport)
-		updateDataValue("configuredParameters", cPReport)
-	// *** end of processing configuration report
-
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd) {

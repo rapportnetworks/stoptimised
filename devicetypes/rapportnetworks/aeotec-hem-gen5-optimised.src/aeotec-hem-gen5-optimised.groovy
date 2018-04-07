@@ -1,5 +1,5 @@
 /**
- *  Aeotec Home Energy Meter G2
+ *  Aeotec Home Energy Meter Gen5
  *  Requires Aeotec HEM Gen5 Child Device
  *
  *  Copyright 2017 Artur Draga
@@ -15,23 +15,25 @@
  *
  */
 metadata {
-	definition (name: "Aeotec HEM G2 Optimised", namespace: "ClassicGOD", author: "Artur Draga") {
+	definition (name: "Aeotec HEM Gen5 Optimised", namespace: "RapportNetworks", author: "Artur Draga") {
 		capability "Energy Meter"
 		capability "Power Meter"
 		capability "Voltage Measurement"
 		capability "Configuration"
 		capability "Refresh"
 		capability "Health Check"
+        capability "Sensor"
 
 		command "reset"
-		command "resetMeter"
+        command "resetMeter"
 
 		attribute "current", "number"
 		attribute "combinedMeter", "string"
 
-		fingerprint mfr: "0086", model: "001C"
-		fingerprint mfr: "0086", prod: "0002", model: "001C"
-		fingerprint deviceId: "0x3101", inClusters:"0x70,0x32,0x60,0x85,0x72,0x86"
+		fingerprint mfr: "0086", model: "005F"
+		fingerprint mfr: "0086", prod: "0002", model: "005F"
+		fingerprint deviceId: "0X3101", inClusters:"0x5E,0x86,0x72,0x32,0x56,0x60,0x8E,0x70,0x59,0x85,0x7A,0x73,0x5A,0x98"
+		fingerprint deviceId: "0X3101", inClusters:"0x5E,0x86,0x72,0x32,0x56,0x60,0x8E,0x70,0x59,0x85,0x7A,0x73,0x5A"
 	}
 
 	tiles (scale: 2) {
@@ -57,13 +59,13 @@ metadata {
 			]
 		}
 		valueTile("energy", "device.energy", decoration: "flat", width: 2, height: 2) {
-			state "energy", label:'${currentValue}\n kWh', unit: "kWh"
+			state "energy", label:'${currentValue}\n kWh ', unit: "kWh"
 		}
 		valueTile("voltage", "device.voltage", decoration: "flat", width: 2, height: 2) {
-			state "voltage", label:'${currentValue}\n V', unit: "V"
+			state "voltage", label:'${currentValue}\n V ', unit: "V"
 		}
 		valueTile("current", "device.current", decoration: "flat", width: 2, height: 2) {
-			state "current", label:'${currentValue}\n A', unit: "A"
+			state "current", label:'${currentValue}\n A ', unit: "A"
 		}
 		standardTile("reset", "device.reset", decoration: "flat", width: 2, height: 2) {
 			state "default", label:'Reset kWh', action:"reset", icon: "st.Kids.kids4"
@@ -475,11 +477,11 @@ private parameterMap() {[
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 2)\n0-100%"],
 	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 3 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 3)\n0-100%"],
-	//[key: "crcReporting", num: 13, size: 1, type: "enum", options: [
-	//	0: "0 - disable,",
-	//	1: "1 - enable"],
-	//	def: "0", title: "CRC-16 reporting",
-	//	descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
+	[key: "crcReporting", num: 13, size: 1, type: "enum", options: [
+		0: "0 - disable,",
+		1: "1 - enable"],
+		def: "0", title: "CRC-16 reporting",
+		descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
 	[key: "group1", num: 101, size: 4, type: "number", def: 2, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group2", num: 102, size: 4, type: "number", def: 1, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group3", num: 103, size: 4, type: "number", def: 0, min: 0, max: 4210702, title: null, descr: null],

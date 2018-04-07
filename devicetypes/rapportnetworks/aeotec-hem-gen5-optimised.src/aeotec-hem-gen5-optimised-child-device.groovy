@@ -14,7 +14,7 @@
  *
  */
 metadata {
-	definition (name: "Aeotec HEM Gen5 Optimised Child Device", namespace: "ClassicGOD", author: "Artur Draga") {
+	definition (name: "Aeotec HEM Gen5 Optimised Child Device", namespace: "RapportNetworks", author: "Artur Draga") {
 		capability "Energy Meter"
 		capability "Power Meter"
 		capability "Voltage Measurement"

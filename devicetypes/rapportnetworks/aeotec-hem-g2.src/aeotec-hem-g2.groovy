@@ -218,7 +218,7 @@ def updated() {
 
 			if (it.num in (101..103)) { value = calcParamVal(it.key) }
 			else if (it.key.contains("Clamp") && !(it.key[-6..-1] in clamps)) { value = null }
-			else if (it.num == 3) { value = (settings."$it.key" == true) ? 1 : 0 }
+			else if (it.num == 3) { value = (settings."$it.key") ? 1 as Integer : 0 as Integer }
 			else { value = settings."$it.key" as Integer }
 
 			if (state."$it.key".value != value || state."$it.key".state == "notSynced") {
@@ -293,7 +293,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		cP.put("${nparam}", "${nvalue}")
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
 	    cPReport = cPReport.sort()
-	    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+	    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
 	    cPReport = toKeyValue(cPReport)
 		updateDataValue("configuredParameters", cPReport)
 		state.configuredParameters = cP

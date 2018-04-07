@@ -15,7 +15,7 @@
  *
  */
 metadata {
-	definition (name: "Aeotec HEM G2 Optimised", namespace: "RapportNetworks", author: "Artur Draga") {
+	definition (name: "Aeotec HEM G2 Optimised", namespace: "rapportnetworks", author: "Artur Draga") {
 		capability "Energy Meter"
 		capability "Power Meter"
 		capability "Voltage Measurement"

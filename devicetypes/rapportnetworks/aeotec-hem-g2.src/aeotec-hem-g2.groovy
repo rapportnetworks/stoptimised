@@ -206,6 +206,8 @@ def updated() {
 	def Integer cmdCount = 0
 	def value
 
+	state.configuredParameters = [:] // reset map of configured parameters
+
 	if (epc > 1 && !childDevices) {
 		createChildDevices()
 	}

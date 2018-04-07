@@ -291,7 +291,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
 		def cP = (state?.configuredParameters) ?: [:]
 //		cP.put("${nparam}", "${nvalue}")
-		cP.put(nparam, nvalue)		
+		cP.put(nparam, nvalue)
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
 	    cPReport = cPReport.sort()
 	    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
@@ -477,17 +477,17 @@ private parameterMap() {[
 		descr: "Threshold change in wattage to induce a automatic report (Whole HEM)\n0-60000 W"],
 	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 1 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 1)\n0-60000 W"],
-	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 2 threshold",
+	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 2 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 2)\n0-60000 W"],
-	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 3 threshold",
+	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 3 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 3)\n0-60000W"],
-	[key: "percentageHEM", num: 8, size: 1, type: "number", def: 10, min: 0, max: 100, title: "HEM percentage",
+	[key: "percentageHEM", num: 8, size: 1, type: "number", def: null, min: 0, max: 100, title: "HEM percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Whole HEM)\n0-100%"],
-	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 1 percentage",
+	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 1 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 1)\n0-100%"],
-	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 2 percentage",
+	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 2 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 2)\n0-100%"],
-	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 3 percentage",
+	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 3 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 3)\n0-100%"],
 	//[key: "crcReporting", num: 13, size: 1, type: "enum", options: [
 	//	0: "0 - disable,",

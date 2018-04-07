@@ -206,8 +206,6 @@ def updated() {
 	def Integer cmdCount = 0
 	def value
 
-	state.configuredParameters = [:] // reset map of configured parameters
-
 	if (epc > 1 && !childDevices) {
 		createChildDevices()
 	}
@@ -291,15 +289,12 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		def nparam = "${cmd.parameterNumber}"
 		def nvalue = "${cmd.scaledConfigurationValue}"
 		log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-		def cP = (state?.configuredParameters) ?: [:]
-//		cP.put("${nparam}", "${nvalue}")
-		cP.put(nparam, nvalue)
-		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+		state.configuredParameters.put(nparam, nvalue)
+		def cPReport = state.configuredParameters.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
 	    cPReport = cPReport.sort()
 	    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
 	    cPReport = toKeyValue(cPReport)
 		updateDataValue("configuredParameters", cPReport)
-		state.configuredParameters = cP
 	// *** end of processing configuration report
 
 }

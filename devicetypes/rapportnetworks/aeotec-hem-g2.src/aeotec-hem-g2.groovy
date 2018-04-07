@@ -218,6 +218,7 @@ def updated() {
 
 			if (it.num in (101..103)) { value = calcParamVal(it.key) }
 			else if (it.key.contains("Clamp") && !(it.key[-6..-1] in clamps)) { value = null }
+			else if (it.num == 3) { value = (settings."$it.key" == true) ? 1 : 0 }
 			else { value = settings."$it.key" as Integer }
 
 			if (state."$it.key".value != value || state."$it.key".state == "notSynced") {

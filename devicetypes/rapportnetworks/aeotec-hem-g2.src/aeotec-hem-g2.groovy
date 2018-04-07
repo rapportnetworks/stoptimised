@@ -283,6 +283,22 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		state."$paramKey".state = "synced"
 	runIn(10, syncCheck)
 	}
+
+	// *** added processing of configuration report to update data value
+		def nparam = "${cmd.parameterNumber}"
+		def nvalue = "${cmd.scaledConfigurationValue}"
+		log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+		def cP = [:]
+		cP = state.configuredParameters
+		cP.put("${nparam}", "${nvalue}")
+		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+	    cPReport = cPReport.sort()
+	    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+	    cPReport = toKeyValue(cPReport)
+		updateDataValue("configuredParameters", cPReport)
+		state.configuredParameters = cP
+	// *** end of processing configuration report
+
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest cmd) {

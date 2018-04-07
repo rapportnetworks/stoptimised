@@ -185,7 +185,7 @@ private createChildDevices() {
 	if ((zwaveInfo.epc as Integer) > 1) {
 		(zwaveInfo.epc as Integer)?.times { n ->
 			addChildDevice(
-				"Aeotec HEM Gen5 Child Device",
+				"Aeotec HEM Gen5 Optimised Child Device",
 				"${device.deviceNetworkId}-c${n+1}",
 				null,
 				[completedSetup: true, label: "${device.displayName} (Clamp ${n+1})", isComponent: false, componentName: "clamp${n+1}", componentLabel: "Clamp ${n+1}"]

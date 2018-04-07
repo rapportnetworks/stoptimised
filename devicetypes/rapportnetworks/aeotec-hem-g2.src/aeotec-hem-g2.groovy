@@ -290,7 +290,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		def nvalue = "${cmd.scaledConfigurationValue}"
 		log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
 		def cP = [:]
-		cP = state.configuredParameters
+		cP = (state?.configuredParameters) ? state.configuredParameters :
 		cP.put("${nparam}", "${nvalue}")
 		def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
 	    cPReport = cPReport.sort()

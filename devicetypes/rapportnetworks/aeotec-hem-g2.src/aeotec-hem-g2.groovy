@@ -57,13 +57,13 @@ metadata {
 			]
 		}
 		valueTile("energy", "device.energy", decoration: "flat", width: 2, height: 2) {
-			state "energy", label:'${currentValue}\n kWh', unit: "kWh"
+			state "energy", label:'${currentValue}\n kWh ', unit: "kWh"
 		}
 		valueTile("voltage", "device.voltage", decoration: "flat", width: 2, height: 2) {
-			state "voltage", label:'${currentValue}\n V', unit: "V"
+			state "voltage", label:'${currentValue}\n V ', unit: "V"
 		}
 		valueTile("current", "device.current", decoration: "flat", width: 2, height: 2) {
-			state "current", label:'${currentValue}\n A', unit: "A"
+			state "current", label:'${currentValue}\n A ', unit: "A"
 		}
 		standardTile("reset", "device.reset", decoration: "flat", width: 2, height: 2) {
 			state "default", label:'Reset kWh', action:"reset", icon: "st.Kids.kids4"
@@ -115,9 +115,9 @@ def getPrefsFor(parameter) {
 	input (
 		name: parameter.key,
 		title: null,
-		//description: null,
+		// description: null,
 		type: parameter.type,
-//		options: parameter.options,
+		// options: parameter.options,
 		range: (parameter.min != null && parameter.max != null) ? "${parameter.min}..${parameter.max}" : null,
 		defaultValue: parameter.def,
 		required: false
@@ -488,11 +488,8 @@ private parameterMap() {[
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 2)\n0-100%"],
 	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 3 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 3)\n0-100%"],
-	//[key: "crcReporting", num: 13, size: 1, type: "enum", options: [
-	//	0: "0 - disable,",
-	//	1: "1 - enable"],
-	//	def: "0", title: "CRC-16 reporting",
-	//	descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
+	// 	[key: "crcReporting", num: 13, size: 1, type: "boolean", def: false, title: "CRC-16 reporting",
+	//		descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
 	[key: "group1", num: 101, size: 4, type: "number", def: 2, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group2", num: 102, size: 4, type: "number", def: 1, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group3", num: 103, size: 4, type: "number", def: 0, min: 0, max: 4210702, title: null, descr: null],

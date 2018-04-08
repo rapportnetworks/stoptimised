@@ -22,10 +22,10 @@ metadata {
 		capability "Configuration"
 		capability "Refresh"
 		capability "Health Check"
-        capability "Sensor"
+		capability "Sensor"
 
 		command "reset"
-        command "resetMeter"
+		command "resetMeter"
 
 		attribute "current", "number"
 		attribute "combinedMeter", "string"
@@ -96,7 +96,7 @@ metadata {
 					element: "paragraph"
 				)
 				optionMap().each { opt ->
-					input ( name: "${param.key}${opt.key}", title: opt.name , type: "boolean", required: false, defaultValue: (opt.def && opt.def?.contains(param.num)) ? 1:0 )
+					input ( name: "${param.key}${opt.key}", title: opt.name , type: "boolean", required: false, defaultValue: (opt.def && opt.def?.contains(param.num)) ? true : false )
 				}
 			} else {
 				getPrefsFor(param)
@@ -117,9 +117,9 @@ def getPrefsFor(parameter) {
 	input (
 		name: parameter.key,
 		title: null,
-		//description: null,
+		// description: null,
 		type: parameter.type,
-		options: parameter.options,
+		// options: parameter.options,
 		range: (parameter.min != null && parameter.max != null) ? "${parameter.min}..${parameter.max}" : null,
 		defaultValue: parameter.def,
 		required: false
@@ -220,6 +220,7 @@ def updated() {
 
 			if (it.num in (101..103)) { value = calcParamVal(it.key) }
 			else if (it.key.contains("Clamp") && !(it.key[-6..-1] in clamps)) { value = null }
+			else if (it.num == 3) { value = (settings."$it.key") ? 1 as Integer : 0 as Integer }
 			else { value = settings."$it.key" as Integer }
 
 			if (state."$it.key".value != value || state."$it.key".state == "notSynced") {
@@ -260,7 +261,7 @@ def syncCheck() {
 	def Integer count = 0
 	if (device.currentValue("combinedMeter")?.contains("SYNC") && device.currentValue("combinedMeter") != "SYNC OK.") {
 		parameterMap().each {
-			if (state."$it.key".state == "notSynced" ) {
+			if (state."$it.key"?.state == "notSynced" ) {
 				count = count + 1
 			}
 		}
@@ -268,6 +269,21 @@ def syncCheck() {
 	if (count == 0) {
 		logging("${device.displayName} - Sync Complete","info")
 		sendEvent(name: "combinedMeter", value: "SYNC OK.", displayed: false)
+
+		logging("${device.displayName} - Creating Configuration Parameters Report","info")
+		def cP = [:]
+		parameterMap().each {
+			if (state."$it.key"?.value) {
+				cP << ["${it.num}": "${state."$it.key".value}"]
+			}
+		}
+		def cPR = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+		cPR = cPR.sort()
+		def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+		cPR = toKeyValue(cPR)
+		logging("${device.displayName} - Configuration Parameters Report: ${cPR}","info")
+		updateDataValue("configuredParameters", cPR)
+
 	} else {
 		logging("${device.displayName} Sync Incomplete","info")
 		if (device.currentValue("combinedMeter") != "SYNC FAILED!") {
@@ -456,25 +472,25 @@ private parameterMap() {[
 	//	3: "3 - positive/negative power, energy negative part"],
 	//	def: "0", title: "Power and Energy mode",
 	//	descr: "For parameters of 101 ~ 103, power, energy detection mode configuration"],
-	[key: "reportingThreshold", num: 3, size: 1, type: "enum", options: [0: "0 - disable,", 1: "1 - enable"], def: "1", title: "Reporting Threshold",
+	[key: "reportingThreshold", num: 3, size: 1, type: "boolean", def: true, title: "Reporting Threshold",
 		descr: "Enable selective reporting only when power change reaches a certain threshold or percentage set in 4-11 below"],
 	[key: "thresholdHEM", num: 4, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "HEM threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Whole HEM)\n0-60000 W"],
-	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 1 threshold",
+	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 1 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 1)\n0-60000 W"],
-	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 2 threshold",
+	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 2 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 2)\n0-60000 W"],
-	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: 10, min: 0, max: 60000, title: "Clamp 3 threshold",
+	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 3 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 3)\n0-60000W"],
 	[key: "percentageHEM", num: 8, size: 1, type: "number", def: 10, min: 0, max: 100, title: "HEM percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Whole HEM)\n0-100%"],
-	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 1 percentage",
+	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 1 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 1)\n0-100%"],
-	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 2 percentage",
+	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 2 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 2)\n0-100%"],
-	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 3 percentage",
+	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 3 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 3)\n0-100%"],
-	[key: "crcReporting", num: 13, size: 1, type: "enum", options: [0: "0 - disable,", 1: "1 - enable"], def: "0", title: "CRC-16 reporting",
+	[key: "crcReporting", num: 13, size: 1, type: "boolean", def: false, title: "CRC-16 reporting",
 		descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
 	[key: "group1", num: 101, size: 4, type: "number", def: 2, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group2", num: 102, size: 4, type: "number", def: 1, min: 0, max: 4210702, title: null, descr: null],
@@ -483,7 +499,7 @@ private parameterMap() {[
 		descr: "The time interval for Report group 1\n0-268435456s"],
 	[key: "timeGroup2", num: 112, size: 4, type: "number", def: 300, min: 0, max: 268435456, title: "Group 2 time interval",
 		descr: "The time interval for Report group 2\n0-268435456s"],
-	[key: "timeGroup3", num: 113, size: 4, type: "number", def: 300, min: 0, max: 268435456, title: "Group 3 time interval",
+	[key: "timeGroup3", num: 113, size: 4, type: "number", def: null, min: 0, max: 268435456, title: "Group 3 time interval",
 		descr: "The time interval for Report group 3\n0-268435456s"]
 ]}
 

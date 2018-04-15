@@ -1033,7 +1033,7 @@ private getAllAttributes() {
 // keep
 private getSelectedDeviceNames() {
 	try {
-		return getSelectedDevices()?.collect { it?.id }?.sort() // previously displayName
+		return getSelectedDevices()?.collect { it?.displayName }?.sort() // need to sort this for dynamic display page
 	}
 	catch (e) {
 		logWarn "Error while getting selected device names: ${e.message}"

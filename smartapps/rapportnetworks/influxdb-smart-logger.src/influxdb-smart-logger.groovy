@@ -5,7 +5,7 @@
  *
  *  Date: 2018-01-20
  *
- *  Version: 1.0
+ *  Version: 1.1
  *
  *  Source:
  *
@@ -13,7 +13,7 @@
  *
  *  Description: A SmartApp to log SmartThings device states to an InfluxDB database.
  *
- *  Acknowledgements: Includes code originally developed by David Lomas (codersaur).
+ *  Acknowledgements: Includes code originally developed by David Lomas (codersaur) and Kevin LaFramboise (krlaframboise).
  *
  *  Original Source: https://github.com/codersaur/SmartThings/tree/master/smartapps/influxdb-logger
  *
@@ -27,7 +27,6 @@
  *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *   for the specific language governing permissions and limitations under the License.
  *****************************************************************************************************************/
-
 
 definition (
     name: "InfluxDB Smart Logger",
@@ -43,81 +42,181 @@ definition (
 include 'asynchttp_v1'
 
 preferences {
-    section("General:") {
-        //input "prefDebugMode", "bool", title: "Enable debug logging?", defaultValue: true, displayDuringSetup: true
-        input (
-            name: "configLoggingLevelIDE",
-            title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
-            type: "enum",
-            options: [ "0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace" ],
-            defaultValue: "3",
-            displayDuringSetup: true,
-            required: false
-        )
-    }
-
-    section ("InfluxDB Database:") {
-        input "prefDatabaseHost", "text", title: "Host", defaultValue: "data.sunnd.com", required: true
-        input "prefDatabasePort", "text", title: "Port", defaultValue: "443", required: true
-        input "prefDatabaseName", "text", title: "Database Name", required: true
-        input "prefDatabaseUser", "text", title: "Username", required: true
-        input "prefDatabasePass", "text", title: "Password", required: true
-    }
-
-    section("System Monitoring:") {
-        // input "prefLogModeEvents", "bool", title:"Log Mode Events?", defaultValue: false, required: true
-        // input "prefDaylight", "bool", title:"Log times of Sunrise and Sunset?", defaultValue: true, required: true
-        input "prefAdjustInactiveTimestamp", "bool", title:"Adjust 'Inactive' status timestamp to compensate for PIR reset time?", defaultValue: true, required: true
-        input "prefRoomNameCapture", "bool", title:"Use Virtual Devices to Capture Room Names?", defaultValue: true, required: true
-        // input "prefAllDevicesAttributes", "bool", title:"Subscribe to all devices and attributes?", defaultValue: true, required: true
-    }
-
-    section("Devices To Monitor:") {
-        input "accelerometers", "capability.accelerationSensor", title: "Accelerometers", multiple: true, required: false
-        input "alarms", "capability.alarm", title: "Alarms", multiple: true, required: false
-        input "batteries", "capability.battery", title: "Batteries", multiple: true, required: false
-        input "beacons", "capability.beacon", title: "Beacons", multiple: true, required: false
-        input "bulbs", "capability.bulb", title: "Bulbs", multiple: true, required: false
-        input "buttons", "capability.button", title: "Buttons", multiple: true, required: false
-        input "cos", "capability.carbonMonoxideDetector", title: "Carbon Monoxide Detectors", multiple: true, required: false
-        input "co2s", "capability.carbonDioxideMeasurement", title: "Carbon Dioxide Detectors", multiple: true, required: false
-        input "colors", "capability.colorControl", title: "Color Controllers", multiple: true, required: false
-        input "consumables", "capability.consumable", title: "Consumables", multiple: true, required: false
-        input "contacts", "capability.contactSensor", title: "Contact Sensors", multiple: true, required: false
-        input "doorsControllers", "capability.doorControl", title: "Door Controllers", multiple: true, required: false
-        input "energyMeters", "capability.energyMeter", title: "Energy Meters", multiple: true, required: false
-        input "holdables", "capability.holdableButton", title: "Holdable Buttons", multiple: true, required: false
-        input "humidities", "capability.relativeHumidityMeasurement", title: "Humidity Meters", multiple: true, required: false
-        input "illuminances", "capability.illuminanceMeasurement", title: "Illuminance Meters", multiple: true, required: false
-        input "locks", "capability.lock", title: "Locks", multiple: true, required: false
-        input "motions", "capability.motionSensor", title: "Motion Sensors", multiple: true, required: false
-        input "musicPlayers", "capability.musicPlayer", title: "Music Players", multiple: true, required: false
-        input "peds", "capability.stepSensor", title: "Pedometers", multiple: true, required: false
-        input "phMeters", "capability.pHMeasurement", title: "pH Meters", multiple: true, required: false
-        input "powerMeters", "capability.powerMeter", title: "Power Meters", multiple: true, required: false
-        input "presences", "capability.presenceSensor", title: "Presence Sensors", multiple: true, required: false
-        input "shockSensors", "capability.shockSensor", title: "Shock Sensors", multiple: true, required: false
-        input "signalStrengthMeters", "capability.signalStrength", title: "Signal Strength Meters", multiple: true, required: false
-        input "sleepSensors", "capability.sleepSensor", title: "Sleep Sensors", multiple: true, required: false
-        input "smokeDetectors", "capability.smokeDetector", title: "Smoke Detectors", multiple: true, required: false
-        input "soundSensors", "capability.soundSensor", title: "Sound Sensors", multiple: true, required: false
-        input "spls", "capability.soundPressureLevel", title: "Sound Pressure Level Sensors", multiple: true, required: false
-        input "switches", "capability.switch", title: "Switches", multiple: true, required: false
-        input "switchLevels", "capability.switchLevel", title: "Switch Levels", multiple: true, required: false
-        input "tamperAlerts", "capability.tamperAlert", title: "Tamper Alerts", multiple: true, required: false
-        input "temperatures", "capability.temperatureMeasurement", title: "Temperature Sensors", multiple: true, required: false
-        input "thermostats", "capability.thermostat", title: "Thermostats", multiple: true, required: false
-        input "threeAxis", "capability.threeAxis", title: "Three-axis (Orientation) Sensors", multiple: true, required: false
-        input "touchs", "capability.touchSensor", title: "Touch Sensors", multiple: true, required: false
-        input "uvs", "capability.ultravioletIndex", title: "UV Sensors", multiple: true, required: false
-        input "valves", "capability.valve", title: "Valves", multiple: true, required: false
-        input "volts", "capability.voltageMeasurement", title: "Voltage Meters", multiple: true, required: false
-        input "waterSensors", "capability.waterSensor", title: "Water Sensors", multiple: true, required: false
-        input "windowShades", "capability.windowShade", title: "Window Shades", multiple: true, required: false
-        input "bridges", "capability.bridge", title: "Virtual Devices to Capture Room Names", multiple: true, required: false
-    }
+	page(name: "mainPage")
+	page(name: "devicesPage")
+	page(name: "attributesPage")
+	page(name: "attributeExclusionsPage")
 }
 
+def mainPage() {
+	dynamicPage(name:"mainPage", uninstall:true, install:true) {
+
+        section("General:") {
+            input (
+                name: "configLoggingLevelIDE",
+                title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
+                type: "enum",
+                options: [ "0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace" ],
+                defaultValue: "3",
+                displayDuringSetup: true,
+                required: false
+                )
+            }
+
+        section ("InfluxDB Database:") {
+            input "prefDatabaseHost", "text", title: "Host", defaultValue: "data.sunnd.com", required: true
+            input "prefDatabasePort", "text", title: "Port", defaultValue: "443", required: true
+            input "prefDatabaseName", "text", title: "Database Name", defaultValue: "rndemo2", required: true
+            input "prefDatabaseUser", "text", title: "Username", defaultValue: "thing", required: true
+            input "prefDatabasePass", "text", title: "Password", defaultValue: "wildfirepinkdog", required: true
+        }
+
+        section("System Monitoring:") {
+            input "prefAdjustInactiveTimestamp", "bool", title:"Adjust 'Inactive' status timestamp to compensate for PIR reset time?", defaultValue: true, required: true
+            input "prefRoomNameCapture", "bool", title:"Use Virtual Devices to Capture Room Names?", defaultValue: true, required: true
+        }
+
+		if (state.devicesConfigured) {
+			section("Selected Devices") {
+				getPageLink("devicesPageLink", "Tap to change", "devicesPage", null, buildSummary(getSelectedDeviceNames()))
+			}
+		}
+		else {
+			getDevicesPageContent()
+		}
+
+		if (state.attributesConfigured) {
+			section("Selected Events") {
+				getPageLink("attributesPageLink", "Tap to change", "attributesPage", null, buildSummary(settings?.allowedAttributes?.sort()))
+			}
+			section ("Event Device Exclusions") {
+				getPageLink("attributeExclusionsPageLink", "Select devices to exclude for specific events.", "attributeExclusionsPage")
+			}
+		}
+		else {
+			getAttributesPageContent()
+		}
+
+	}
+}
+
+// keep
+def devicesPage() {
+	dynamicPage(name:"devicesPage") {
+		getDevicesPageContent()
+	}
+}
+// keep
+private getDevicesPageContent() {
+	section("Choose Devices") {
+		paragraph "Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process."
+		paragraph "Each device only needs to be selected once and which field you select it from has no effect on which events will be logged for it."
+		paragraph "There's a field below for every capability, but you should be able to locate most of your devices in either the 'Actuators' or 'Sensors' fields at the top."
+
+		getCapabilities().each {
+			try {
+				input "${it.cap}Pref", "capability.${it.cap}",
+					title: "${it.title}:",
+					multiple: true,
+					hideWhenEmpty: true,
+					required: false,
+					submitOnChange: true
+			}
+			catch (e) {
+				logTrace "Failed to create input for ${it}: ${e.message}"
+			}
+		}
+
+	}
+}
+// keep
+def attributesPage() {
+	dynamicPage(name:"attributesPage") {
+		getAttributesPageContent()
+	}
+}
+// keep
+private getAttributesPageContent() {
+	def supportedAttr = getSupportedAttributes()?.sort()
+	if (supportedAttr) {
+		section("Choose Events") {
+			paragraph "Select all the events that should get logged for all devices that support them."
+			paragraph "If the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included."
+			input "allowedAttributes", "enum",
+				title: "Which events should be logged?",
+				required: true,
+				multiple: true,
+				submitOnChange: true,
+				options: supportedAttr
+		}
+	}
+	else {
+		section("Choose Events") {
+			paragraph "You need to select devices before you can choose events."
+		}
+	}
+}
+// keep
+def attributeExclusionsPage() {
+	dynamicPage(name:"attributeExclusionsPage") {
+		section ("Device Exclusions (Optional)") {
+			def startTime = new Date().time
+			if (settings?.allowedAttributes) {
+				paragraph "If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them."
+				paragraph "You can also use the fields below to see which devices support each event."
+				settings?.allowedAttributes?.sort()?.each { attr ->
+					if (startTime && (new Date().time - startTime) > 15000) {
+						paragraph "The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes."
+						startTime = null
+					}
+					else if (startTime) {
+						try {
+							def attrDevices = getSelectedDevices()?.findAll{ device ->
+								device.hasAttribute("${attr}")
+							}?.collect { it.displayName }?.unique()?.sort()
+							if (attrDevices) {
+								input "${attr}Exclusions", "enum",
+									title: "Exclude ${attr} events:",
+									required: false,
+									multiple: true,
+									options: attrDevices
+							}
+						}
+						catch (e) {
+							logWarn "Error while getting device exclusion list for attribute ${attr}: ${e.message}"
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+private getPageLink(linkName, linkText, pageName, args=null,desc="",image=null) {
+	def map = [
+		name: "$linkName",
+		title: "$linkText",
+		description: "$desc",
+		page: "$pageName",
+		required: false
+	]
+	if (args) {
+		map.params = args
+	}
+	if (image) {
+		map.image = image
+	}
+	href(map)
+}
+
+private buildSummary(items) {
+	def summary = ""
+	items?.each {
+		summary += summary ? "\n" : ""
+		summary += "   ${it}"
+	}
+	return summary
+}
 
 /*****************************************************************************************************************
  *  SmartThings System Commands:
@@ -127,6 +226,7 @@ def installed() { // runs when the app is first installed
     state.installedAt = now()
     state.loggingLevelIDE = 5
     log.debug "${app.label}: Installed with settings: ${settings}"
+    state.installed = true
 }
 
 def uninstalled() { // runs when the app is uninstalled
@@ -147,8 +247,6 @@ def updated() { // runs when app settings are changed
     state.databasePass = settings.prefDatabasePass
 
     state.uri = "https://${state.databaseHost}:${state.databasePort}"
-    // state.path = "/write?db=${state.databaseName}&precision=ms"
-    // state.pathExternal = "/write?db=${state.databaseName}&precision=ms&u=${state.databaseUser}&p=${state.databasePass}"
     state.path = "/write"
     state.query = [db: "${state.databaseName}", rp: 'autogen', precision: 'ms', u: "${state.databaseUser}", p: "${state.databasePass}"]
 
@@ -159,11 +257,8 @@ def updated() { // runs when app settings are changed
         state.headers.put("Authorization", encodeCredentialsBasic(state.databaseUser, state.databasePass))
     }
 
-    // System Monitoring settings:
-    // state.daylight = settings.prefDaylight
     state.adjustInactiveTimestamp = settings.prefAdjustInactiveTimestamp
     state.roomNameCapture = settings.prefRoomNameCapture
-    // state.allDevicesAttributes = settings.prefAllDevicesAttributes
 
     /* Build array of device collections and the attributes we want to report on for that collection: Note, the collection names are stored as strings. Adding references to the actual collection objects causes major issues (possibly memory issues?). */
     state.deviceAttributes = [
@@ -273,6 +368,21 @@ def updated() { // runs when app settings are changed
     state.hubLocationText = ""
     hubLocationDetails()
 
+	state.installed = true
+
+    if (settings?.allowedAttributes) {
+		state.attributesConfigured = true
+	}
+	else {
+		logDebug "Unconfigured - Choose Events"
+	}
+
+	if (getSelectedDevices()) {
+		state.devicesConfigured = true
+	}
+	else {
+		logDebug "Unconfigured - Choose Devices"
+	}
 
     // Configure Subscriptions:
     manageSubscriptions()
@@ -281,7 +391,6 @@ def updated() { // runs when app settings are changed
     runIn(90, zwaveReport)
 }
 
-
 /*****************************************************************************************************************
  *  Event Handlers:
  *****************************************************************************************************************/
@@ -289,17 +398,6 @@ def updated() { // runs when app settings are changed
 def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
     logger("handleAppTouch()","trace")
 }
-
-/* def handleModeEvent(evt) { //Log Mode changes
-    logger("handleModeEvent(): Mode changed to: ${evt.value}","info")
-
-    def locationId = escapeStringForInfluxDB(location.id) // need to remove
-    def locationName = escapeStringForInfluxDB(location.name)
-    def mode = '"' + escapeStringForInfluxDB(evt.value) + '"'
-    def data = "_stMode,locationId=${locationId},locationName=${locationName} mode=${mode}"
-    postToInfluxDB(data)
-} */
-
 
 def handleStateEvent(evt) {
     def eventType = 'state'
@@ -333,7 +431,6 @@ def handlePrefsReportEvent(evt) {
     handleEvent(evt, eventType)
 }
 
-
 def handleEvent(evt, eventType) {
     logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
 
@@ -363,7 +460,6 @@ def handleEvent(evt, eventType) {
 
         prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
 //        prevEvent = prevEvents.find { it -> it.date.time < eventTime}
-
 //        prevEvents = evt.device.statesBetween("${evt.name}", evt.date - 7, evt.date, [max: 2]) // get previous event
         prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
         prevEventTime = prevEvent.date.time
@@ -371,12 +467,9 @@ def handleEvent(evt, eventType) {
         // adjust timestamp of "inactive" status to compensate for PIRresetTime
         if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt?.data) {
             def eventData = parseJson(evt.data)
-
             if (eventData?.PIRresetTime) {
                 offsetTime = 1000 * eventData.PIRresetTime / 2
-
                 if (evt.value == 'inactive') eventTime -= offsetTime
-
                 if (prevEvent.value == 'inactive') prevEventTime -= offsetTime
             }
         }
@@ -385,67 +478,50 @@ def handleEvent(evt, eventType) {
         midnight = evt.date.clone().clearTime().time // get epoch time at start of day
     }
 
-
     // specifically for value events
     def nowValue
     def prevValue
     def change
     def changeText
-
     def unit // variable for event measurement unit
     def rounding // number of decimal places to round measurement value etc
 
     def fieldsSB = new StringBuilder() // populate initial fields set
 
     def description = "${evt?.descriptionText}"
-
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
-
     if (eventType != 'prefsReport') fieldsSB.append('eventDescription="').append(description).append('",')
-
     fieldsSB.append('eventId="').append(evt.id).append('"')
 
 
     // for state events
     if (eventType == 'state') {
         measurement = 'states'
-
         def states = state.attributeStateValues.find { it.key == evt.name }.value // Lookup array for event status values
-
         // append current (now:n) state values
         def nStateLevel = states.find { it.key == evt.value }.value
         def nStateBinary = (stateLevel > 0) ? 'true' : 'false'
         // nStateLevel += 'i' // append 'i' for InfluxDB line protocol
         fieldsSB.append(',nBinary=').append(nStateBinary).append(',nLevel=').append(nStateLevel).append('i').append(',nState="').append(evt.value).append('"')
-
         fieldsSB.append(',nText="').append(state.hubLocationText).append("${evt.displayName} is ${evt.value} in ${deviceGroup}.").append('"')
-
         // append previous (p) state values
         def prevStateLevel = states.find { it.key == prevEvent.value }.value
         def prevStateBinary = (prevStateLevel > 0) ? 'true' : 'false'
         // prevStateLevel += 'i'
         fieldsSB.append(',pBinary=').append(prevStateBinary).append(',pLevel=').append(prevStateLevel).append('i').append(',pState="').append(prevEvent.value).append('"')
-
         fieldsSB.append(',pText="').append("This is a change from ${prevEvent.value} ${prevTimeText}.").append('"')
-
         // calculate time of day in elapsed milliseconds
         fieldsSB.append(',tDay=').append(eventTime - midnight).append('i')
-
         // append time of previous(p) state values
         fieldsSB.append(',tElapsed=').append(prevTime).append('i').append(',tElapsedText="').append(prevTimeText).append('"')
-
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
-
         // append offsetTime for motion sensor
         if (offsetTime) fieldsSB.append(',tOffset=').append(offsetTime).append('i')
-
         // time of writing event to databaseHost
         fieldsSB.append(',tWrite=').append(writeTime.time).append('i')
-
         // append time (seconds) weighted value - to facilate calculating mean value
         fieldsSB.append(',wLevel=').append(prevStateLevel * prevTime).append('i')
     }
-
 
     // for value events
     else if (eventType == 'value') {
@@ -462,10 +538,8 @@ def handleEvent(evt, eventType) {
 
         else {
             trimLength = removeUnit(evt.value)
-
             def lengthNow = evt.value.length()
             def lengthPrev = prevEvent.value.length()
-
             nowValue = evt.value.substring(0, lengthNow - trimLength).toFloat()
             prevValue = prevEvent.value.substring(0, lengthPrev - trimLength).toFloat()
         }
@@ -488,83 +562,56 @@ def handleEvent(evt, eventType) {
         changeText = 'unchanged'
         if (change > 0) changeText = 'increased'
         else if (change < 0) changeText = 'decreased'
-
         // append current (now:n) event value
         fieldsSB.append(',nText="').append(state.hubLocationText).append("${evt.name} is ${nowValue} ${unit} in ${deviceGroup}.").append('"')
-
         fieldsSB.append(',nValue=').append(nowValue)
-
         // append previous(p) event value
         fieldsSB.append(',pText="').append("This is ${changeText}")
-
         if (changeText != 'unchanged') fieldsSB.append(" by ${Math.abs(change)} ${unit}")
-
         fieldsSB.append(" compared to ${prevTimeText}.").append('"')
-
         fieldsSB.append(',pValue=').append(prevValue)
-
         // append change compared to previous(p) event value
         fieldsSB.append(',rChange=').append(change).append(',rChangeText="').append(changeText).append('"')
-
         // calculate time of day in elapsed milliseconds
         fieldsSB.append(',tDay=').append(eventTime - midnight).append('i')
-
         // append time of previous event value
         fieldsSB.append(',tElapsed=').append(prevTime).append('i').append(',tElapsedText="').append(prevTimeText).append('"')
-
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
-
         // time of writing event to databaseHost
         fieldsSB.append(',tWrite=').append(writeTime.time).append('i')
-
         // append time (seconds) weighted value - to facilate calculating mean value
         fieldsSB.append(',wValue=').append(prevValue * prevTime)
     }
 
-
     // for theeAxis events
     else if (eventType == 'threeAxis') {
         measurement = 'threeaxes'
-
         fieldsSB.append(',nText="').append('threeAxis event').append('"')
-
         unit = 'g'
         def factor = 1024 // convert to g's
-
         fieldsSB.append(',nValueX=').append(evt.xyzValue.x/factor).append(',nValueY=').append(evt.xyzValue.y/factor).append(',nValueZ=').append(evt.xyzValue.z/factor)
-
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
-
         // time of writing event to databaseHost
         fieldsSB.append(',tWrite=').append(writeTime.time).append('i')
-
     }
-
 
     // for hubStatus events
     else if (eventType == 'hubStatus') {
         measurement = 'states'
-
         def nStateBinary = 'true'
         def nStateLevel = '1i'
-
         if (evt.value == 'disconnected') {
             nStateBinary = 'false'
             nStateLevel = '-1i'
         }
-
         fieldsSB.append(',nBinary=').append(nStateBinary).append(',nLevel=').append(nStateLevel).append(',nState="').append(evt.value).append('"')
-
         fieldsSB.append(',nText="').append(state.hubLocationText).append("hub is ${evt.value}.").append('"')
-
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
     }
-
 
     // for daylight events
     else if (eventType == 'daylight') {
         measurement = 'states'
-
         if (evt.name == 'sunrise') {
             fieldsSB.append(',nBinary=true,nLevel=1i,nState="Sunrise"').append(',nText="').append("At ${location.name}, building ${location.hubs[0].name}, sun has risen.").append('"')
         }
@@ -575,7 +622,6 @@ def handleEvent(evt, eventType) {
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
     }
 
-
     // for prefsReport events
     else if (eventType == 'prefsReport') {
         rp = 'metadata'
@@ -583,58 +629,136 @@ def handleEvent(evt, eventType) {
         fieldsSB.append(',').append(evt.value)
     }
 
-
     // Create InfluxDB line protocol
     def dataSB = new StringBuilder()
 
     dataSB.append(state.hubLocationDetails) // Add hub tags
 
     if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis' || eventType == 'prefsReport') {
-
         dataSB.append(',chamber=').append(deviceGroup.replaceAll(' ', '\\\\ ')).append(',chamberId=').append(evt?.device.device.groupId)
-
         dataSB.append(',deviceCode=').append(deviceName.replaceAll(' ', '\\\\ ')).append(',deviceId=').append(evt.deviceId).append(',deviceLabel=').append(evt.displayName.replaceAll(' ', '\\\\ '))
-
         dataSB.append(',event=').append(evt.name)
-
         dataSB.append(',eventType=').append(eventType) // Add type (state|value|threeAxis) of measurement tag
-
         dataSB.append(',identifier=').append(deviceGroup.replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(evt.displayName.replaceAll(' ', '\\\\ ')) // Create composite identifier "chamber . deviceLabel"
-
         if (eventType != 'prefsReport') dataSB.append(',isChange=').append(evt?.isStateChange)
     }
 
     else if (eventType == 'hubStatus' || eventType == 'daylight') {
-
         dataSB.append(',chamber=').append('House')
-
         dataSB.append(',deviceLabel=')
-
         dataSB.append( eventType == 'hubStatus' ? 'hub' : 'day' )
-
         dataSB.append(',event=')
-
         dataSB.append( eventType == 'hubStatus' ? evt.name : 'daylight' )
-
         dataSB.append(',eventType=state')
-
         dataSB.append(',identifier=').append('House').append('\\ .\\ ').append(evt.displayName.replaceAll(' ', '\\\\ '))
-
         dataSB.append(',isChange=').append(evt?.isStateChange)
     }
-
     dataSB.append(',source=').append(evt.source)
-
     if (unit) dataSB.append(',unit=').append(unit) // Add unit tag
-
-
     dataSB.append(' ').append(fieldsSB).append(' ').append(eventTime) // Add field set and timestamp
-
     dataSB.insert(0, measurement)
     postToInfluxDB(dataSB.toString(), rp)
 }
 
 
+def softPoll() {
+    logger("softPoll()","trace")
+
+    def dataSB = new StringBuilder()
+    def rp = 'metadata'
+    def now = new Date()
+
+    getSelectedDevices()?.each  { dev ->
+
+        getDeviceAllowedAttrs(dev?.displayName)?.each { attr ->
+
+            if (dev.latestState(attr)?.value != null) {
+                logger("softPoll(): Softpolling device ${dev} for attribute: ${attr}","info")
+                dataSB.append('attributes')
+                dataSB.append(state.hubLocationDetails) // Add hub tags
+                dataSB.append(',chamber=')
+                dataSB.append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                dataSB.append(',chamberId=')
+                dataSB.append( dev?.device.groupId ? dev.device.groupId : 'unassigned' )
+                dataSB.append(',deviceCode=').append(dev.name.replaceAll(' ', '\\\\ '))
+                dataSB.append(',deviceId=').append(dev.id)
+                dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
+                dataSB.append(',event=').append(attr)
+                dataSB.append(',eventType=').append(type)
+                if (state?.groupNames.(dev.device?.groupId)) dataSB.append(',identifier=').append(state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
+                def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
+                daysElapsed = daysElapsed.toDouble().trunc().round()
+                dataSB.append(',timeElapsed=').append(daysElapsed * 30).append('-').append((daysElapsed + 1) * 30).append('days')
+                dataSB.append(' ').append('timeLastEvent=').append(dev.latestState(attr).date.time).append('i')
+                dataSB.append(',valueLastEvent="').append(dev.latestState(attr).value).append('"')
+                dataSB.append('\n')
+            }
+        }
+    }
+    postToInfluxDB(dataSB.toString(), rp)
+}
+
+
+def zwaveReport() {
+
+    def dataSB = new StringBuilder()
+    def rp = 'metadata'
+    def info
+
+    getSelectedDevices()?.each  { dev ->
+
+        info = dev?.getZwaveInfo().clone()
+
+            if (info.containsKey("zw")) {
+
+                logger("zwaveReport(): zWave report for device ${dev}","info")
+
+                dataSB.append('zwave')
+                dataSB.append(state.hubLocationDetails) // Add hub tags
+                dataSB.append(',chamber=')
+                dataSB.append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                dataSB.append(',chamberId=')
+                dataSB.append( dev?.device.groupId ? dev.device.groupId : 'unassigned' )
+                dataSB.append(',deviceCode=').append(dev.name.replaceAll(' ', '\\\\ '))
+                dataSB.append(',deviceId=').append(dev.id)
+                dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
+                if (state?.groupNames.(dev.device?.groupId)) dataSB.append(',identifier=').append(state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
+                dataSB.append(',type=zwave')
+
+                def power = info.zw.take(1)
+                switch(power) {
+                    case "L":
+                        power = 'Listening'
+                    break
+                    case "S":
+                        power = 'Sleepy'
+                    break
+                    case "B":
+                        power = 'Beamable'
+                    break
+                }
+                def secure = (info.zw.endsWith("s")) ? 'true' : 'false'
+                def cc = info.cc
+                if (info?.sec) cc.addAll(info.sec)
+                def ccSec = 'zz' + cc.sort().join("=true,zz") + '=true'
+                info.remove('cc')
+                info.remove('sec')
+                info.remove('zw')
+                info = info.sort()
+                def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+                info = toKeyValue(info) + ',' + "${ccSec}"
+                dataSB.append(',power=').append("${power}").append(',secure=').append("${secure}") // set as tag values to enable filtering
+                dataSB.append(' ')
+                if (dev?.device.getDataValue("configuredParameters")) dataSB.append(dev.device.getDataValue("configuredParameters")).append(',')
+                dataSB.append(info)
+                dataSB.append('\n')
+            }
+        }
+    postToInfluxDB(dataSB.toString(), rp)
+}
+
+
+// converted elapsed time to textual description
 def timeElapsedText(time) {
     def phrase
     time = time / 1000
@@ -648,7 +772,6 @@ def timeElapsedText(time) {
     return phrase
 }
 
-
 // remove any units appending to end of event value
 def removeUnit(stringUnit) {
     def valueString = stringUnit
@@ -660,165 +783,6 @@ def removeUnit(stringUnit) {
     }
     return i
 }
-
-
-def softPoll() {
-    logger("softPoll()","trace")
-
-    def dataSB = new StringBuilder()
-
-    def devs // temp variable to hold device collection
-    def type
-    def now = new Date()
-
-    state.deviceAttributes.each { da ->
-        devs = settings."${da.devices}"
-        type = da.type
-        if (devs && (da.attributes)) {
-            devs.each { d ->
-
-//                def dataSB = new StringBuilder()
-
-                da.attributes.each { attr ->
-
-                    if (d.hasAttribute(attr) && d.latestState(attr)?.value != null) {
-                        logger("softPoll(): Softpolling device ${d} for attribute: ${attr}","info")
-
-                        dataSB.append('attributes')
-
-                        dataSB.append(state.hubLocationDetails) // Add hub tags
-
-                        dataSB.append(',chamber=').append(state?.groupNames.(d.device.groupId).replaceAll(' ', '\\\\ '))
-
-                        dataSB.append(',chamberId=').append(d?.device.groupId)
-
-                        dataSB.append(',deviceCode=').append(d.name.replaceAll(' ', '\\\\ '))
-
-                        dataSB.append(',deviceId=').append(d.id)
-
-                        dataSB.append(',deviceLabel=').append(d.label.replaceAll(' ', '\\\\ '))
-
-                        dataSB.append(',event=').append(attr)
-
-                        dataSB.append(',eventType=').append(type)
-
-                        dataSB.append(',identifier=').append(state?.groupNames.(d.device.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(d.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
-
-                        def daysElapsed = ((now.time - d.latestState(attr).date.time) / 86_400_000) / 30
-                        daysElapsed = daysElapsed.toDouble().trunc().round()
-
-                        dataSB.append(',timeElapsed=').append(daysElapsed * 30).append('-').append((daysElapsed + 1) * 30).append('days')
-
-                        dataSB.append(' ').append('timeLastEvent=').append(d.latestState(attr).date.time).append('i')
-
-                        dataSB.append(',valueLastEvent="').append(d.latestState(attr).value).append('"')
-
-                        dataSB.append('\n')
-                    }
-                }
-//                postToInfluxDB(dataSB.toString(), 'metadata')
-            }
-        }
-    }
-    def rp = 'metadata'
-    postToInfluxDB(dataSB.toString(), rp) // will it still work here?
-}
-
-
-def zwaveReport() {
-
-    def devs
-    def devsList = []
-    def dataSB = new StringBuilder()
-    def info
-
-    state.deviceAttributes.each { da ->
-        devs = settings."${da.devices}"
-
-        if (devs && (da.attributes)) {
-            devs.each { d ->
-                devsList.push(d)
-            }
-        }
-    }
-
-    devsList = devsList.unique { d -> d.id }
-
-    devsList.each { d ->
-
-        info = d?.getZwaveInfo().clone()
-
-            if (info.containsKey("zw")) {
-
-                logger("zwaveReport(): zWave report for device ${d}","info")
-
-                dataSB.append('zwave')
-
-                dataSB.append(state.hubLocationDetails) // Add hub tags
-
-                dataSB.append(',chamber=').append(state?.groupNames.(d.device.groupId).replaceAll(' ', '\\\\ '))
-
-                dataSB.append(',chamberId=').append(d?.device.groupId)
-
-                dataSB.append(',deviceCode=').append(d.name.replaceAll(' ', '\\\\ '))
-
-                dataSB.append(',deviceId=').append(d.id)
-
-                dataSB.append(',deviceLabel=').append(d.label.replaceAll(' ', '\\\\ '))
-
-                dataSB.append(',identifier=').append(state?.groupNames.(d.device.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(d.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
-
-                dataSB.append(',type=zwave')
-
-                def power = info.zw.take(1)
-
-                switch(power) {
-                    case "L":
-                        power = 'Listening'
-                    break
-                    case "S":
-                        power = 'Sleepy'
-                    break
-                    case "B":
-                        power = 'Beamable'
-                    break
-                }
-
-                def secure = (info.zw.endsWith("s")) ? 'true' : 'false'
-
-                def cc = info.cc
-
-                if (info?.sec) cc.addAll(info.sec)
-
-                def ccSec = 'zz' + cc.sort().join("=true,zz") + '=true'
-
-                info.remove('cc')
-
-                info.remove('sec')
-
-                info.remove('zw')
-
-                info = info.sort()
-
-                def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-
-                info = toKeyValue(info) + ',' + "${ccSec}"
-
-                dataSB.append(',power=').append("${power}").append(',secure=').append("${secure}") // set as tag values to enable filtering
-
-                dataSB.append(' ')
-
-                if (d?.device.getDataValue("configuredParameters")) dataSB.append(d.device.getDataValue("configuredParameters")).append(',')
-
-                dataSB.append(info)
-
-                dataSB.append('\n')
-            }
-        }
-    def rp = 'metadata'
-    postToInfluxDB(dataSB.toString(), rp)
-}
-
 
 /*****************************************************************************************************************
  *  Main Commands:
@@ -840,10 +804,7 @@ def hubLocationDetails() {
 }
 
 
-def postToInfluxDB(data, rp) { //Posts data to InfluxDB
-
-//    def query = state.query.clone() as TreeMap
-
+def postToInfluxDB(data, rp) {
 // need to update hubAction state variables and rewrite the hubAction function
     if (state.databaseHost.take(3) == "192") {
         try {
@@ -865,15 +826,8 @@ def postToInfluxDB(data, rp) { //Posts data to InfluxDB
     }
 
     else {
-        /*
-        if (rp != 'autogen') {
-            query.rp = "${rp}"
-            query.remove('precision')
-        }
-        */
         def query = state.query.clone()
         query.rp = rp
-
         def params = [
             uri: state.uri,
             path: state.path,
@@ -905,66 +859,44 @@ def handleInfluxResponse(response, requestdata) {
 private manageSchedules() {
     logger("manageSchedules()","trace")
 
-    try {
-        unschedule(hubLocationDetails)
-    }
-    catch(e) {
-        // logger("manageSchedules(): Unschedule failed!","error")
-    }
-    // schedule update of state.hubLocationDetails
+    try { unschedule(hubLocationDetails) }
+    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
     runEvery3Hours(hubLocationDetails)
-    // schedule("2018-01-01T03:10:00.000-0000", hubLocationDetails)
 
-    try {
-        unschedule(softPoll)
-    }
-    catch(e) {
-        // logger("manageSchedules(): Unschedule failed!","error")
-    }
-    // schedule softPoll
+    try { unschedule(softPoll) }
+    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
     runEvery3Hours(softPoll)
-    // schedule("2018-01-01T03:40:00.000-0000", softPoll)
 
-    try {
-        unschedule(zwaveReport)
-    }
-    catch(e) {
-        // logger("manageSchedules(): Unschedule failed!","error")
-    }
-    // schedule softPoll
+    try { unschedule(zwaveReport) }
+    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
     runEvery3Hours(zwaveReport)
-    // schedule("2018-01-01T03:40:00.000-0000", softPoll)
 }
 
 
 private manageSubscriptions() { // Configures subscriptions
     logger("manageSubscriptions()","trace")
-
     unsubscribe()
 
-    // if (prefLogModeEvents) subscribe(location, "mode", handleModeEvent)
+    getSelectedDevices()?.each  { dev ->
 
-    // Subscribe to device attributes (iterate over each attribute for each device collection in state.deviceAttributes):
-    def devs // dynamic variable holding device collection
-    def type // dynamic variable holding type of attribute value
-    state.deviceAttributes.each { da ->
-        devs = settings."${da.devices}"
-        type = da.type
-        if (devs && (da.attributes)) {
-            da.attributes.each { attr ->
+        if (!dev.displayName.startsWith("~")) {
+
+        getDeviceAllowedAttrs(dev?.displayName)?.each { attr ->
+
+            def type = getAttributeType().find { it.key == attr }.value.type
+
                 if (type == 'state') {
-                    logger("manageSubscriptions(): Subscribing 'handleStateEvent' to attribute: ${attr}, for devices: ${da.devices}","info")
-                    subscribe(devs, attr, handleStateEvent)
+                    logger("manageSubscriptions(): Subscribing 'handleStateEvent' to attribute: ${attr}, for device: ${dev}","info")
+                    subscribe(dev, attr, handleStateEvent)
                 }
                 else if (type == 'value') {
-                    logger("manageSubscriptions(): Subscribing 'handleValueEvent' to attribute: ${attr}, for devices: ${da.devices}","info")
-                    subscribe(devs, attr, handleValueEvent)
+                    logger("manageSubscriptions(): Subscribing 'handleValueEvent' to attribute: ${attr}, for device: ${dev}","info")
+                    subscribe(dev, attr, handleValueEvent)
                 }
                 else if (type == 'threeAxis') {
-                    logger("manageSubscriptions(): Subscribing 'handleThreeAxisEvent' to attribute: ${attr}, for devices: ${da.devices}","info")
-                    subscribe(devs, attr, handleThreeAxisEvent)
+                    logger("manageSubscriptions(): Subscribing 'handleThreeAxisEvent' to attribute: ${attr}, for device: ${dev}","info")
+                    subscribe(dev, attr, handleThreeAxisEvent)
                 }
-                subscribe(devs, 'prefsReport', handlePrefsReportEvent)
             }
         }
     }
@@ -983,45 +915,25 @@ private manageSubscriptions() { // Configures subscriptions
     if (state.roomNameCapture) {
         def groupId
         def groupName
-        settings.bridges.each {
+        settings.bridgePref.each {
             groupId = it?.device.groupId
             groupName = it?.name.drop(1)
             if (groupId) state.groupNames << [(groupId): groupName]
         }
+
         def devices
         def deviceId
         def deviceName
         def deviceGroupId
         def deviceGroup
-        state.deviceAttributes.each {
-            devices = settings."${it.devices}"
-            devices.each {
-                deviceId = it.id
-                deviceName = it.name
-                deviceGroupId = it?.device.groupId
-                deviceGroup = state.groupNames?."${deviceGroupId}"
-                if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]
-                else state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: 'unassigned', deviceGroupId: 'unassigned']]
-            }
-        }
-    }
 
-    else {
-        def devices
-        def deviceId
-        def deviceName
-        def code
-        def groupName
-        def rooms = [BD: 'Bedroom', BT: 'Bathroom', DN: 'Dining_room', KT: 'Kitchen', LV: 'Living_room', UT: 'Utility_room']
-        state.deviceAttributes.each {
-            devices = settings."${it.devices}"
-            devices.each {
-                deviceId = it.id
-                deviceName = it.name
-                code = deviceName.substring(4, 6)
-                groupName = rooms.find { it.key == code}?.value
-                state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: groupName]]
-            }
+        getSelectedDevices()?.each  {
+            deviceId = it.id
+            deviceName = it.name
+            deviceGroupId = it?.device.groupId
+            deviceGroup = state.groupNames?."${deviceGroupId}"
+            if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]
+            else state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: 'unassigned', deviceGroupId: 'unassigned']]
         }
     }
 }
@@ -1057,16 +969,205 @@ private encodeCredentialsBasic(username, password) {
 }
 
 
-private escapeStringForInfluxDB(str) {
-    if (str) {
-        str = str.replaceAll(" ", "\\\\ ") // Escape spaces.
-        str = str.replaceAll(",", "\\\\,") // Escape commas.
-        str = str.replaceAll("=", "\\\\=") // Escape equal signs.
-        str = str.replaceAll("\"", "\\\\\"") // Escape double quotes.
-        //str = str.replaceAll("'", "_")  // Replace apostrophes with underscores.
-    }
-    else {
-        str = 'null'
-    }
-    return str
+// keep
+private getDeviceAllowedAttrs(deviceName) {
+	def deviceAllowedAttrs = []
+	try {
+		settings?.allowedAttributes?.each { attr ->
+			try {
+				def attrExcludedDevices = settings?."${attr}Exclusions"
+				if (!attrExcludedDevices?.find { it?.toLowerCase() == deviceName?.toLowerCase() }) {
+					deviceAllowedAttrs << "${attr}"
+				}
+			}
+			catch (e) {
+				logWarn "Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}"
+			}
+		}
+	}
+	catch (e) {
+		logWarn "Error while getting device allowed attributes for ${device.displayName}: ${e.message}"
+	}
+	return deviceAllowedAttrs
 }
+// keep
+private getSupportedAttributes() {
+	def supportedAttributes = []
+	def devices = getSelectedDevices()
+	if (devices) {
+		getAllAttributes()?.each { attr ->
+			try {
+				if (devices?.find { it?.hasAttribute("${attr}") }) {
+					supportedAttributes << "${attr}"
+				}
+			}
+			catch (e) {
+				logWarn "Error while finding supported devices for ${attr}: ${e.message}"
+			}
+		}
+	}
+	return supportedAttributes?.unique()?.sort()
+}
+// keep
+private getAllAttributes() {
+	def attributes = []
+	getCapabilities().each { cap ->
+		try {
+			if (cap?.attr) {
+				if (cap.attr instanceof Collection) {
+					cap.attr.each { attr ->
+						attributes << "${attr}"
+					}
+				}
+				else {
+					attributes << "${cap?.attr}"
+				}
+			}
+		}
+		catch (e) {
+			logWarn "Error while getting attributes for capability ${cap}: ${e.message}"
+		}
+	}
+	return attributes
+}
+// keep
+private getSelectedDeviceNames() {
+	try {
+		return getSelectedDevices()?.collect { it?.displayName }?.sort()
+	}
+	catch (e) {
+		logWarn "Error while getting selected device names: ${e.message}"
+		return []
+	}
+}
+// keep
+private getSelectedDevices() {
+	def devices = []
+	getCapabilities()?.each {
+		try {
+			if (settings?."${it.cap}Pref") {
+				devices << settings?."${it.cap}Pref"
+			}
+		}
+		catch (e) {
+			logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
+		}
+	}
+	return devices?.flatten()?.unique { it.displayName }
+}
+// keep
+private getCapabilities() {
+	[
+		[title: "Actuators", cap: "actuator"],
+		[title: "Sensors", cap: "sensor"],
+        [title: "Room Name Virtual Devices", cap: "bridge"],
+		[title: "Acceleration Sensors", cap: "accelerationSensor", attr: "acceleration"],
+		[title: "Alarms", cap: "alarm", attr: "alarm"],
+		[title: "Batteries", cap: "battery", attr: "battery"],
+		[title: "Beacons", cap: "beacon", attr: "presence"],
+		[title: "Bulbs", cap: "bulb", attr: "switch"],
+		[title: "Buttons", cap: "button", attr: ["button", "numberOfButtons"]],
+		[title: "Carbon Dioxide Measurement Sensors", cap: "carbonDioxideMeasurement", attr: "carbonDioxide"],
+		[title: "Carbon Monoxide Detectors", cap: "carbonMonoxideDetector", attr: "carbonMonoxide"],
+		[title: "Color Control Devices", cap: "colorControl", attr: ["color", "hue", "saturation"]],
+		[title: "Color Temperature Devices", cap: "colorTemperature", attr: "colorTemperature"],
+		[title: "Consumable Devices", cap: "consumable", attr: "consumableStatus"],
+		[title: "Contact Sensors", cap: "contactSensor", attr: "contact"],
+		[title: "Doors", cap: "doorControl", attr: "door"],
+		[title: "Energy Meters", cap: "energyMeter", attr: "energy"],
+		[title: "Garage Doors", cap: "garageDoorControl", attr: "door"],
+		[title: "Illuminance Measurement Sensors", cap: "illuminanceMeasurement", attr: "illuminance"],
+		[title: "Image Capture Devices", cap: "imageCapture", attr: "image"],
+		[title: "Indicators", cap: "indicator", attr: "indicatorStatus"],
+		[title: "Lights", cap: "light", attr: "switch"],
+		[title: "Locks", cap: "lock", attr: "lock"],
+		[title: "Media Controllers", cap: "mediaController", attr: "currentActivity"],
+		[title: "Motion Sensors", cap: "motionSensor", attr: "motion"],
+		[title: "Music Players", cap: "musicPlayer", attr: ["level", "mute", "status", "trackDescription"]],
+		[title: "Outlets", cap: "outlet", attr: "switch"],
+		[title: "pH Measurement Sensors", cap: "phMeasurement", attr: "pH"],
+		[title: "Power Meters", cap: "powerMeter", attr: "power"],
+		[title: "Power Sources", cap: "powerSource", attr: "powerSource"],
+		[title: "Presence Sensors", cap: "presenceSensor", attr: "presence"],
+		[title: "Relative Humidity Measurement Sensors", cap: "relativeHumidityMeasurement", attr: "humidity"],
+		[title: "Relay Switches", cap: "relaySwitch", attr: "switch"],
+		[title: "Shock Sensors", cap: "shockSensor", attr: "shock"],
+		[title: "Signal Strength Sensors", cap: "signalStrength", attr: ["lqi", "rssi"]],
+		[title: "Sleep Sensors", cap: "sleepSensor", attr: "sleeping"],
+		[title: "Smoke Detectors", cap: "smokeDetector", attr: "smoke"],
+		[title: "Sound Pressure Level Sensors", cap: "soundPressureLevel", attr: "soundPressureLevel"],
+		[title: "Sound Sensors", cap: "soundSensor", attr: "sound"],
+		[title: "Speech Recognition Sensors", cap: "speechRecognition", attr: "phraseSpoken"],
+		[title: "Switches", cap: "switch", attr: "switch"],
+		[title: "Switch Level Sensors", cap: "switchLevel", attr: "level"],
+		[title: "Tamper Alert Sensors", cap: "tamperAlert", attr: "tamper"],
+		[title: "Temperature Measurement Sensors", cap: "temperatureMeasurement", attr: "temperature"],
+		[title: "Thermostats", cap: "thermostat", attr: ["coolingSetpoint", "heatingSetpoint", "temperature", "thermostatFanMode", "thermostatMode", "thermostatOperatingState", "thermostatSetpoint"]],
+		[title: "Three Axis Sensors", cap: "threeAxis", attr: "threeAxis"],
+		[title: "Touch Sensors", cap: "touchSensor", attr: "touch"],
+		[title: "Ultraviolet Index Sensors", cap: "ultravioletIndex", attr: "ultravioletIndex"],
+		[title: "Valves", cap: "valve", attr: "valve"],
+		[title: "Voltage Measurement Sensors", cap: "voltageMeasurement", attr: "voltage"],
+		[title: "Water Sensors", cap: "waterSensor", attr: "water"],
+		[title: "Window Shades", cap: "windowShade", attr: "windowShade"]
+	]
+}
+
+
+private getAttributeType() { [
+    acceleration: [type: 'state'],
+    alarm: [type: 'state'],
+    battery: [type: 'value'],
+    button: [type: 'state'],
+    carbonDioxide: [type: 'state'],
+    carbonMonoxide: [type: 'state'],
+    color: [type: 'value'],
+    consumableStatus: [type: 'state'],
+    contact: [type: 'state'],
+    coolingSetpoint: [type: 'state'],
+    current: [type: 'value'],
+    door: [type: 'state'],
+    energy: [type: 'value'],
+    goal: [type: 'value'],
+    heatingSetpoint: [type: 'state'],
+    hue: [type: 'value'],
+    humidity: [type: 'value'],
+    illuminance: [type: 'value'],
+    level: [type: 'value'],
+    lock: [type: 'state'],
+    lqi: [type: 'value'],
+    motion: [type: 'state'],
+    mute: [type: 'state'],
+    optimisation: [type: 'state'],
+    pH: [type: 'value'],
+    power: [type: 'value'],
+    powerFactor: [type: 'value'],
+    presence: [type: 'state'],
+    rssi: [type: 'value'],
+    saturation: [type: 'value'],
+    scheduledSetpoint: [type: 'state'],
+    shock: [type: 'state'],
+    sleeping: [type: 'state'],
+    smoke: [type: 'state'],
+    sound: [type: 'state'],
+    soundPressureLevel: [type: 'value'],
+    status: [type: 'state'],
+    steps: [type: 'value'],
+    switch: [type: 'state'],
+    tamper: [type: 'state'],
+    temperature: [type: 'value'],
+    thermostatFanMode: [type: 'state'],
+    thermostatMode: [type: 'state'],
+    thermostatOperatingState: [type: 'state'],
+    thermostatSetpoint: [type: 'state'],
+    thermostatSetpointMode: [type: 'state'],
+    threeAxis: [type: 'threeAxis'],
+    touch: [type: 'state'],
+    trackData: [type: 'state'],
+    trackDescription: [type: 'state'],
+    ultravioletIndex: [type: 'value'],
+    voltage: [type: 'value'],
+    water: [type: 'state'],
+    windowFunction: [type: 'state'],
+    windowShade: [type: 'state']
+] }

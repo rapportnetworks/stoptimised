@@ -1060,7 +1060,7 @@ private getCapabilities() {
 	[
 		[title: "Actuators", cap: "actuator"],
 		[title: "Sensors", cap: "sensor"],
-        [title: "Room Name Virtual Devices", cap: "bridge"],
+        [title: "Room Name Virtual Devices", cap: "bridge"], // added in
 		[title: "Acceleration Sensors", cap: "accelerationSensor", attr: "acceleration"],
 		[title: "Alarms", cap: "alarm", attr: "alarm"],
 		[title: "Batteries", cap: "battery", attr: "battery"],
@@ -1142,6 +1142,7 @@ private getAttributeType() { [
     pH: [type: 'value'],
     power: [type: 'value'],
     powerFactor: [type: 'value'],
+    powerSource: [type: 'state'], // added in
     presence: [type: 'state'],
     rssi: [type: 'value'],
     saturation: [type: 'value'],

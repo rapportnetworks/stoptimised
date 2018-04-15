@@ -173,7 +173,7 @@ def attributeExclusionsPage() {
 						try {
 							def attrDevices = getSelectedDevices()?.findAll{ device ->
 								device.hasAttribute("${attr}")
-							}?.collect { it.displayName }?.unique()?.sort()
+							}?.collect { it.id }?.unique()?.sort() // previously displayName
 							if (attrDevices) {
 								input "${attr}Exclusions", "enum",
 									title: "Exclude ${attr} events:",
@@ -670,7 +670,7 @@ def softPoll() {
 
     getSelectedDevices()?.each  { dev ->
 
-        getDeviceAllowedAttrs(dev?.displayName)?.each { attr ->
+        getDeviceAllowedAttrs(dev?.id)?.each { attr -> // previously displayName
 
             if (dev.latestState(attr)?.value != null) {
                 logger("softPoll(): Softpolling device ${dev} for attribute: ${attr}","info")
@@ -881,7 +881,7 @@ private manageSubscriptions() { // Configures subscriptions
 
         if (!dev.displayName.startsWith("~")) {
 
-        getDeviceAllowedAttrs(dev?.displayName)?.each { attr ->
+        getDeviceAllowedAttrs(dev?.id)?.each { attr -> // previously displayName
 
             def type = getAttributeType().find { it.key == attr }.value.type
 
@@ -1033,7 +1033,7 @@ private getAllAttributes() {
 // keep
 private getSelectedDeviceNames() {
 	try {
-		return getSelectedDevices()?.collect { it?.displayName }?.sort()
+		return getSelectedDevices()?.collect { it?.id }?.sort() // previously displayName
 	}
 	catch (e) {
 		logWarn "Error while getting selected device names: ${e.message}"
@@ -1053,7 +1053,7 @@ private getSelectedDevices() {
 			logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
 		}
 	}
-	return devices?.flatten()?.unique { it.displayName }
+	return devices?.flatten()?.unique { it.id } // previously displayName
 }
 // keep
 private getCapabilities() {

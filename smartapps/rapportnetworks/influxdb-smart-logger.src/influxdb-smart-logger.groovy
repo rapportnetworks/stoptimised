@@ -684,6 +684,7 @@ def softPoll() {
                 dataSB.append(',deviceId=').append(dev.id)
                 dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
                 dataSB.append(',event=').append(attr)
+                def type = getAttributeType().find { it.key == attr }.value.type
                 dataSB.append(',eventType=').append(type)
                 if (state?.groupNames.(dev.device?.groupId)) dataSB.append(',identifier=').append(state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30

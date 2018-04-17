@@ -884,19 +884,22 @@ private manageSubscriptions() { // Configures subscriptions
 
         getDeviceAllowedAttrs(dev?.id)?.each { attr -> // previously displayName
 
-            def type = getAttributeType().find { it.key == attr }.value.type
+            if (dev?.hasAttribute("${attr}")) { // select only attributes that exist
 
-                if (type == 'state') {
-                    logger("manageSubscriptions(): Subscribing 'handleStateEvent' to attribute: ${attr}, for device: ${dev}","info")
-                    subscribe(dev, attr, handleStateEvent)
-                }
-                else if (type == 'value') {
-                    logger("manageSubscriptions(): Subscribing 'handleValueEvent' to attribute: ${attr}, for device: ${dev}","info")
-                    subscribe(dev, attr, handleValueEvent)
-                }
-                else if (type == 'threeAxis') {
-                    logger("manageSubscriptions(): Subscribing 'handleThreeAxisEvent' to attribute: ${attr}, for device: ${dev}","info")
-                    subscribe(dev, attr, handleThreeAxisEvent)
+                def type = getAttributeType().find { it.key == attr }.value.type
+
+                    if (type == 'state') {
+                        logger("manageSubscriptions(): Subscribing 'handleStateEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleStateEvent)
+                    }
+                    else if (type == 'value') {
+                        logger("manageSubscriptions(): Subscribing 'handleValueEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleValueEvent)
+                    }
+                    else if (type == 'threeAxis') {
+                        logger("manageSubscriptions(): Subscribing 'handleThreeAxisEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleThreeAxisEvent)
+                    }
                 }
             }
         }
@@ -1034,7 +1037,8 @@ private getAllAttributes() {
 // keep
 private getSelectedDeviceNames() {
 	try {
-		return getSelectedDevices()?.collect { it?.displayName }?.sort() // need to sort this for dynamic display page
+//		return getSelectedDevices()?.collect { it?.displayName }?.sort() // need to sort this for dynamic display page
+        return getSelectedDevices()?.collect { it?.label, it?.name -> return "${it?.displayName} . ${it?.name}" }?.sort()
 	}
 	catch (e) {
 		logWarn "Error while getting selected device names: ${e.message}"

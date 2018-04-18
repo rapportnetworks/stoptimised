@@ -249,7 +249,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	state.lastbatt = now()
 	result << createEvent(map)
 	if (device.latestValue("powerSource") != "dc"){
-		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false, isStateChange: true) // *** added "isStateChange: true" to ensure value ise propagated through ST system even if it hasn't changed)
+		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false, isStateChange: true) // *** added "isStateChange: true" to ensure value is propagated through ST system even if it hasn't changed)
 	}
 	result
 }
@@ -404,7 +404,7 @@ def configure() {
 
 	//2. automatic report flags
 	// param 101 -103 [4 bytes] 128 light sensor, 64 humidity, 32 temperature sensor, 16 ultraviolet sensor, 1 battery sensor -> send command 241 to get all reports
-	request << zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 240) //association group 1
+	request << zwave.configurationV1.configurationSet(parameterNumber: 101, size: 4, scaledConfigurationValue: 225) //association group 1 (previoulsy 240)
 
 	request << zwave.configurationV1.configurationSet(parameterNumber: 102, size: 4, scaledConfigurationValue: 1) //association group 2
 

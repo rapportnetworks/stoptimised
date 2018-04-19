@@ -717,13 +717,13 @@ def zwaveReport() {
                 dataSB.append('zwave')
                 dataSB.append(state.hubLocationDetails) // Add hub tags
                 dataSB.append(',chamber=')
-                dataSB.append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                dataSB.append( state.groupNames.(dev?.device.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
                 dataSB.append(',chamberId=')
                 dataSB.append( dev?.device.groupId ? dev.device.groupId : 'unassigned' )
                 dataSB.append(',deviceCode=').append(dev.name.replaceAll(' ', '\\\\ '))
                 dataSB.append(',deviceId=').append(dev.id)
                 dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
-                if (state?.groupNames.(dev.device?.groupId)) dataSB.append(',identifier=').append(state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
+                if (state.groupNames.(dev?.device.groupId)) dataSB.append(',identifier=').append(state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
                 dataSB.append(',type=zwave')
 
                 def power = info.zw.take(1)

@@ -981,7 +981,7 @@ private getUnSelectedDevices() {
 	def devices = []
 	getCapabilities()?.each {
 		try {
-			if (settings?."${it.cap}Pref") {
+			if (!settings?."${it.cap}Pref") {
 				devices << settings?."${it.cap}Pref"
 			}
 		}

@@ -172,7 +172,7 @@ def attributeExclusionsPage() {
 						try {
 							def attrDevices = getSelectedDevices()?.findAll{ device ->
 								device.hasAttribute("${attr}")
-							}?.collect { it.id }?.unique()?.sort() // previously displayName
+							}?.collect { it.id }?.unique()?.sort()
 							if (attrDevices) {
 								input "${attr}Exclusions", "enum",
 									title: "Exclude ${attr} events:",
@@ -265,7 +265,7 @@ def updated() { // runs when app settings are changed
     state.hubLocationRef = "" // Define state variable to hold location and hub details
     state.hubLocationDetails = ""
     state.hubLocationText = ""
-    hubLocationDetails()
+    hubLocationDetails() // generate hub location details
 
 	state.installed = true
 
@@ -346,10 +346,8 @@ def handleEvent(evt, eventType) {
 
     if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
 
-        // deviceName = state.deviceGroup.(evt.deviceId).deviceName // lookup device name - need to change code
         deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
 
-        // deviceGroup = state.deviceGroup.(evt.deviceId).deviceGroup // lookup device group name - need to change code
         deviceGroup = (evt.device.device?.groupId) ? state?.groupNames?.(evt.device.device.groupId) : 'unassigned'
 
         // get previous event
@@ -422,7 +420,6 @@ def handleEvent(evt, eventType) {
         measurement = 'values'
 
         unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit // set here, but included in tag set
-//      unit = (evt?.unit) ? evt.unit : state?.attributeValueRounding."${evt.name}".unit // set here, but included in tag set
 
         def trimLength
 
@@ -438,11 +435,9 @@ def handleEvent(evt, eventType) {
             prevValue = prevEvent.value.substring(0, lengthPrev - trimLength).toFloat()
         }
 
-        // calculate change from previous value
-        change =  nowValue - prevValue
+        change =  nowValue - prevValue // calculate change from previous value
 
         rounding = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
-//      rounding = state?.attributeValueRounding."${evt.name}".decimalPlaces
 
         if (rounding > 0) {
             nowValue = nowValue.round(rounding)
@@ -518,8 +513,7 @@ def handleEvent(evt, eventType) {
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
     }
 
-    // Create InfluxDB line protocol
-    def dataSB = new StringBuilder()
+    def dataSB = new StringBuilder() // Create InfluxDB line protocol
 
     dataSB.append(state.hubLocationDetails) // Add hub tags
 
@@ -572,7 +566,7 @@ def softPoll() {
 
     getSelectedDevices()?.each  { dev ->
 
-        getDeviceAllowedAttrs(dev?.id)?.each { attr -> // previously displayName
+        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
 
             if (dev.latestState(attr)?.value != null) {
                 logger("softPoll(): Softpolling device ${dev} for attribute: ${attr}","info")
@@ -792,7 +786,7 @@ private manageSubscriptions() { // Configures subscriptions
 
         if (!dev.displayName.startsWith("~")) {
 
-        getDeviceAllowedAttrs(dev?.id)?.each { attr -> // previously displayName
+        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
 
             if (dev?.hasAttribute("${attr}")) { // select only attributes that exist
 
@@ -941,7 +935,7 @@ private getAllAttributes() {
 
 private getSelectedDeviceNames() {
 	try {
-		return getSelectedDevices()?.collect { it?.displayName }?.sort() // need to sort this for dynamic display page
+		return getSelectedDevices()?.collect { it?.displayName }?.sort()
 	}
 	catch (e) {
 		logWarn "Error while getting selected device names: ${e.message}"
@@ -961,7 +955,7 @@ private getSelectedDevices() {
 			logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
 		}
 	}
-	return devices?.flatten()?.unique { it.id } // previously displayName
+	return devices?.flatten()?.unique { it.id }
 }
 
 private getCapabilities() { [

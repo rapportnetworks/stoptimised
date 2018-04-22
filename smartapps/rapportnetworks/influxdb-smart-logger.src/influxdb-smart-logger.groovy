@@ -81,7 +81,7 @@ def mainPage() {
 				getPageLink("devicesPageLink", "Tap to change", "devicesPage", null, buildSummary(getSelectedDeviceNames()))
 			}
             section("Unselected Devices") {
-                buildSummary(getUnSelectedDeviceNames())
+            paragraph "${buildSummary(getUnSelectedDeviceNames())}"
             }
 		}
 		else {

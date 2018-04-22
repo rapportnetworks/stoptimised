@@ -80,6 +80,9 @@ def mainPage() {
 			section("Selected Devices") {
 				getPageLink("devicesPageLink", "Tap to change", "devicesPage", null, buildSummary(getSelectedDeviceNames()))
 			}
+            section("Unselected Devices") {
+                buildSummary(getUnSelectedDeviceNames())
+            }
 		}
 		else {
 			getDevicesPageContent()
@@ -941,7 +944,7 @@ private getAllAttributes() {
 
 private getSelectedDeviceNames() {
 	try {
-		return getSelectedDevices()?.collect { it?.displayName }?.sort() // need to sort this for dynamic display page
+		return getSelectedDevices()?.collect { it?.displayName }?.sort()
 	}
 	catch (e) {
 		logWarn "Error while getting selected device names: ${e.message}"
@@ -961,8 +964,35 @@ private getSelectedDevices() {
 			logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
 		}
 	}
-	return devices?.flatten()?.unique { it.id } // previously displayName
+	return devices?.flatten()?.unique { it.id }
 }
+
+private getUnSelectedDeviceNames() {
+	try {
+		return getUnSelectedDevices()?.collect { it?.displayName }?.sort()
+	}
+	catch (e) {
+		logWarn "Error while getting selected device names: ${e.message}"
+		return []
+	}
+}
+
+private getUnSelectedDevices() {
+	def devices = []
+	getCapabilities()?.each {
+		try {
+			if (!settings?."${it.cap}Pref") {
+				devices << settings?."${it.cap}Pref"
+			}
+		}
+		catch (e) {
+			logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
+		}
+	}
+	return devices?.flatten()?.unique { it.id }
+}
+
+
 
 private getCapabilities() { [
 		[title: "Actuators", cap: "actuator"],

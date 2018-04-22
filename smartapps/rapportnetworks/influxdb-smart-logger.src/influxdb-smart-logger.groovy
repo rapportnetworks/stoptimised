@@ -259,113 +259,10 @@ def updated() { // runs when app settings are changed
     state.adjustInactiveTimestamp = settings.prefAdjustInactiveTimestamp
     state.roomNameCapture = settings.prefRoomNameCapture
 
-    /* Build array of device collections and the attributes we want to report on for that collection: Note, the collection names are stored as strings. Adding references to the actual collection objects causes major issues (possibly memory issues?). */
-/*    state.deviceAttributes = [
-        [ devices: 'accelerometers', attributes: ['acceleration'], type: 'state'],
-        [ devices: 'alarms', attributes: ['alarm'], type: 'state'],
-        [ devices: 'batteries', attributes: ['battery'], type: 'value'],
-        [ devices: 'beacons', attributes: ['presence'], type: 'state'],
-        [ devices: 'bulbs', attributes: ['switch'], type: 'state'],
-        [ devices: 'buttons', attributes: ['button'], type: 'state'],
-        [ devices: 'cos', attributes: ['carbonMonoxide'], type: 'state'],
-        [ devices: 'co2s', attributes: ['carbonDioxide'], type: 'state'],
-        [ devices: 'colors', attributes: ['hue','saturation','color'], type: 'state'],
-        [ devices: 'consumables', attributes: ['consumableStatus'], type: 'state'],
-        [ devices: 'contacts', attributes: ['contact'], type: 'state'],
-        [ devices: 'doorsControllers', attributes: ['door'], type: 'state'],
-        [ devices: 'holdables', attributes: ['button'], type: 'state'],
-        [ devices: 'energyMeters', attributes: ['energy'], type: 'value'],
-        [ devices: 'humidities', attributes: ['humidity'], type: 'value'],
-        [ devices: 'illuminances', attributes: ['illuminance'], type: 'value'],
-        [ devices: 'locks', attributes: ['lock'], type: 'state'],
-        [ devices: 'motions', attributes: ['motion'], type: 'state'],
-        [ devices: 'musicPlayers', attributes: ['status','level','trackDescription','trackData','mute'], type: 'state'],
-        [ devices: 'peds', attributes: ['steps','goal'], type: 'value'],
-        [ devices: 'phMeters', attributes: ['pH'], type: 'value'],
-        [ devices: 'powerMeters', attributes: ['power','voltage','current','powerFactor'], type: 'value'],
-        [ devices: 'presences', attributes: ['presence'], type: 'state'],
-        [ devices: 'shockSensors', attributes: ['shock'], type: 'state'],
-        [ devices: 'signalStrengthMeters', attributes: ['lqi','rssi'], type: 'value'],
-        [ devices: 'sleepSensors', attributes: ['sleeping'], type: 'state'],
-        [ devices: 'smokeDetectors', attributes: ['smoke'], type: 'state'],
-        [ devices: 'soundSensors', attributes: ['sound'], type: 'state'],
-        [ devices: 'spls', attributes: ['soundPressureLevel'], type: 'value'],
-        [ devices: 'switches', attributes: ['switch'], type: 'state'],
-        [ devices: 'switchLevels', attributes: ['level'], type: 'value'],
-        [ devices: 'tamperAlerts', attributes: ['tamper'], type: 'state'],
-        [ devices: 'temperatures', attributes: ['temperature'], type: 'value'],
-        [ devices: 'thermostats', attributes: ['temperature','heatingSetpoint','coolingSetpoint','thermostatSetpoint','thermostatMode','thermostatFanMode','thermostatOperatingState','thermostatSetpointMode','scheduledSetpoint','optimisation','windowFunction'], type: 'state'],
-        [ devices: 'threeAxis', attributes: ['threeAxis'], type: 'threeAxis'],
-        [ devices: 'touchs', attributes: ['touch'], type: 'state'],
-        [ devices: 'uvs', attributes: ['ultravioletIndex'], type: 'value'],
-        [ devices: 'valves', attributes: ['contact'], type: 'state'],
-        [ devices: 'volts', attributes: ['voltage'], type: 'value'],
-        [ devices: 'waterSensors', attributes: ['water'], type: 'state'],
-        [ devices: 'windowShades', attributes: ['windowShade'], type: 'state']
-    ]
-*/
-
     state.groupNames = [:] // Initialise map of Group Ids and Group Names
     state.deviceGroup = [:] // Initialise map of Device Ids and Group Names
 
-/*
-    // Create a map of Attribute State Values
-    state.attributeStateValues = [
-        contact: [closed: -1, open: 1, full: -1, flushing: 1],
-        door: [closed: -1, open: 1, opening: 2, closing: -2, unknown: 5],
-        motion: [inactive: -1, active: 1],
-        switch: [off: -1, on: 1],
-        acceleration: [inactive: -1, active: 1],
-        bulb: [off: -1, on: 1],
-        lock: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5],
-        presence: ['not present': -1, present: 1],
-        water: [dry: -1, wet: 1],
-        button: [pushed: 1, held: 2],
-        sound: ['not detected': -1, detected: 1],
-        touch: [touched: 1],
-        valve: [closed: -1, open: 1],
-        alarm: [off: -1, siren: 1, strobe: 2, both: 3],
-        carbonMonoxide: [clear: -1, detected: 1, tested: 4],
-        shock: [clear: -1, detected: 1],
-        sleeping: [sleeping: -1, 'not sleeping': 1],
-        smoke: [clear: -1, detected: 1, tested: 4],
-        consumableStatus: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5],
-        mute: [muted: -1, unmuted: 1],
-        optimisation: [inactive: -1, active: 1],
-        powerSource: [mains: -1, battery: 1, dc: 2,unknown: 5],
-        tamper: [clear: -1, detected: 1],
-        thermostatFanMode: [auto: -1, on: 1, circulate: 2],
-        thermostatMode: [off: -1, heat: 1, 'emergency heat': 2, auto: 3, cool: -3],
-        thermostatOperatingState: [idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3, cooling: -1, 'pending cool': -2],
-        windowShade: [closed: -1, opening: 1, 'partially open': 2, open: 3, closing: -2, unknown: 5],
-        hubStatus: [disconnected: -1, active: 1]
-    ]
-
-    // Create an Array of Value rounding to decimal places
-    state.attributeValueRounding = [
-        battery: [decimalPlaces: 0, unit: '%'],
-        current: [decimalPlaces: 1, unit: ''],
-        energy: [decimalPlaces: 2, unit: ''],
-        goal: [decimalPlaces: 0, unit: ''],
-        humidity: [decimalPlaces: 0, unit: ''],
-        illuminance: [decimalPlaces: 0, unit: ''],
-        level: [decimalPlaces: 0, unit: ''],
-        pH: [decimalPlaces: 1, unit: ''],
-        power: [decimalPlaces: 0, unit: 'W'],
-        powerFactor: [decimalPlaces: 2, unit: ''],
-        lqi: [decimalPlaces: 2, unit: ''],
-        rssi: [decimalPlaces: 2, unit: ''],
-        soundPressureLevel: [decimalPlaces: 2, unit: ''],
-        steps: [decimalPlaces: 0, unit: ''],
-        temperature: [decimalPlaces: 1, unit: ''],
-        threeAxis: [decimalPlaces: 2, unit: ''],
-        ultravioletIndex: [decimalPlaces: 0, unit: ''],
-        voltage: [decimalPlaces: 0, unit: '']
-    ]
-*/
-
-    // Define state variable to hold location and hub details
-    state.hubLocationRef = ""
+    state.hubLocationRef = "" // Define state variable to hold location and hub details
     state.hubLocationDetails = ""
     state.hubLocationText = ""
     hubLocationDetails()
@@ -428,11 +325,6 @@ def handleDaylight(evt) {
     handleEvent(evt, eventType)
 }
 
-def handlePrefsReportEvent(evt) {
-    def eventType = 'prefsReport'
-    handleEvent(evt, eventType)
-}
-
 def handleEvent(evt, eventType) {
     logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
 
@@ -452,7 +344,7 @@ def handleEvent(evt, eventType) {
     def prevTime
     def prevTimeText
 
-    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis' || eventType == 'prefsReport') {
+    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
 
         // deviceName = state.deviceGroup.(evt.deviceId).deviceName // lookup device name - need to change code
         deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
@@ -491,16 +383,14 @@ def handleEvent(evt, eventType) {
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
-    if (eventType != 'prefsReport') fieldsSB.append('eventDescription="').append(description).append('",')
+    fieldsSB.append('eventDescription="').append(description).append('",')
     fieldsSB.append('eventId="').append(evt.id).append('"')
-
 
     // for state events
     if (eventType == 'state') {
         measurement = 'states'
 
         def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
-//      def states = state.attributeStateValues.find { it.key == evt.name }.value // Lookup array for event status values
 
         // append current (now:n) state values
         def nStateLevel = states.find { it.key == evt.value }.value
@@ -540,7 +430,6 @@ def handleEvent(evt, eventType) {
             nowValue = evt.floatValue
             prevValue = prevEvent.floatValue
         }
-
         else {
             trimLength = removeUnit(evt.value)
             def lengthNow = evt.value.length()
@@ -623,18 +512,10 @@ def handleEvent(evt, eventType) {
         if (evt.name == 'sunrise') {
             fieldsSB.append(',nBinary=true,nLevel=1i,nState="Sunrise"').append(',nText="').append("At ${location.name}, building ${location.hubs[0].name}, sun has risen.").append('"')
         }
-
         else if (evt.name == 'sunset') {
             fieldsSB.append(',nBinary=false,nLevel=-1i,nState="Sunset"').append(',nText="').append("At ${location.name}, building ${location.hubs[0].name}, sun has set.").append('"')
         }
         fieldsSB.append(',timestamp=').append(eventTime).append('i')
-    }
-
-    // for prefsReport events
-    else if (eventType == 'prefsReport') {
-        rp = 'metadata'
-        measurement = 'preferences'
-        fieldsSB.append(',').append(evt.value)
     }
 
     // Create InfluxDB line protocol
@@ -642,8 +523,7 @@ def handleEvent(evt, eventType) {
 
     dataSB.append(state.hubLocationDetails) // Add hub tags
 
-    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis' || eventType == 'prefsReport') {
-
+    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
         dataSB.append(',chamber=')
         dataSB.append(deviceGroup.replaceAll(' ', '\\\\ '))
         dataSB.append(',chamberId=')
@@ -656,7 +536,7 @@ def handleEvent(evt, eventType) {
 
         dataSB.append(',identifier=').append(deviceGroup.replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(evt.displayName.replaceAll(' ', '\\\\ ')) // Create composite identifier
 
-        if (eventType != 'prefsReport') dataSB.append(',isChange=').append(evt?.isStateChange)
+        dataSB.append(',isChange=').append(evt?.isStateChange)
     }
 
     else if (eventType == 'hubStatus' || eventType == 'daylight') {
@@ -729,6 +609,7 @@ def softPoll() {
 
 
 def zwaveReport() {
+    logger("zwaveReport()","trace")
 
     def dataSB = new StringBuilder()
     def rp = 'metadata'
@@ -790,7 +671,6 @@ def zwaveReport() {
         }
     postToInfluxDB(dataSB.toString(), rp)
 }
-
 
 // converted elapsed time to textual description
 def timeElapsedText(time) {
@@ -869,7 +749,7 @@ def postToInfluxDB(data, rp) {
             requestContentType: "application/x-www-form-urlencoded",
             body: data
             ]
-        logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}","debug")
+        logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}","info")
         asynchttp_v1.post(handleInfluxResponse, params)
     }
 }
@@ -892,15 +772,15 @@ private manageSchedules() {
     logger("manageSchedules()","trace")
 
     try { unschedule(hubLocationDetails) }
-    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
+    catch(e) { logger("manageSchedules(): Unschedule hubLocationDetails failed!","error") }
     runEvery3Hours(hubLocationDetails)
 
     try { unschedule(softPoll) }
-    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
+    catch(e) { logger("manageSchedules(): Unschedule softPoll failed!","error") }
     runEvery3Hours(softPoll)
 
     try { unschedule(zwaveReport) }
-    catch(e) { /* logger("manageSchedules(): Unschedule failed!","error") */ }
+    catch(e) { logger("manageSchedules(): Unschedule zwaveReport failed!","error") }
     runEvery3Hours(zwaveReport)
 }
 
@@ -945,26 +825,24 @@ private manageSubscriptions() { // Configures subscriptions
     subscribe(hub, "hubStatus", handleHubStatus)
     logger("manageSubscriptions(): Subscribing to 'Hub Status' events","info")
 
-    // build map of group Ids and group names
+    // build state maps of group Ids and group names
     if (state.roomNameCapture) {
         def groupId
         def groupName
         settings.bridgePref.each {
-            groupId = it?.device.groupId
-            groupName = it?.name.drop(1)
+            groupId = it.device?.groupId
+            groupName = it.name?.drop(1)
             if (groupId) state.groupNames << [(groupId): groupName]
         }
 
-        def devices
         def deviceId
         def deviceName
         def deviceGroupId
         def deviceGroup
-
         getSelectedDevices()?.each  {
             deviceId = it.id
             deviceName = it.name
-            deviceGroupId = it?.device.groupId
+            deviceGroupId = it.device?.groupId
             deviceGroup = state.groupNames?."${deviceGroupId}"
             if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]
             else state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: 'unassigned', deviceGroupId: 'unassigned']]
@@ -1199,123 +1077,3 @@ private getAttributeDetail() { [
     windowFunction: [type: 'state'],
     windowShade: [type: 'state', levels: [closed: -1, opening: 1, 'partially open': 2, open: 3, closing: -2, unknown: 5]]
 ] }
-
-/*
-private getAttributeType() { [
-    acceleration: [type: 'state'],
-    alarm: [type: 'state'],
-    battery: [type: 'value'],
-    button: [type: 'state'],
-    carbonDioxide: [type: 'state'],
-    carbonMonoxide: [type: 'state'],
-    color: [type: 'value'],
-    consumableStatus: [type: 'state'],
-    contact: [type: 'state'],
-    coolingSetpoint: [type: 'state'],
-    current: [type: 'value'],
-    door: [type: 'state'],
-    energy: [type: 'value'],
-    goal: [type: 'value'],
-    heatingSetpoint: [type: 'state'],
-    hue: [type: 'value'],
-    humidity: [type: 'value'],
-    illuminance: [type: 'value'],
-    level: [type: 'value'],
-    lock: [type: 'state'],
-    lqi: [type: 'value'],
-    motion: [type: 'state'],
-    mute: [type: 'state'],
-    optimisation: [type: 'state'],
-    pH: [type: 'value'],
-    power: [type: 'value'],
-    powerFactor: [type: 'value'],
-    powerSource: [type: 'state'], // added in
-    presence: [type: 'state'],
-    rssi: [type: 'value'],
-    saturation: [type: 'value'],
-    scheduledSetpoint: [type: 'state'],
-    shock: [type: 'state'],
-    sleeping: [type: 'state'],
-    smoke: [type: 'state'],
-    sound: [type: 'state'],
-    soundPressureLevel: [type: 'value'],
-    status: [type: 'state'],
-    steps: [type: 'value'],
-    switch: [type: 'state'],
-    tamper: [type: 'state'],
-    temperature: [type: 'value'],
-    thermostatFanMode: [type: 'state'],
-    thermostatMode: [type: 'state'],
-    thermostatOperatingState: [type: 'state'],
-    thermostatSetpoint: [type: 'state'],
-    thermostatSetpointMode: [type: 'state'],
-    threeAxis: [type: 'threeAxis'],
-    touch: [type: 'state'],
-    trackData: [type: 'state'],
-    trackDescription: [type: 'state'],
-    ultravioletIndex: [type: 'value'],
-    voltage: [type: 'value'],
-    water: [type: 'state'],
-    windowFunction: [type: 'state'],
-    windowShade: [type: 'state']
-] }
-
-private getAttributeDetail() { [
-    [attr: 'acceleration', type: 'state', level: [inactive: -1, active: 1]],
-    [attr: 'alarm', type: 'state', level: [off: -1, siren: 1, strobe: 2, both: 3]],
-    [attr: 'battery', type: 'value', decimalPlaces: 0, unit: '%'],
-    [attr: 'button', type: 'state', level: [pushed: 1, held: 2]],
-    [attr: 'carbonDioxide', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'carbonMonoxide', type: 'state', level: [clear: -1, detected: 1, tested: 4]],
-    [attr: 'color', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'consumableStatus', type: 'state', level: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
-    [attr: 'contact', type: 'state', level: [closed: -1, open: 1, full: -1, flushing: 1]],
-    [attr: 'coolingSetpoint', type: 'state'],
-    [attr: 'current', type: 'value', decimalPlaces: 1, unit: 'A'],
-    [attr: 'door', type: 'state', level: [closed: -1, open: 1, opening: 2, closing: -2, unknown: 5]],
-    [attr: 'energy', type: 'value', decimalPlaces: 2, unit: 'kWh'],
-    [attr: 'goal', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'heatingSetpoint', type: 'state'],
-    [attr: 'hue', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'humidity', type: 'value', decimalPlaces: 0, unit: '%'],
-    [attr: 'illuminance', type: 'value', decimalPlaces: 0, unit: 'lux'],
-    [attr: 'level', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'lock', type: 'state', level: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
-    [attr: 'lqi', type: 'value', decimalPlaces: 2, unit: ''],
-    [attr: 'motion', type: 'state', level: [inactive: -1, active: 1]],
-    [attr: 'mute', type: 'state', level: [muted: -1, unmuted: 1]],
-    [attr: 'optimisation', type: 'state', level: [inactive: -1, active: 1]],
-    [attr: 'pH', type: 'value', decimalPlaces: 1, unit: ''],
-    [attr: 'power', type: 'value', decimalPlaces: 1, unit: 'W'],
-    [attr: 'powerFactor', type: 'value', decimalPlaces: 2, unit: ''],
-    [attr: 'powerSource', type: 'state', level: [mains: -1, battery: 1, dc: 2,unknown: 5]], // added in
-    [attr: 'presence', type: 'state', level: ['not present': -1, present: 1]],
-    [attr: 'rssi', type: 'value', decimalPlaces: 2, unit: ''],
-    [attr: 'saturation', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'scheduledSetpoint', type: 'state'],
-    [attr: 'shock', type: 'state', level: [clear: -1, detected: 1]],
-    [attr: 'sleeping', type: 'state', level: [sleeping: -1, 'not sleeping': 1]],
-    [attr: 'smoke', type: 'state', level: [clear: -1, detected: 1, tested: 4]],
-    [attr: 'sound', type: 'state', level: ['not detected': -1, detected: 1]],
-    [attr: 'soundPressureLevel', type: 'value', decimalPlaces: 2, unit: ''],
-    [attr: 'status', type: 'state'],
-    [attr: 'steps', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'switch', type: 'state', level: [off: -1, on: 1]],
-    [attr: 'tamper', type: 'state', level: [clear: -1, detected: 1]],
-    [attr: 'temperature', type: 'value', decimalPlaces: 1, unit: 'C'],
-    [attr: 'thermostatFanMode', type: 'state', level: [auto: -1, on: 1, circulate: 2]],
-    [attr: 'thermostatMode', type: 'state', level: [off: -1, heat: 1, 'emergency heat': 2, auto: 3, cool: -3]],
-    [attr: 'thermostatOperatingState', type: 'state', level: [idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3, cooling: -1, 'pending cool': -2]],
-    [attr: 'thermostatSetpoint', type: 'state'],
-    [attr: 'thermostatSetpointMode', type: 'state'],
-    [attr: 'threeAxis', type: 'threeAxis', decimalPlaces: 2, unit: ''],
-    [attr: 'touch', type: 'state', level: [touched: 1]],
-    [attr: 'trackData', type: 'state'],
-    [attr: 'trackDescription', type: 'state'],
-    [attr: 'ultravioletIndex', type: 'value', decimalPlaces: 0, unit: ''],
-    [attr: 'voltage', type: 'value', decimalPlaces: 1, unit: 'V'],
-    [attr: 'water', type: 'state', level: [dry: -1, wet: 1]],
-    [attr: 'windowFunction', type: 'state'],
-    [attr: 'windowShade', type: 'state', level: [closed: -1, opening: 1, 'partially open': 2, open: 3, closing: -2, unknown: 5]]
-] }
-*/

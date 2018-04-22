@@ -582,6 +582,7 @@ def softPoll() {
                 dataSB.append(',deviceCode=').append(dev.name.replaceAll(' ', '\\\\ '))
                 dataSB.append(',deviceId=').append(dev.id)
                 dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
+                dataSB.append(',deviceType=').append(dev.typeName.replaceAll(' ', '\\\\ '))
 
                 dataSB.append(',event=').append(attr)
                 def type = getAttributeDetail().find { it.key == attr }.value.type
@@ -629,6 +630,7 @@ def zwaveReport() {
                 dataSB.append(',deviceCode=').append(dev.name.replaceAll(' ', '\\\\ '))
                 dataSB.append(',deviceId=').append(dev.id)
                 dataSB.append(',deviceLabel=').append(dev.label.replaceAll(' ', '\\\\ '))
+                dataSB.append(',deviceType=').append(dev.typeName.replaceAll(' ', '\\\\ '))
 
                 if (state.groupNames.(dev?.device.groupId)) dataSB.append(',identifier=').append(state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')).append('\\ .\\ ').append(dev.label.replaceAll(' ', '\\\\ ')) // Create unique composite identifier
 

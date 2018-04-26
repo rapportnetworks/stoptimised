@@ -286,6 +286,7 @@ def updated() { // runs when app settings are changed
     // Configure Subscriptions:
     manageSubscriptions()
     manageSchedules()
+
     runIn(60, softPoll)
     runIn(90, zwaveReport)
 }
@@ -1010,7 +1011,7 @@ private getCapabilities() { [
 		[title: "Touch Sensors", cap: "touchSensor", attr: "touch"],
 		[title: "Ultraviolet Index Sensors", cap: "ultravioletIndex", attr: "ultravioletIndex"],
 		[title: "Valves", cap: "valve", attr: "valve"],
-		[title: "Voltage Measurement Sensors", cap: "voltageMeasurement", attr: "voltage"],
+		[title: "Voltage Measurement Sensors", cap: "voltageMeasurement", attr: ["current", "voltage"]],
 		[title: "Water Sensors", cap: "waterSensor", attr: "water"],
 		[title: "Window Shades", cap: "windowShade", attr: "windowShade"]
 ] }

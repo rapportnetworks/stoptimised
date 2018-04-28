@@ -260,8 +260,8 @@ def updated() { // runs when app settings are changed
     state.groupNames = [:] // Initialise map of Group Ids and Group Names
     state.deviceGroup = [:] // Initialise map of Device Ids and Group Names
 
-    state.hubLocationRef = "" // Define state variable to hold location and hub details
-    state.hubLocationDetails = ""
+//    state.hubLocationRef = "" // Define state variable to hold location and hub details
+    state.hubLocationDetails = "" // Define state variable to hold location and hub details
     state.hubLocationText = ""
     hubLocationDetails() // generate hub location details
 
@@ -313,8 +313,8 @@ def handleThreeAxisEvent(evt) {
 }
 
 def handleHubStatus(evt) {
-    if (evt.value != 'zb_radio_on' && evt.value != 'zw_radio_on') {
-        def eventType = 'hubStatus' // *** check
+    if (evt.value == 'active' || evt.value == 'disconnected') {
+        def eventType = 'hubStatus'
         handleEvent(evt, eventType)
     }
 }
@@ -327,35 +327,28 @@ def handleDaylight(evt) {
 def handleEvent(evt, eventType) {
     logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
 
-    def rp = 'autogen' // set retention policy
-
-    def eventTime = evt.date.time // get event time
-    def midnight // epoch time at start of day
-    def offsetTime // offset to compensate for PIR reset Time
     def writeTime = new Date() // time of processing event
-
-    def measurement
-    def deviceName
-    def deviceGroup
+    def eventTime = evt.date.time // get event time
     def prevEvents
     def prevEvent
     def prevEventTime
+
+    def offsetTime // offset to compensate for PIR reset Time
+
     def prevTime
     def prevTimeText
+    def midnight // epoch time at start of day
+
+    def deviceName
+    def deviceGroup = 'unassigned'
+    def deviceGroupId = 'unassigned'
 
     if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
-
-        deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-
-        deviceGroup = (evt.device.device?.groupId) ? state?.groupNames?.(evt.device.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned'
-
-        // get previous event
-        prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3])
+        prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
         prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
         prevEventTime = prevEvent.date.time
 
-        // adjust timestamp of "inactive" status to compensate for PIRresetTime
-        if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt?.data) {
+        if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt?.data) { // adjust timestamp of "inactive" status to compensate for PIRresetTime
             def eventData = parseJson(evt.data)
             if (eventData?.PIRresetTime) {
                 offsetTime = 1000 * eventData.PIRresetTime / 2
@@ -363,12 +356,47 @@ def handleEvent(evt, eventType) {
                 if (prevEvent.value == 'inactive') prevEventTime -= offsetTime
             }
         }
+
         prevTime = (eventTime - prevEventTime)
         prevTimeText = timeElapsedText(prevTime)
         midnight = evt.date.clone().clearTime().time // get epoch time at start of day
+
+        deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+        if (evt.device.device?.groupId) {
+            deviceGroup = state?.groupNames?.(evt.device.device.groupId)
+            deviceGroupId = evt.device.device.groupId
+        }
     }
 
-    // specifically for value events
+
+    def tags = new StringBuilder() // Create InfluxDB line protocol
+
+    tags.append(state.hubLocationDetails) // Add hub tags
+
+    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
+        tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
+        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
+        tags.append(",event=${evt.name}")
+        tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
+        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+    }
+
+    else if (eventType == 'hubStatus' || eventType == 'daylight') {
+        tags.append(",chamber=House")
+        tags.append(',deviceLabel=').append( eventType == 'hubStatus' ? 'hub' : 'day' ) // needed?
+        tags.append(',event=').append( eventType == 'hubStatus' ? evt.name : 'daylight' )
+        tags.append(',eventType=state')
+        tags.append(",identifier=House\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}")
+    }
+
+    tags.append(",isChange=${evt?.isStateChange}")
+    tags.append(",source=${evt.source}")
+
+
+
+    def measurement
+
+    // specifically for value events (could also be used for threeAvix events)
     def nowValue
     def prevValue
     def change
@@ -376,21 +404,23 @@ def handleEvent(evt, eventType) {
     def unit // variable for event measurement unit
     def rounding // number of decimal places to round measurement value etc
 
+
     def fields = new StringBuilder() // populate initial fields set
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
-    fields.append("eventDescription=\"${description}")
-    fields.append(",eventId=${evt.id}")
+    fields.append("eventDescription=\"${description}\"")
+    fields.append(",eventId=\"${evt.id}\"")
 
     // for state events
     if (eventType == 'state') {
         measurement = 'states'
+
         def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
 
         def nowStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
         def nowStateBinary = (stateLevel > 0) ? 'true' : 'false'
-        fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel}i,nState=\"${evt.value}\")
+        fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel}i,nState=\"${evt.value}\"")
         fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup}.\"")
 
         def prevStateLevel = states.find { it.key == prevEvent.value }.value // append previous (p) state values
@@ -445,7 +475,7 @@ def handleEvent(evt, eventType) {
         changeText = 'unchanged'
         if (change > 0) changeText = 'increased'
         else if (change < 0) changeText = 'decreased'
-        fields.append(",nText=${state.hubLocationText} ${evt.name} is ${nowValue} ${unit} in ${deviceGroup}.\"") // append current (now:n) event value
+        fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nowValue} ${unit} in ${deviceGroup}.\"") // append current (now:n) event value
         fields.append(",nValue=${nowValue}")
         fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
         if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")
@@ -491,36 +521,13 @@ def handleEvent(evt, eventType) {
         fields.append(",timestamp=${eventTime}i")
     }
 
-    def tags = new StringBuilder() // Create InfluxDB line protocol
-
-    tags.append(state.hubLocationDetails) // Add hub tags
-
-    if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
-        tags.append(",chamber=${deviceGroup}")
-        tags.append(',chamberId=').append( evt.device.device?.groupId ? evt.device.device.groupId : 'unassigned' )
-        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
-        tags.append(",event=${evt.name}")
-        tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
-        tags.append(",isChange=${evt?.isStateChange}")
-    }
-
-    else if (eventType == 'hubStatus' || eventType == 'daylight') {
-        tags.append(",chamber=House")
-        tags.append(',deviceLabel=').append( eventType == 'hubStatus' ? 'hub' : 'day' )
-        tags.append(',event=').append( eventType == 'hubStatus' ? evt.name : 'daylight' )
-        tags.append(',eventType=state')
-        tags.append(",identifier=House\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}")
-        tags.append(",isChange=${evt?.isStateChange}")
-    }
-
-    tags.append(",source=${evt.source}")
-
     if (unit) tags.append(",unit=${unit}") // Add unit tag
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
 
     tags.insert(0, measurement)
+
+    def rp = 'autogen' // set retention policy
     postToInfluxDB(tags.toString(), rp)
 }
 
@@ -528,8 +535,8 @@ def handleEvent(evt, eventType) {
 def pollAttributes() {
     logger("pollAttributes()","trace")
 
-    def tags = new StringBuilder()
-    def rp = 'metadata'
+    def data = new StringBuilder()
+
     def now = new Date()
 
     getSelectedDevices()?.each  { dev ->
@@ -538,68 +545,64 @@ def pollAttributes() {
 
             if (dev.latestState(attr)?.value != null) {
                 logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}","info")
-                tags.append('attributes')
 
-                tags.append(state.hubLocationDetails) // Add hub tags
+                data.append('attributes') // measurement name
+                data.append(state.hubLocationDetails) // Add hub tags
 
-                tags.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
-                tags.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
+                data.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
 
-                tags.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
-                tags.append(",deviceId=${dev.id}")
-                tags.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
-                tags.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
+                data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
+                data.append(",deviceId=${dev.id}")
+                data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
+                data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                tags.append(",event=${attr}")
+                data.append(",event=${attr}")
                 def type = getAttributeDetail().find { it.key == attr }.value.type
-                tags.append(",eventType=${type}")
+                data.append(",eventType=${type}")
 
-                if (state?.groupNames.(dev.device?.groupId)) tags.append(",identifier=${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                if (state?.groupNames.(dev.device?.groupId)) data.append(",identifier=${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
                 daysElapsed = daysElapsed.toDouble().trunc().round()
-                tags.append(',timeElapsed=').append(daysElapsed * 30).append('-').append((daysElapsed + 1) * 30).append('days')
-                tags.append(' ')
-                tags.append("timeLastEvent=${dev.latestState(attr).date.time}i")
-                tags.append(",valueLastEvent=\"${dev.latestState(attr).value}\"")
-                tags.append('\n')
+                data.append(',timeElapsed=').append(daysElapsed * 30).append('-').append((daysElapsed + 1) * 30).append('days')
+                data.append(' ')
+                data.append("timeLastEvent=${dev.latestState(attr).date.time}i")
+                data.append(",valueLastEvent=\"${dev.latestState(attr).value}\"")
+                data.append('\n')
             }
         }
     }
-    postToInfluxDB(tags.toString(), rp)
+    def rp = 'metadata'
+    postToInfluxDB(data.toString(), rp)
 }
 
 
 def pollZwaveDevices() {
     logger("pollZwaveDevices()","trace")
 
-    def tags = new StringBuilder()
-    def rp = 'metadata'
+    def data = new StringBuilder()
     def info
 
     getSelectedDevices()?.each  { dev ->
-
         info = dev?.getZwaveInfo().clone()
-
             if (info.containsKey("zw")) {
-
                 logger("pollZwaveDevices(): zWave report for device ${dev}","info")
 
-                tags.append('zwave')
+                data.append('zwave') // measurement name
+                data.append(state.hubLocationDetails) // Add hub tags
 
-                tags.append(state.hubLocationDetails) // Add hub tags
+                data.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
 
-                tags.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
-                tags.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
+                data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
+                data.append(",deviceId=${dev.id}")
+                data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
+                data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                tags.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
-                tags.append(",deviceId=${dev.id}")
-                tags.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
-                tags.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ '}")
+                if (state.groupNames.(dev?.device.groupId)) data.append(",identifier=${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
-                if (state.groupNames.(dev?.device.groupId)) tags.append(",identifier=${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
-
-                tags.append(',type=zwave')
+                data.append(',type=zwave')
 
                 def power = info.zw.take(1)
                 switch(power) {
@@ -623,14 +626,15 @@ def pollZwaveDevices() {
                 info = info.sort()
                 def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
                 info = toKeyValue(info) + ',' + "${ccSec}"
-                tags.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
-                tags.append(' ')
-                if (dev?.device.getDataValue("configuredParameters")) tags.append(dev.device.getDataValue("configuredParameters")).append(',')
-                tags.append(info)
-                tags.append('\n')
+                data.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
+                data.append(' ')
+                if (dev?.device.getDataValue("configuredParameters")) data.append(dev.device.getDataValue("configuredParameters")).append(',')
+                data.append(info)
+                data.append('\n')
             }
         }
-    postToInfluxDB(tags.toString(), rp)
+    def rp = 'metadata'
+    postToInfluxDB(data.toString(), rp)
 }
 
 // converted elapsed time to textual description
@@ -664,11 +668,11 @@ def removeUnit(stringUnit) {
  *****************************************************************************************************************/
 
 def hubLocationDetails() {
-    state.hubLocationRef = "${location.name.replaceAll(' ', '\\\\ ')}.${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
+//    state.hubLocationRef = "${location.name.replaceAll(' ', '\\\\ ')}.${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
 
-    state.hubLocationDetails = "',area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}"
+    state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}" // tags: area,areaId,building,buildingId
 
-    state.hubLocationText = "'At ${location.name}, in building ${location.hubs[0].name)}, "
+    state.hubLocationText = "At ${location.name}, in building ${location.hubs[0].name}, "
 }
 
 def postToInfluxDB(data, rp) {
@@ -785,7 +789,7 @@ private manageSubscriptions() { // Configures subscriptions
         def groupName
         settings.bridgePref.each {
             groupId = it.device?.groupId
-            groupName = it.name?.drop(1)
+            groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
             if (groupId) state.groupNames << [(groupId): groupName]
         }
 
@@ -795,7 +799,7 @@ private manageSubscriptions() { // Configures subscriptions
         def deviceGroup
         getSelectedDevices()?.each  {
             deviceId = it.id
-            deviceName = it.name
+            deviceName = it.name.replaceAll(' ', '\\\\ ')
             deviceGroupId = it.device?.groupId
             deviceGroup = state.groupNames?."${deviceGroupId}"
             if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]

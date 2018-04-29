@@ -745,10 +745,9 @@ def pollLocation() {
 
     data.append( h.hub.getDataValue("batteryInUse") == 'true' ? ',onBattery=true' : ',onBattery=false' ) // *** check this out
 
-// location.timeZone - requires location enabled in mobile app ??
+    data.append(",timeZone=${location.timeZone}")
+
 // location.timeZone.ID
-// times.sunrise.format("HH:mm", location.timeZone)
-// times.sunset.format("HH:mm", location.timeZone)
 
     data.append(' ')
 
@@ -764,9 +763,9 @@ def pollLocation() {
 
     data.append(",portTCP=${h.localSrvPortTCP}i")
 
-    data.append(",sunrise=${times.sunrise.time}i")
+    data.append(",sunrise=${times.sunrise.format("HH:mm", location.timeZone)}")
 
-    data.append(",sunset=${times.sunset.time}i")
+    data.append(",sunset=${times.sunset.format("HH:mm", location.timeZone)}")
 
     data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}i")
 

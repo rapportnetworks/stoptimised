@@ -258,7 +258,7 @@ def updated() { // runs when app settings are changed
     state.roomNameCapture = settings.prefRoomNameCapture
 
     state.groupNames = [:] // Initialise map of Group Ids and Group Names
-    state.deviceGroup = [:] // Initialise map of Device Ids and Group Names
+//    state.deviceGroup = [:] // Initialise map of Device Ids and Group Names
 
 //    state.hubLocationRef = "" // Define state variable to hold location and hub details
     state.hubLocationDetails = "" // Define state variable to hold location and hub details
@@ -325,7 +325,7 @@ def handleDaylight(evt) {
 }
 
 def handleEvent(evt, eventType) {
-    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleEvent(): $eventType event $evt.label ($evt.name) $evt.value","info")
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
@@ -362,9 +362,10 @@ def handleEvent(evt, eventType) {
         midnight = evt.date.clone().clearTime().time // get epoch time at start of day
 
         deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+
         if (evt.device.device?.groupId) {
-            deviceGroup = state?.groupNames?.(evt.device.device.groupId)
             deviceGroupId = evt.device.device.groupId
+            deviceGroup = state?.groupNames?.deviceGroupId
         }
     }
 
@@ -375,24 +376,30 @@ def handleEvent(evt, eventType) {
 
     if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
         tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
+        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.label.replaceAll(' ', '\\\\ ')}")
         tags.append(",event=${evt.name}")
         tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.label.replaceAll(' ', '\\\\ ')}") // Create composite identifier
     }
 
-    else if (eventType == 'hubStatus' || eventType == 'daylight') {
-        tags.append(",chamber=House")
-        tags.append(',deviceLabel=').append( eventType == 'hubStatus' ? 'hub' : 'day' ) // needed?
-        tags.append(',event=').append( eventType == 'hubStatus' ? evt.name : 'daylight' )
+    else if (eventType == 'daylight') {
+        tags.append(',chamber=House')
+        tags.append(',deviceLabel=day') // needed ??
+        tags.append(',event=daylight')
         tags.append(',eventType=state')
-        tags.append(",identifier=House\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}")
+        tags.append(',identifier=House\\ .\\ daylight')
+    }
+
+    else if (eventType == 'hubStatus') {
+        tags.append(',chamber=House')
+        tags.append(',deviceLabel=hub') // needed ??
+        tags.append(',event=hubStatus')
+        tags.append(',eventType=state')
+        tags.append(',identifier=House\\ .\\ hubStatus')
     }
 
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
-
-
 
     def measurement
 
@@ -403,7 +410,6 @@ def handleEvent(evt, eventType) {
     def changeText
     def unit // variable for event measurement unit
     def rounding // number of decimal places to round measurement value etc
-
 
     def fields = new StringBuilder() // populate initial fields set
 
@@ -421,7 +427,7 @@ def handleEvent(evt, eventType) {
         def nowStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
         def nowStateBinary = (stateLevel > 0) ? 'true' : 'false'
         fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel}i,nState=\"${evt.value}\"")
-        fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup}.\"")
+        fields.append(",nText=\"${state.hubLocationText}${evt.label} is ${evt.value} in ${deviceGroup}.\"")
 
         def prevStateLevel = states.find { it.key == prevEvent.value }.value // append previous (p) state values
         def prevStateBinary = (prevStateLevel > 0) ? 'true' : 'false'
@@ -549,7 +555,7 @@ def pollAttributes() {
                 data.append('attributes') // measurement name
                 data.append(state.hubLocationDetails) // Add hub tags
 
-                data.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                data.append(',chamber=').append( state?.groupNames?.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
                 data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
 
                 data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
@@ -561,7 +567,7 @@ def pollAttributes() {
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 data.append(",eventType=${type}")
 
-                if (state?.groupNames.(dev.device?.groupId)) data.append(",identifier=${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                if (state?.groupNames?.(dev.device?.groupId)) data.append(",identifier=${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
                 daysElapsed = daysElapsed.toDouble().trunc().round()
@@ -592,7 +598,7 @@ def pollZwaveDevices() {
                 data.append('zwave') // measurement name
                 data.append(state.hubLocationDetails) // Add hub tags
 
-                data.append(',chamber=').append( state?.groupNames.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
+                data.append(',chamber=').append( state?.groupNames?.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
                 data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
 
                 data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
@@ -600,7 +606,7 @@ def pollZwaveDevices() {
                 data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                if (state.groupNames.(dev?.device.groupId)) data.append(",identifier=${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                if (state?.groupNames?.(dev?.device.groupId)) data.append(",identifier=${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
                 data.append(',type=zwave')
 
@@ -792,8 +798,8 @@ private manageSubscriptions() { // Configures subscriptions
             groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
             if (groupId) state.groupNames << [(groupId): groupName]
         }
-
-        def deviceId
+/*
+        def deviceId // is this array really needed ??
         def deviceName
         def deviceGroupId
         def deviceGroup
@@ -805,6 +811,7 @@ private manageSubscriptions() { // Configures subscriptions
             if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]
             else state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: 'unassigned', deviceGroupId: 'unassigned']]
         }
+*/
     }
 }
 
@@ -847,7 +854,7 @@ private getDeviceAllowedAttrs(deviceName) {
 				}
 			}
 			catch (e) {
-				logWarn "Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}"
+				logWarn "Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}" // need to check device.displayName - should it be deviceName.displayName or dev.displayName ??
 			}
 		}
 	}
@@ -982,23 +989,23 @@ private getAttributeDetail() { [
     alarm: [type: 'state', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
     battery: [type: 'value', decimalPlaces: 0, unit: '%'],
     button: [type: 'state', levels: [pushed: 1, held: 2]],
-    carbonDioxide: [type: 'value', decimalPlaces: 0, unit: ''],
+    carbonDioxide: [type: 'value', decimalPlaces: 0, unit: 'ppm'],
     carbonMonoxide: [type: 'state', levels: [clear: -1, detected: 1, tested: 4]],
-    color: [type: 'value', decimalPlaces: 0, unit: ''],
+    color: [type: 'value', decimalPlaces: 0, unit: '%'],
     consumableStatus: [type: 'state', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
     contact: [type: 'state', levels: [closed: -1, open: 1, full: -1, flushing: 1]],
     coolingSetpoint: [type: 'state'],
     current: [type: 'value', decimalPlaces: 2, unit: 'A'],
     door: [type: 'state', levels: [closed: -1, open: 1, opening: 2, closing: -2, unknown: 5]],
     energy: [type: 'value', decimalPlaces: 3, unit: 'kWh'],
-    goal: [type: 'value', decimalPlaces: 0, unit: ''],
+    goal: [type: 'value', decimalPlaces: 0, unit: 'steps'],
     heatingSetpoint: [type: 'state'],
-    hue: [type: 'value', decimalPlaces: 0, unit: ''],
+    hue: [type: 'value', decimalPlaces: 0, unit: '%'],
     humidity: [type: 'value', decimalPlaces: 0, unit: '%'],
     illuminance: [type: 'value', decimalPlaces: 0, unit: 'lux'],
     level: [type: 'value', decimalPlaces: 0, unit: ''],
     lock: [type: 'state', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
-    lqi: [type: 'value', decimalPlaces: 2, unit: ''],
+    lqi: [type: 'value', decimalPlaces: 2, unit: 'dB'],
     motion: [type: 'state', levels: [inactive: -1, active: 1]],
     mute: [type: 'state', levels: [muted: -1, unmuted: 1]],
     optimisation: [type: 'state', levels: [inactive: -1, active: 1]],
@@ -1007,8 +1014,8 @@ private getAttributeDetail() { [
     powerFactor: [type: 'value', decimalPlaces: 2, unit: ''],
     powerSource: [type: 'state', levels: [mains: -1, battery: 1, dc: 2,unknown: 5]], // added in
     presence: [type: 'state', levels: ['not present': -1, present: 1]],
-    rssi: [type: 'value', decimalPlaces: 2, unit: ''],
-    saturation: [type: 'value', decimalPlaces: 0, unit: ''],
+    rssi: [type: 'value', decimalPlaces: 2, unit: 'dB'],
+    saturation: [type: 'value', decimalPlaces: 0, unit: '%'],
     scheduledSetpoint: [type: 'state'],
     shock: [type: 'state', levels: [clear: -1, detected: 1]],
     sleeping: [type: 'state', levels: [sleeping: -1, 'not sleeping': 1]],
@@ -1025,7 +1032,7 @@ private getAttributeDetail() { [
     thermostatOperatingState: [type: 'state', levels: [idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3, cooling: -1, 'pending cool': -2]],
     thermostatSetpoint: [type: 'state'],
     thermostatSetpointMode: [type: 'state'],
-    threeAxis: [type: 'threeAxis', decimalPlaces: 2, unit: ''],
+    threeAxis: [type: 'threeAxis', decimalPlaces: 2, unit: 'g'],
     touch: [type: 'state', levels: [touched: 1]],
     trackData: [type: 'state'],
     trackDescription: [type: 'state'],

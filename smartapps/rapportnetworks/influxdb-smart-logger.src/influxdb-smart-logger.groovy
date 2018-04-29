@@ -285,8 +285,10 @@ def updated() { // runs when app settings are changed
     manageSubscriptions()
     manageSchedules()
 
-    runIn(60, pollAttributes)
-    runIn(90, pollZwaveDevices)
+    runIn(30, pollLocation)
+    runIn(60, pollZwaveDevices)
+    runIn(90, pollAttributes)
+
 }
 
 /*****************************************************************************************************************
@@ -628,15 +630,10 @@ def handleDaylight(evt) {
 
 def pollAttributes() {
     logger("pollAttributes()","trace")
-
     def data = new StringBuilder()
-
     def now = new Date()
-
     getSelectedDevices()?.each  { dev ->
-
         getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-
             if (dev.latestState(attr)?.value != null) {
                 logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}","info")
 
@@ -674,10 +671,8 @@ def pollAttributes() {
 
 def pollZwaveDevices() {
     logger("pollZwaveDevices()","trace")
-
     def data = new StringBuilder()
     def info
-
     getSelectedDevices()?.each  { dev ->
         info = dev?.getZwaveInfo().clone()
             if (info.containsKey("zw")) {
@@ -730,6 +725,57 @@ def pollZwaveDevices() {
     def rp = 'metadata'
     postToInfluxDB(data.toString(), rp)
 }
+
+
+def pollLocation() {
+    logger("pollLocation()","trace")
+
+    def times = getSunriseAndSunset()
+    def h = location.hubs[0]
+
+    def data = new StringBuilder()
+
+    data.append('locations') // measurement name
+
+    data.append(state.hubLocationDetails) // Add hub tags
+
+    data.append(",hubStatus=${h.status}")
+
+    data.append(",hubType=${h.type}")
+
+    data.append( h.hub.getDataValue("batteryInUse") ? ',onBattery=true' : ',onBattery=false' )
+
+// location.timeZone - requires location enabled in mobile app ??
+// location.timeZone.ID
+// times.sunrise.format("HH:mm", location.timeZone)
+// times.sunset.format("HH:mm", location.timeZone)
+
+    data.append(' ')
+
+    data.append("firmwareVersion=\"${h.firmwareVersionString}\"")
+
+    data.append(",hubIP=\"${h.localIP}\"")
+
+    data.append(",hubUptime=\"${h.hub.getDataValue("uptime")}\"")
+
+    data.append(",latitude=${location.latitude}")
+
+    data.append(",longitude=${location.longitude}")
+
+    data.append(",portTCP=${h.localSrvPortTCP}i")
+
+    data.append(",sunrise=${times.sunrise}i")
+
+    data.append(",sunset=${times.sunset}i")
+
+    data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}")
+
+    data.append(",zwavePowerLevel=${h.hub.getDataValue("zwavePowerLevel")}")
+
+    def rp = 'metadata'
+    postToInfluxDB(data.toString(), rp)
+}
+
 
 // converted elapsed time to textual description
 def timeElapsedText(time) {
@@ -827,13 +873,17 @@ private manageSchedules() {
     catch(e) { logger("manageSchedules(): Unschedule hubLocationDetails failed!","error") }
     runEvery3Hours(hubLocationDetails)
 
-    try { unschedule(pollAttributes) }
-    catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
-    runEvery3Hours(pollAttributes)
+    try { unschedule(pollLocation) }
+    catch(e) { logger("manageSchedules(): Unschedule pollLocation failed!","error") }
+    runEvery3Hours(pollLocation)
 
     try { unschedule(pollZwaveDevices) }
     catch(e) { logger("manageSchedules(): Unschedule pollZwaveDevices failed!","error") }
     runEvery3Hours(pollZwaveDevices)
+
+    try { unschedule(pollAttributes) }
+    catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
+    runEvery3Hours(pollAttributes)
 }
 
 private manageSubscriptions() { // Configures subscriptions

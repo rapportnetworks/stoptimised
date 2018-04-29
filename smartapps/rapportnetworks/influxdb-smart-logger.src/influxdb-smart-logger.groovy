@@ -734,41 +734,23 @@ def pollLocation() {
     def h = location.hubs[0]
 
     def data = new StringBuilder()
-
     data.append('locations') // measurement name
-
     data.append(state.hubLocationDetails) // Add hub tags
-
     data.append(",hubStatus=${h.status}")
-
     data.append(",hubType=${h.type}")
-
     data.append( h.hub.getDataValue("batteryInUse") == 'true' ? ',onBattery=true' : ',onBattery=false' ) // *** check this out
-
-    data.append(",timeZone=${location.timeZone}")
-
-// location.timeZone.ID
+    data.append(",timeZone=${location.timeZone.ID}")
 
     data.append(' ')
-
     data.append("firmwareVersion=\"${h.firmwareVersionString}\"")
-
     data.append(",hubIP=\"${h.localIP}\"")
-
     data.append(",hubUptime=${h.hub.getDataValue("uptime")}")
-
     data.append(",latitude=${location.latitude}")
-
     data.append(",longitude=${location.longitude}")
-
     data.append(",portTCP=${h.localSrvPortTCP}i")
-
-    data.append(",sunrise=${times.sunrise.format("HH:mm", location.timeZone)}")
-
-    data.append(",sunset=${times.sunset.format("HH:mm", location.timeZone)}")
-
+    data.append(",sunrise=\"${times.sunrise.format("HH:mm", location.timeZone)}\"")
+    data.append(",sunset=\"${times.sunset.format("HH:mm", location.timeZone)}\"")
     data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}i")
-
     data.append(",zwavePowerLevel=\"${h.hub.getDataValue("zwavePowerLevel")}\"")
 
     def rp = 'metadata'

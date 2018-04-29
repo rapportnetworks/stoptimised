@@ -300,7 +300,7 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 
 def handleStateEvent(evt) {
     def eventType = 'state'
-    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleStateEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
@@ -382,7 +382,7 @@ def handleStateEvent(evt) {
 
 def handleValueEvent(evt) {
     def eventType = 'value'
-    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleValueEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
@@ -493,7 +493,7 @@ def handleValueEvent(evt) {
 
 def handleThreeAxisEvent(evt) {
     def eventType = 'threeAxis'
-    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleThreeAxisEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
@@ -562,7 +562,7 @@ def handleThreeAxisEvent(evt) {
 def handleHubStatus(evt) {
     if (evt.value == 'active' || evt.value == 'disconnected') {
         def eventType = 'hubStatus'
-        logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+        logger("handleHubStatus(): $evt.displayName ($evt.name) $evt.value","info")
 
         def eventTime = evt.date.time // get event time
 
@@ -595,7 +595,7 @@ def handleHubStatus(evt) {
 
 def handleDaylight(evt) {
     def eventType = 'daylight'
-    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleDaylight(): $evt.displayName ($evt.name) $evt.value","info")
 
     def eventTime = evt.date.time // get event time
 

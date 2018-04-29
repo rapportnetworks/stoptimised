@@ -325,7 +325,7 @@ def handleDaylight(evt) {
 }
 
 def handleEvent(evt, eventType) {
-    logger("handleEvent(): $eventType event $evt.label ($evt.name) $evt.value","info")
+    logger("handleEvent(): $eventType event $evt.displayName ($evt.name) $evt.value","info")
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
@@ -376,10 +376,10 @@ def handleEvent(evt, eventType) {
 
     if (eventType == 'state' || eventType == 'value' || eventType == 'threeAxis') {
         tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.label.replaceAll(' ', '\\\\ ')}")
+        tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
         tags.append(",event=${evt.name}")
         tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.label.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+        tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
     }
 
     else if (eventType == 'daylight') {
@@ -427,7 +427,7 @@ def handleEvent(evt, eventType) {
         def nowStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
         def nowStateBinary = (stateLevel > 0) ? 'true' : 'false'
         fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel}i,nState=\"${evt.value}\"")
-        fields.append(",nText=\"${state.hubLocationText}${evt.label} is ${evt.value} in ${deviceGroup}.\"")
+        fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup}.\"")
 
         def prevStateLevel = states.find { it.key == prevEvent.value }.value // append previous (p) state values
         def prevStateBinary = (prevStateLevel > 0) ? 'true' : 'false'

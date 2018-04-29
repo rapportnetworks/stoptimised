@@ -764,9 +764,9 @@ def pollLocation() {
 
     data.append(",portTCP=${h.localSrvPortTCP}i")
 
-    data.append(",sunrise=${times.sunrise.date.time}i")
+    data.append(",sunrise=${times.sunrise.time}i")
 
-    data.append(",sunset=${times.sunset.date.time}i")
+    data.append(",sunset=${times.sunset.time}i")
 
     data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}i")
 

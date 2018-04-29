@@ -743,7 +743,7 @@ def pollLocation() {
 
     data.append(",hubType=${h.type}")
 
-    data.append( h.hub.getDataValue("batteryInUse") ? ',onBattery=true' : ',onBattery=false' )
+    data.append( h.hub.getDataValue("batteryInUse") == 'true' ? ',onBattery=true' : ',onBattery=false' ) // *** check this out
 
 // location.timeZone - requires location enabled in mobile app ??
 // location.timeZone.ID
@@ -756,7 +756,7 @@ def pollLocation() {
 
     data.append(",hubIP=\"${h.localIP}\"")
 
-    data.append(",hubUptime=\"${h.hub.getDataValue("uptime")}\"")
+    data.append(",hubUptime=${h.hub.getDataValue("uptime")}")
 
     data.append(",latitude=${location.latitude}")
 
@@ -764,13 +764,13 @@ def pollLocation() {
 
     data.append(",portTCP=${h.localSrvPortTCP}i")
 
-    data.append(",sunrise=${times.sunrise}i")
+    data.append(",sunrise=${times.sunrise.date.time}i")
 
-    data.append(",sunset=${times.sunset}i")
+    data.append(",sunset=${times.sunset.date.time}i")
 
-    data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}")
+    data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}i")
 
-    data.append(",zwavePowerLevel=${h.hub.getDataValue("zwavePowerLevel")}")
+    data.append(",zwavePowerLevel=\"${h.hub.getDataValue("zwavePowerLevel")}\"")
 
     def rp = 'metadata'
     postToInfluxDB(data.toString(), rp)

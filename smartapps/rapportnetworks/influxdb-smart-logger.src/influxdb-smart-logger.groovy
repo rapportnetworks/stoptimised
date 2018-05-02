@@ -314,7 +314,7 @@ def handleStateEvent(evt) {
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?.deviceGroupId
+        deviceGroup = state?.groupNames?."${deviceGroupId}"
     }
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
@@ -391,7 +391,7 @@ def handleValueEvent(evt) {
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?.deviceGroupId
+        deviceGroup = state?.groupNames?."${deviceGroupId}"
     }
 
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
@@ -487,7 +487,7 @@ def handleThreeAxisEvent(evt) {
 
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?.deviceGroupId
+        deviceGroup = state?.groupNames?."${deviceGroupId}"
     }
 
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
@@ -547,7 +547,7 @@ def handleHubStatus(evt) {
         def nowStateBinary = (evt.value == 'connected') ? 'true' : 'false'
         def nowStateLevel = (evt.value == 'connected') ? '1i' : '-1i'
         fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel},nState=\"${evt.value}\"")
-        fields.append(",nText=${state.hubLocationText}hub is ${evt.value}.\"")
+        fields.append(",nText=\"${state.hubLocationText}hub is ${evt.value}.\"")
         fields.append(",timestamp=${eventTime}i")
 
         tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp

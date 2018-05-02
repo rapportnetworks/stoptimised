@@ -344,7 +344,9 @@ def handleStateEvent(evt) {
 
     def prevTime = (eventTime - prevEventTime)
     def prevTimeText = timeElapsedText(prevTime)
-    def midnight = evt.date.clone().clearTime().time.inDaylightTime() // get epoch time at start of day
+
+    def dst = (TimeZone.getDefault().inDaylightTime(evt.date)) ? 1000*60*60 : 0
+    def midnight = evt.date.clone().clearTime().time + dst
 
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
@@ -414,7 +416,9 @@ def handleValueEvent(evt) {
 
     def prevTime = (eventTime - prevEventTime)
     def prevTimeText = timeElapsedText(prevTime)
-    def midnight = evt.date.clone().clearTime().time.inDaylightTime() // get epoch time at start of day
+
+    def dst = (TimeZone.getDefault().inDaylightTime(evt.date)) ? 1000*60*60 : 0
+    def midnight = evt.date.clone().clearTime().time + dst
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit

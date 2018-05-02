@@ -306,40 +306,32 @@ def handleStateEvent(evt) {
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
-    def prevEvents
-    def prevEvent
-    def prevEventTime
-
     def offsetTime // offset to compensate for PIR reset Time
-
-    def prevTime
-    def prevTimeText
-    def midnight // epoch time at start of day
-
-    def deviceName
     def deviceGroup = 'unassigned'
     def deviceGroupId = 'unassigned'
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
-    deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?.deviceGroupId
     }
+    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
+
     tags.append(state.hubLocationDetails) // Add hub tags
     tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
 
-
     def fields = new StringBuilder() // populate initial fields set
-    prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
-    prevEventTime = prevEvent.date.time
+    def prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
+    def prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
+    def prevEventTime = prevEvent.date.time
 
     if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt?.data) { // adjust timestamp of "inactive" status to compensate for PIRresetTime
         def eventData = parseJson(evt.data)
@@ -350,9 +342,9 @@ def handleStateEvent(evt) {
         }
     }
 
-    prevTime = (eventTime - prevEventTime)
-    prevTimeText = timeElapsedText(prevTime)
-    midnight = evt.date.clone().clearTime().time // get epoch time at start of day
+    def prevTime = (eventTime - prevEventTime)
+    def prevTimeText = timeElapsedText(prevTime)
+    def midnight = evt.date.clone().clearTime().time.inDaylightTime() // get epoch time at start of day
 
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
@@ -388,52 +380,41 @@ def handleValueEvent(evt) {
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
-    def prevEvents
-    def prevEvent
-    def prevEventTime
-
-    def prevTime
-    def prevTimeText
-    def midnight // epoch time at start of day
-
-    def deviceName
     def deviceGroup = 'unassigned'
     def deviceGroupId = 'unassigned'
-
     def nowValue
     def prevValue
-    def change
-    def changeText
-    def unit // variable for event measurement unit
-    def rounding // number of decimal places to round measurement value etc
-
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
-    deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?.deviceGroupId
     }
+
+    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
+
     tags.append(state.hubLocationDetails) // Add hub tags
     tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
-    unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit // set here, but included in tag set
+    def unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit // set here, but included in tag set
     if (unit) tags.append(",unit=${unit}") // Add unit tag
 
 
     def fields = new StringBuilder() // populate initial fields set
-    prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
-    prevEventTime = prevEvent.date.time
+    def prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
+    def prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
+    def prevEventTime = prevEvent.date.time
 
-    prevTime = (eventTime - prevEventTime)
-    prevTimeText = timeElapsedText(prevTime)
-    midnight = evt.date.clone().clearTime().time // get epoch time at start of day
+    def prevTime = (eventTime - prevEventTime)
+    def prevTimeText = timeElapsedText(prevTime)
+    def midnight = evt.date.clone().clearTime().time.inDaylightTime() // get epoch time at start of day
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
@@ -441,7 +422,6 @@ def handleValueEvent(evt) {
     fields.append(",eventId=\"${evt.id}\"")
 
     def trimLength
-
     if (evt.value.isNumber()) {
         nowValue = evt.floatValue
         prevValue = prevEvent.floatValue
@@ -454,10 +434,9 @@ def handleValueEvent(evt) {
         prevValue = prevEvent.value.substring(0, lengthPrev - trimLength).toFloat()
     }
 
-    change =  nowValue - prevValue // calculate change from previous value
+    def change =  nowValue - prevValue // calculate change from previous value
 
-    rounding = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
-
+    def rounding = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
     if (rounding > 0) {
         nowValue = nowValue.round(rounding)
         prevValue = prevValue.round(rounding)
@@ -469,8 +448,7 @@ def handleValueEvent(evt) {
         change = change.round()
     }
 
-    // get text description of change
-    changeText = 'unchanged'
+    def changeText = 'unchanged' // get text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
     fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nowValue} ${unit} in ${deviceGroup}.\"") // append current (now:n) event value
@@ -499,39 +477,16 @@ def handleThreeAxisEvent(evt) {
 
     def writeTime = new Date() // time of processing event
     def eventTime = evt.date.time // get event time
-    def prevEvents
-    def prevEvent
-    def prevEventTime
-
-    def prevTime
-    def prevTimeText
-    def midnight // epoch time at start of day
-
-    def deviceName
     def deviceGroup = 'unassigned'
     def deviceGroupId = 'unassigned'
-
-    def nowValue
-    def prevValue
-    def change
-    def changeText
-    def unit // variable for event measurement unit
-    def rounding // number of decimal places to round measurement value etc
-
-    prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
-    prevEventTime = prevEvent.date.time
-
-    prevTime = (eventTime - prevEventTime)
-    prevTimeText = timeElapsedText(prevTime)
-    midnight = evt.date.clone().clearTime().time // get epoch time at start of day
-
-    deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
 
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?.deviceGroupId
     }
+
+    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
     tags.append(state.hubLocationDetails) // Add hub tags
@@ -539,10 +494,11 @@ def handleThreeAxisEvent(evt) {
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifier=${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}") // Create composite identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
-    unit = 'g'
+    def unit = 'g'
     if (unit) tags.append(",unit=${unit}") // Add unit tag
 
     def fields = new StringBuilder() // populate initial fields set
@@ -568,13 +524,16 @@ def handleHubStatus(evt) {
 
         def eventTime = evt.date.time // get event time
 
+        def identifier = "House\\ .\\ Hub" // create local identifier
+
         def tags = new StringBuilder() // Create InfluxDB line protocol
         tags.append(state.hubLocationDetails) // Add hub tags
         tags.append(',chamber=House')
         tags.append(',deviceLabel=hub') // needed ??
         tags.append(',event=hubStatus')
         tags.append(',eventType=state')
-        tags.append(',identifier=House\\ .\\ hubStatus')
+        tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+        tags.append(",identifierLocal=${identifier}")
         tags.append(",isChange=${evt?.isStateChange}")
         tags.append(",source=${evt.source}")
 
@@ -601,13 +560,16 @@ def handleDaylight(evt) {
 
     def eventTime = evt.date.time // get event time
 
+    def identifier = "House\\ .\\ Daylight" // create local identifier
+
     def tags = new StringBuilder() // Create InfluxDB line protocol
     tags.append(state.hubLocationDetails) // Add hub tags
     tags.append(',chamber=House')
     tags.append(',deviceLabel=day') // needed ??
     tags.append(',event=daylight')
     tags.append(',eventType=state')
-    tags.append(',identifier=House\\ .\\ daylight')
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
 
@@ -652,7 +614,7 @@ def pollAttributes() {
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 data.append(",eventType=${type}")
 
-                if (state?.groupNames?.(dev.device?.groupId)) data.append(",identifier=${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                if (state?.groupNames?.(dev.device?.groupId)) data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
                 daysElapsed = daysElapsed.toDouble().trunc().round()
@@ -689,7 +651,7 @@ def pollZwaveDevices() {
                 data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                if (state?.groupNames?.(dev?.device.groupId)) data.append(",identifier=${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                if (state?.groupNames?.(dev?.device.groupId)) data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
 
                 data.append(',type=zwave')
 
@@ -789,10 +751,8 @@ def removeUnit(stringUnit) {
  *****************************************************************************************************************/
 
 def hubLocationDetails() {
-//    state.hubLocationRef = "${location.name.replaceAll(' ', '\\\\ ')}.${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
-
     state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}" // tags: area,areaId,building,buildingId
-
+    state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
     state.hubLocationText = "At ${location.name}, in building ${location.hubs[0].name}, "
 }
 
@@ -809,11 +769,10 @@ def postToInfluxDB(data, rp) {
             null,
             [ callback: handleInfluxResponse ]
             )
-
-        sendHubCommand(hubAction)
+            sendHubCommand(hubAction)
         }
         catch (Exception e) {
-        logger("postToInfluxDB(): Exception ${e} on ${hubAction}","error")
+            logger("postToInfluxDB(): Exception ${e} on ${hubAction}","error")
         }
     }
 
@@ -917,22 +876,9 @@ private manageSubscriptions() { // Configures subscriptions
             groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
             if (groupId) state.groupNames << [(groupId): groupName]
         }
-/*
-        def deviceId // is this array really needed ??
-        def deviceName
-        def deviceGroupId
-        def deviceGroup
-        getSelectedDevices()?.each  {
-            deviceId = it.id
-            deviceName = it.name.replaceAll(' ', '\\\\ ')
-            deviceGroupId = it.device?.groupId
-            deviceGroup = state.groupNames?."${deviceGroupId}"
-            if (deviceGroupId) state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: deviceGroup, deviceGroupId: deviceGroupId]]
-            else state.deviceGroup << [(deviceId): [deviceName: deviceName, deviceGroup: 'unassigned', deviceGroupId: 'unassigned']]
-        }
-*/
     }
 }
+
 
 private logger(msg, level = "debug") { // Wrapper function for all logging
     switch(level) {

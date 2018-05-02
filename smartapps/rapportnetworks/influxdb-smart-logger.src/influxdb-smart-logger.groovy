@@ -418,7 +418,7 @@ def handleValueEvent(evt) {
     def prevTimeText = timeElapsedText(prevTime)
 
 //    def dst = (TimeZone.getDefault().inDaylightTime(evt.date)) ? 1000*60*60 : 0
-    def dst = getDaylightSavingsOffset(eventTime)
+    def dst = getDaylightSavingsOffset(evt.date)
     logger("DaylightSavingsOffset: ${dst}","info")
     def midnight = evt.date.clone().clearTime().time + dst
 

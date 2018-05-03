@@ -302,16 +302,13 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 
 def handleStateEvent(evt) {
     def eventType = 'state'
-    logger("handleStateEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
-    def writeTime = new Date() // time of processing event
-    def eventTime = evt.date.time // get event time
-    def offsetTime // offset to compensate for PIR reset Time
-    def deviceGroup = 'unassigned'
-    def deviceGroupId = 'unassigned'
+    logger("handleStateEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceGroup = 'unassigned'
+    def deviceGroupId = 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?."${deviceGroupId}"
@@ -329,44 +326,46 @@ def handleStateEvent(evt) {
     tags.append(",source=${evt.source}")
 
     def fields = new StringBuilder() // populate initial fields set
-    def prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    def prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
-    def prevEventTime = prevEvent.date.time
+    def eventTime = evt.date.time // get event time
+    def midnight = evt.date.clone().clearTime().time
+    def writeTime = new Date() // time of processing event
+    def pEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
+    def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
+    def pEventTime = pEvent.date.time
 
+    def offsetTime // offset to compensate for PIR reset Time
     if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt?.data) { // adjust timestamp of "inactive" status to compensate for PIRresetTime
         def eventData = parseJson(evt.data)
         if (eventData?.PIRresetTime) {
             offsetTime = 1000 * eventData.PIRresetTime / 2
             if (evt.value == 'inactive') eventTime -= offsetTime
-            if (prevEvent.value == 'inactive') prevEventTime -= offsetTime
+            if (pEvent.value == 'inactive') pEventTime -= offsetTime
         }
     }
 
-    def prevTime = (eventTime - prevEventTime)
-    def prevTimeText = timeElapsedText(prevTime)
-
-    def midnight = evt.date.clone().clearTime().time
+    def pTime = (eventTime - pEventTime)
+    def pTimeText = timeElapsedText(pTime)
 
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
 
     def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
-    def nowStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
-    def nowStateBinary = (stateLevel > 0) ? 'true' : 'false'
-    fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel}i,nState=\"${evt.value}\"")
+    def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
+    def nStateBinary = (stateLevel > 0) ? 'true' : 'false'
+    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
     fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup}.\"")
 
-    def prevStateLevel = states.find { it.key == prevEvent.value }.value // append previous (p) state values
-    def prevStateBinary = (prevStateLevel > 0) ? 'true' : 'false'
-    fields.append(",pBinary=${prevStateBinary},pLevel=${prevStateLevel}i,pState=\"${prevEvent.value}\"")
-    fields.append(",pText=\"This is a change from ${prevEvent.value} ${prevTimeText}.\"")
+    def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
+    def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
+    fields.append(",pBinary=${pStateBinary},pLevel=${pStateLevel}i,pState=\"${pEvent.value}\"")
+    fields.append(",pText=\"This is a change from ${pEvent.value} ${pTimeText}.\"")
 
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${prevTime}i,tElapsedText=\"${prevTimeText}\"") // append time of previous(p) state values
+    fields.append(",tElapsed=${pTime}i,tElapsedText=\"${pTimeText}\"") // append time of previous(p) state values
     fields.append(",timestamp=${eventTime}i")
     if (offsetTime) fields.append(",tOffset=${offsetTime}i") // append offsetTime for motion sensor
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wLevel=${prevStateLevel * prevTime}i") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wLevel=${pStateLevel * pTime}i") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'states')
@@ -377,22 +376,17 @@ def handleStateEvent(evt) {
 
 def handleValueEvent(evt) {
     def eventType = 'value'
-    logger("handleValueEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
-    def writeTime = new Date() // time of processing event
-    def eventTime = evt.date.time // get event time
-    def deviceGroup = 'unassigned'
-    def deviceGroupId = 'unassigned'
-    def nowValue
-    def prevValue
+    logger("handleValueEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceGroup = 'unassigned'
+    def deviceGroupId = 'unassigned'
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?."${deviceGroupId}"
     }
-
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
     tags.append(state.hubLocationDetails) // Add hub tags
@@ -405,66 +399,70 @@ def handleValueEvent(evt) {
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
     def unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit // set here, but included in tag set
+    if (evt.name == 'temperature') unit = unit.replaceAll('\u00B0', '') // remove circle from C unit
     if (unit) tags.append(",unit=${unit}") // Add unit tag
 
-
     def fields = new StringBuilder() // populate initial fields set
-    def prevEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    def prevEvent = (eventTime > prevEvents[1].date.time) ? prevEvents[1] : prevEvents[2]
-    def prevEventTime = prevEvent.date.time
-
-    def prevTime = (eventTime - prevEventTime)
-    def prevTimeText = timeElapsedText(prevTime)
-
+    def eventTime = evt.date.time // get event time
     def midnight = evt.date.clone().clearTime().time
+    def writeTime = new Date() // time of processing event
+    def pEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
+    def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
+    def pEventTime = pEvent.date.time
+
+    def pTime = (eventTime - pEventTime)
+    def pTimeText = timeElapsedText(pTime)
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
     fields.append("eventDescription=\"${description}\"")
     fields.append(",eventId=\"${evt.id}\"")
 
+    def nValue
+    def pValue
+
     def trimLength
     if (evt.value.isNumber()) {
-        nowValue = evt.floatValue
-        prevValue = prevEvent.floatValue
+        nValue = evt.floatValue
+        pValue = pEvent.floatValue
     }
     else {
         trimLength = removeUnit(evt.value)
-        def lengthNow = evt.value.length()
-        def lengthPrev = prevEvent.value.length()
-        nowValue = evt.value.substring(0, lengthNow - trimLength).toFloat()
-        prevValue = prevEvent.value.substring(0, lengthPrev - trimLength).toFloat()
+        def nLength = evt.value.length()
+        def pLength = pEvent.value.length()
+        nValue = evt.value.substring(0, nLength - trimLength).toFloat()
+        pValue = pEvent.value.substring(0, pLength - trimLength).toFloat()
     }
 
-    def change =  nowValue - prevValue // calculate change from previous value
+    def change =  nValue - pValue // calculate change from previous value
 
     def rounding = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
     if (rounding > 0) {
-        nowValue = nowValue.round(rounding)
-        prevValue = prevValue.round(rounding)
+        nValue = nValue.round(rounding)
+        pValue = pValue.round(rounding)
         change = change.round(rounding)
     }
     else if (rounding == 0) {
-        nowValue = nowValue.round()
-        prevValue = prevValue.round()
+        nValue = nValue.round()
+        pValue = pValue.round()
         change = change.round()
     }
 
     def changeText = 'unchanged' // get text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nowValue} ${unit} in ${deviceGroup}.\"") // append current (now:n) event value
-    fields.append(",nValue=${nowValue}")
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue} ${unit} in ${deviceGroup}.\"") // append current (now:n) event value
+    fields.append(",nValue=${nValue}")
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")
-    fields.append(" compared to ${prevTimeText}.\"")
-    fields.append(",pValue=${prevValue}")
+    fields.append(" compared to ${pTimeText}.\"")
+    fields.append(",pValue=${pValue}")
     fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${prevTime}i,tElapsedText=\"${prevTimeText}\"") // append time of previous event value
+    fields.append(",tElapsed=${pTime}i,tElapsedText=\"${pTimeText}\"") // append time of previous event value
     fields.append(",timestamp=${eventTime}i")
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wValue=${prevValue * prevTime}") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wValue=${pValue * pTime}") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')
@@ -475,19 +473,16 @@ def handleValueEvent(evt) {
 
 def handleThreeAxisEvent(evt) {
     def eventType = 'threeAxis'
+
     logger("handleThreeAxisEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
-    def writeTime = new Date() // time of processing event
-    def eventTime = evt.date.time // get event time
+    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     def deviceGroup = 'unassigned'
     def deviceGroupId = 'unassigned'
-    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-
     if (evt.device.device?.groupId) {
         deviceGroupId = evt.device.device.groupId
         deviceGroup = state?.groupNames?."${deviceGroupId}"
     }
-
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
@@ -504,6 +499,9 @@ def handleThreeAxisEvent(evt) {
     if (unit) tags.append(",unit=${unit}") // Add unit tag
 
     def fields = new StringBuilder() // populate initial fields set
+    def eventTime = evt.date.time // get event time
+    def writeTime = new Date() // time of processing event
+
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
     fields.append(",nText=\"threeAxis event\"")
@@ -522,9 +520,8 @@ def handleThreeAxisEvent(evt) {
 def handleHubStatus(evt) {
     if (evt.value == 'active' || evt.value == 'disconnected') {
         def eventType = 'hubStatus'
-        logger("handleHubStatus(): $evt.displayName ($evt.name) $evt.value","info")
 
-        def eventTime = evt.date.time // get event time
+        logger("handleHubStatus(): $evt.displayName ($evt.name) $evt.value","info")
 
         def identifier = "House\\ .\\ Hub" // create local identifier
 
@@ -540,11 +537,12 @@ def handleHubStatus(evt) {
         tags.append(",source=${evt.source}")
 
         def fields = new StringBuilder() // populate initial fields set
+        def eventTime = evt.date.time // get event time
         fields.append("eventDescription=\"${evt?.descriptionText}\"")
         fields.append(",eventId=\"${evt.id}\"")
-        def nowStateBinary = (evt.value == 'connected') ? 'true' : 'false'
-        def nowStateLevel = (evt.value == 'connected') ? '1i' : '-1i'
-        fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel},nState=\"${evt.value}\"")
+        def nStateBinary = (evt.value == 'connected') ? 'true' : 'false'
+        def nStateLevel = (evt.value == 'connected') ? '1i' : '-1i'
+        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
         fields.append(",nText=\"${state.hubLocationText}hub is ${evt.value}.\"")
         fields.append(",timestamp=${eventTime}i")
 
@@ -558,9 +556,8 @@ def handleHubStatus(evt) {
 
 def handleDaylight(evt) {
     def eventType = 'daylight'
-    logger("handleDaylight(): $evt.displayName ($evt.name) $evt.value","info")
 
-    def eventTime = evt.date.time // get event time
+    logger("handleDaylight(): $evt.displayName ($evt.name) $evt.value","info")
 
     def identifier = "House\\ .\\ Daylight" // create local identifier
 
@@ -572,17 +569,17 @@ def handleDaylight(evt) {
     tags.append(',eventType=state')
     tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
     tags.append(",identifierLocal=${identifier}")
-    tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
 
     def fields = new StringBuilder() // populate initial fields set
+    def eventTime = evt.date.time // get event time
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
-    def nowStateBinary = (evt.name == 'sunrise') ? 'true' : 'false'
-    def nowStateLevel = (evt.name == 'sunrise') ? '1i' : '-1i'
-    def nowStateText = (evt.name == 'sunrise') ? 'sun has risen' : 'sun has set'
-    fields.append(",nBinary=${nowStateBinary},nLevel=${nowStateLevel},nState=\"${evt.value}\"")
-    fields.append(",nText=\"At ${location.name}, building ${location.hubs[0].name}, ${nowStateText}.\"")
+    def nStateBinary = (evt.name == 'sunrise') ? 'true' : 'false'
+    def nStateLevel = (evt.name == 'sunrise') ? '1i' : '-1i'
+    def nStateText = (evt.name == 'sunrise') ? 'sun has risen' : 'sun has set'
+    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
+    fields.append(",nText=\"At ${location.name}, building ${location.hubs[0].name}, ${nStateText}.\"")
     fields.append(",timestamp=${eventTime}i")
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
@@ -704,7 +701,6 @@ def pollLocation() {
     data.append(",hubType=${h.type}")
     data.append( h.hub.getDataValue("batteryInUse") == 'true' ? ',onBattery=true' : ',onBattery=false' ) // *** check this out
     data.append(",timeZone=${location.timeZone.ID}")
-
     data.append(' ')
     data.append("firmwareVersion=\"${h.firmwareVersionString}\"")
     data.append(",hubIP=\"${h.localIP}\"")

@@ -286,7 +286,7 @@ def updated() { // runs when app settings are changed
     manageSchedules()
 
     runIn(30, pollLocation)
-    runIn(60, pollZwaveDevices)
+    runIn(60, pollDevices)
     runIn(90, pollAttributes)
 
 }
@@ -630,16 +630,16 @@ def pollAttributes() {
 }
 
 
-def pollZwaveDevices() {
-    logger("pollZwaveDevices()","trace")
+def pollDevices() {
+    logger("pollDevices()","trace")
     def data = new StringBuilder()
     def info
     getSelectedDevices()?.each  { dev ->
         info = dev?.getZwaveInfo().clone()
             if (info.containsKey("zw")) {
-                logger("pollZwaveDevices(): zWave report for device ${dev}","info")
+                logger("pollDevices(): zWave report for device ${dev}","info")
 
-                data.append('zwave') // measurement name
+                data.append('devices') // measurement name
                 data.append(state.hubLocationDetails) // Add hub tags
 
                 data.append(',chamber=').append( state?.groupNames?.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
@@ -815,9 +815,9 @@ private manageSchedules() {
     catch(e) { logger("manageSchedules(): Unschedule pollLocation failed!","error") }
     runEvery1Hour(pollLocation)
 
-    try { unschedule(pollZwaveDevices) }
-    catch(e) { logger("manageSchedules(): Unschedule pollZwaveDevices failed!","error") }
-    runEvery1Hour(pollZwaveDevices)
+    try { unschedule(pollDevices) }
+    catch(e) { logger("manageSchedules(): Unschedule pollDevices failed!","error") }
+    runEvery1Hour(pollDevices)
 
     try { unschedule(pollAttributes) }
     catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
@@ -1081,6 +1081,7 @@ private getAttributeDetail() { [
     smoke: [type: 'state', levels: [clear: -1, detected: 1, tested: 4]],
     sound: [type: 'state', levels: ['not detected': -1, detected: 1]],
     soundPressureLevel: [type: 'value', decimalPlaces: 2, unit: ''],
+    status: [type: 'state'], // need to change to new 'string' type
     steps: [type: 'value', decimalPlaces: 0, unit: ''],
     switch: [type: 'state', levels: [off: -1, on: 1]],
     tamper: [type: 'state', levels: [clear: -1, detected: 1]],

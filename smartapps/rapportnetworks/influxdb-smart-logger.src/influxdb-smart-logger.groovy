@@ -809,19 +809,19 @@ private manageSchedules() {
 
     try { unschedule(hubLocationDetails) }
     catch(e) { logger("manageSchedules(): Unschedule hubLocationDetails failed!","error") }
-    runEvery3Hours(hubLocationDetails)
+    runEvery1Hour(hubLocationDetails)
 
     try { unschedule(pollLocation) }
     catch(e) { logger("manageSchedules(): Unschedule pollLocation failed!","error") }
-    runEvery3Hours(pollLocation)
+    runEvery1Hour(pollLocation)
 
     try { unschedule(pollZwaveDevices) }
     catch(e) { logger("manageSchedules(): Unschedule pollZwaveDevices failed!","error") }
-    runEvery3Hours(pollZwaveDevices)
+    runEvery1Hour(pollZwaveDevices)
 
     try { unschedule(pollAttributes) }
     catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
-    runEvery3Hours(pollAttributes)
+    runEvery1Hour(pollAttributes)
 }
 
 private manageSubscriptions() { // Configures subscriptions

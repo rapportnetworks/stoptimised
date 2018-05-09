@@ -333,9 +333,8 @@ def handleStateEvent(evt) {
     def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
     def pEventTime = pEvent.date.time
 
-    def offsetTime
+    def offsetTime = 1000 * 10 / 2
     if (state.adjustInactiveTimestamp && evt.name == 'motion') { // adjust timestamp of "inactive" status to compensate for PIRresetTime
-        offsetTime = 1000 * 10 / 2
         if (evt.value == 'inactive') eventTime -= offsetTime
         if (pEvent.value == 'inactive') pEventTime -= offsetTime
     }
@@ -361,7 +360,7 @@ def handleStateEvent(evt) {
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
     fields.append(",tElapsed=${pTime}i,tElapsedText=\"${pTimeText}\"") // append time of previous(p) state values
     fields.append(",timestamp=${eventTime}i")
-    if (offsetTime) fields.append(",tOffset=${offsetTime}i") // append offsetTime for motion sensor
+    if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt.value == 'inactive') fields.append(",tOffset=${offsetTime}i") // append offsetTime for motion sensor
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
     fields.append(",wLevel=${pStateLevel * pTime}i") // append time (seconds) weighted value - to facilate calculating mean value
 

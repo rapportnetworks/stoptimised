@@ -350,8 +350,9 @@ def handleStateEvent(evt) {
     fields.append(",eventId=\"${evt.id}\"")
 
     def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
+
     def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
-    def nStateBinary = (stateLevel > 0) ? 'true' : 'false'
+    def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
     fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
     fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup}.\"")
 
@@ -540,9 +541,9 @@ def handleHubStatus(evt) {
         def eventTime = evt.date.time // get event time
         fields.append("eventDescription=\"${evt?.descriptionText}\"")
         fields.append(",eventId=\"${evt.id}\"")
-        def nStateBinary = (evt.value == 'connected') ? 'true' : 'false'
-        def nStateLevel = (evt.value == 'connected') ? '1i' : '-1i'
-        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
+        def nStateBinary = (evt.value == 'active') ? 'true' : 'false'
+        def nStateLevel = (evt.value == 'active') ? '1i' : '-1i'
+        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.name}\"")
         fields.append(",nText=\"${state.hubLocationText}hub is ${evt.value}.\"")
         fields.append(",timestamp=${eventTime}i")
 
@@ -569,6 +570,7 @@ def handleDaylight(evt) {
     tags.append(',eventType=state')
     tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
     tags.append(",identifierLocal=${identifier}")
+    tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
 
     def fields = new StringBuilder() // populate initial fields set

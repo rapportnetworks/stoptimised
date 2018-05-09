@@ -702,7 +702,6 @@ def pollLocation() {
     data.append(' ')
     data.append("firmwareVersion=\"${h.firmwareVersionString}\"")
     data.append(",hubIP=\"${h.localIP}\"")
-    data.append(",hubUptime=${h.hub.getDataValue("uptime")}")
     data.append(",latitude=${location.latitude}")
     data.append(",longitude=${location.longitude}")
     data.append(",portTCP=${h.localSrvPortTCP}i")

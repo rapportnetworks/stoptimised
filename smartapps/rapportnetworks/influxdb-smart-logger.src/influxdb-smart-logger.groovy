@@ -539,7 +539,7 @@ def handleHubStatus(evt) {
         fields.append(",eventId=\"${evt.id}\"")
         def nStateBinary = (evt.value == 'active') ? 'true' : 'false'
         def nStateLevel = (evt.value == 'active') ? '1i' : '-1i'
-        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.name}\"")
+        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
         fields.append(",nText=\"${state.hubLocationText}hub is ${evt.value}.\"")
         fields.append(",timestamp=${eventTime}i")
 
@@ -576,7 +576,7 @@ def handleDaylight(evt) {
     def nStateBinary = (evt.name == 'sunrise') ? 'true' : 'false'
     def nStateLevel = (evt.name == 'sunrise') ? '1i' : '-1i'
     def nStateText = (evt.name == 'sunrise') ? 'sun has risen' : 'sun has set'
-    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
+    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.name}\"")
     fields.append(",nText=\"At ${location.name}, building ${location.hubs[0].name}, ${nStateText}.\"")
     fields.append(",timestamp=${eventTime}i")
 

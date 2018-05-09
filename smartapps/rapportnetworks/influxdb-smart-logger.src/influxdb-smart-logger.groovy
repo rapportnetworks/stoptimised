@@ -333,8 +333,9 @@ def handleStateEvent(evt) {
     def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
     def pEventTime = pEvent.date.time
 
-    def offsetTime = 1000 * 10 / 2
+    def offsetTime
     if (state.adjustInactiveTimestamp && evt.name == 'motion') { // adjust timestamp of "inactive" status to compensate for PIRresetTime
+        offsetTime = 1000 * 10 / 2
         if (evt.value == 'inactive') eventTime -= offsetTime
         if (pEvent.value == 'inactive') pEventTime -= offsetTime
     }

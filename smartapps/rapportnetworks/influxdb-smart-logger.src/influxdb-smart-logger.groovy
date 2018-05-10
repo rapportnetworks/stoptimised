@@ -66,9 +66,9 @@ def mainPage() {
         section ("InfluxDB Database:") {
             input "prefDatabaseHost", "text", title: "Host", defaultValue: "data.sunnd.com", required: true
             input "prefDatabasePort", "text", title: "Port", defaultValue: "443", required: true
-            input "prefDatabaseName", "text", title: "Database Name", defaultValue: "rndemo2", required: true
-            input "prefDatabaseUser", "text", title: "Username", defaultValue: "thing", required: true
-            input "prefDatabasePass", "text", title: "Password", defaultValue: "wildfirepinkdog", required: true
+            input "prefDatabaseName", "text", title: "Database Name", defaultValue: "*", required: true
+            input "prefDatabaseUser", "text", title: "Username", defaultValue: "*", required: true
+            input "prefDatabasePass", "text", title: "Password", defaultValue: "*", required: true
         }
 
         section("System Monitoring:") {

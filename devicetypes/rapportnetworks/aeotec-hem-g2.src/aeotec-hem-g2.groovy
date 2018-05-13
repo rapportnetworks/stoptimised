@@ -220,7 +220,7 @@ def updated() {
 			if (it.num in (101..103)) { value = calcParamVal(it.key) }
 			else if (it.key.contains("Clamp") && !(it.key[-6..-1] in clamps)) { value = null }
 			else if (it.num == 3 || it.num == 13) {
-				if (settings."$it.key") {
+				if (settings."$it.key" == 'true') {
 					value = 1 as Integer
 					} else {
 					value = 0 as Integer

@@ -599,8 +599,15 @@ def pollAttributes() {
                 data.append('attributes') // measurement name
                 data.append(state.hubLocationDetails) // Add hub tags
 
-                data.append(',chamber=').append( state?.groupNames?.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
-                data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
+                def deviceGroup = 'unassigned'
+                def deviceGroupId = 'unassigned'
+                if (state?.groupNames?.(dev.device?.groupId)) {
+                    deviceGroupId = dev.device.groupId
+                    deviceGroup = state.groupNames."${deviceGroupId}"
+                }
+                def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
+
+                data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
 
                 data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceId=${dev.id}")
@@ -611,7 +618,8 @@ def pollAttributes() {
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 data.append(",eventType=${type}")
 
-                if (state?.groupNames?.(dev.device?.groupId)) data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${state?.groupNames.(dev.device?.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+                data.append(",identifierLocal=${identifier}")
 
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
                 daysElapsed = daysElapsed.toDouble().trunc().round()
@@ -640,15 +648,23 @@ def pollDevices() {
                 data.append('devices') // measurement name
                 data.append(state.hubLocationDetails) // Add hub tags
 
-                data.append(',chamber=').append( state?.groupNames?.(dev.device?.groupId) ? state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ') : 'unassigned' )
-                data.append(',chamberId=').append( dev.device?.groupId ? dev.device.groupId : 'unassigned' )
+                def deviceGroup = 'unassigned'
+                def deviceGroupId = 'unassigned'
+                if (state?.groupNames?.(dev.device?.groupId)) {
+                    deviceGroupId = dev.device.groupId
+                    deviceGroup = state.groupNames."${deviceGroupId}"
+                }
+                def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
+
+                data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
 
                 data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceId=${dev.id}")
                 data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                if (state?.groupNames?.(dev?.device.groupId)) data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${state.groupNames.(dev.device.groupId).replaceAll(' ', '\\\\ ')}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}") // Create unique composite identifier
+                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+                data.append(",identifierLocal=${identifier}")
 
                 data.append(',type=zwave')
 

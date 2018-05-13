@@ -23,7 +23,7 @@ metadata {
 		capability "Refresh"
 		capability "Health Check"
 		capability "Sensor"
-		
+
 		command "reset"
 		command "resetMeter"
 
@@ -219,7 +219,13 @@ def updated() {
 
 			if (it.num in (101..103)) { value = calcParamVal(it.key) }
 			else if (it.key.contains("Clamp") && !(it.key[-6..-1] in clamps)) { value = null }
-			else if (it.num == 3 || it.num == 13) { value = (settings."$it.key") ? 1 as Integer : 0 as Integer }
+			else if (it.num == 3 || it.num == 13) {
+				if (settings."$it.key") {
+					value = 1 as Integer
+					} else {
+					value = 0 as Integer
+					}
+				}
 			else { value = settings."$it.key" as Integer }
 
 			if (state."$it.key".value != value || state."$it.key".state == "notSynced") {

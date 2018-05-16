@@ -320,7 +320,7 @@ def handleStateEvent(evt) {
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}") // global identifier
     tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
@@ -391,7 +391,7 @@ def handleValueEvent(evt) {
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}") // global identifier
     tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
@@ -488,7 +488,7 @@ def handleThreeAxisEvent(evt) {
     tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     tags.append(",event=${evt.name}")
     tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}") // global identifier
     tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
@@ -528,7 +528,7 @@ def handleHubStatus(evt) {
         tags.append(',deviceLabel=hub') // needed ??
         tags.append(',event=hubStatus')
         tags.append(',eventType=state')
-        tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+        tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ hubStatus") // global identifier
         tags.append(",identifierLocal=${identifier}")
         tags.append(",isChange=${evt?.isStateChange}")
         tags.append(",source=${evt.source}")
@@ -564,7 +564,7 @@ def handleDaylight(evt) {
     tags.append(',deviceLabel=day') // needed ??
     tags.append(',event=daylight')
     tags.append(',eventType=state')
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ daylight") // global identifier
     tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
     tags.append(",source=${evt.source}")
@@ -618,7 +618,7 @@ def pollAttributes() {
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 data.append(",eventType=${type}")
 
-                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${attr}") // global identifier
                 data.append(",identifierLocal=${identifier}")
 
                 def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
@@ -663,7 +663,7 @@ def pollDevices() {
                 data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
+                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ device") // global identifier
                 data.append(",identifierLocal=${identifier}")
 
                 data.append(',type=zwave')
@@ -822,19 +822,19 @@ private manageSchedules() {
 
     try { unschedule(hubLocationDetails) }
     catch(e) { logger("manageSchedules(): Unschedule hubLocationDetails failed!","error") }
-    runEvery1Hour(hubLocationDetails)
+    runEvery3Hours(hubLocationDetails)
 
     try { unschedule(pollLocation) }
     catch(e) { logger("manageSchedules(): Unschedule pollLocation failed!","error") }
-    runEvery1Hour(pollLocation)
+    runEvery3Hours(pollLocation)
 
     try { unschedule(pollDevices) }
     catch(e) { logger("manageSchedules(): Unschedule pollDevices failed!","error") }
-    runEvery1Hour(pollDevices)
+    runEvery3Hours(pollDevices)
 
     try { unschedule(pollAttributes) }
     catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
-    runEvery1Hour(pollAttributes)
+    runEvery3Hours(pollAttributes)
 }
 
 private manageSubscriptions() { // Configures subscriptions

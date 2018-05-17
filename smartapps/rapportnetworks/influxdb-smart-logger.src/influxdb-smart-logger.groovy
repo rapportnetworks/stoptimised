@@ -350,7 +350,7 @@ def handleStateEvent(evt) {
     def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
     def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
     fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
-    fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup.replaceAll('\\', '')}.\"")
+    fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup.replaceAll('\\\\', '')}.\"")
 
     def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
     def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
@@ -448,7 +448,7 @@ def handleValueEvent(evt) {
     def changeText = 'unchanged' // get text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue} ${unit} in ${deviceGroup.replaceAll('\\', '')}.\"") // append current (now:n) event value
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
     fields.append(",nValue=${nValue}")
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")

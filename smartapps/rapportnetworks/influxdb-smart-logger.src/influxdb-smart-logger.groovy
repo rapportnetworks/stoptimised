@@ -589,7 +589,6 @@ def handleDaylight(evt) {
 
 def pollAttributes() {
     logger("pollAttributes()","trace")
-//    def data = new StringBuilder()
     def now = new Date()
     getSelectedDevices()?.each  { dev ->
         def data = new StringBuilder()
@@ -634,8 +633,6 @@ def pollAttributes() {
         def rp = 'metadata'
         postToInfluxDB(data.toString(), rp)
     }
-//    def rp = 'metadata'
-//    postToInfluxDB(data.toString(), rp)
 }
 
 

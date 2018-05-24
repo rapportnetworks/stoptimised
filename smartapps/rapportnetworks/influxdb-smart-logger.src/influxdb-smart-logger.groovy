@@ -589,9 +589,10 @@ def handleDaylight(evt) {
 
 def pollAttributes() {
     logger("pollAttributes()","trace")
-    def data = new StringBuilder()
+//    def data = new StringBuilder()
     def now = new Date()
     getSelectedDevices()?.each  { dev ->
+        def data = new StringBuilder()
         getDeviceAllowedAttrs(dev?.id)?.each { attr ->
             if (dev.latestState(attr)?.value != null) {
                 logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}","info")
@@ -630,9 +631,11 @@ def pollAttributes() {
                 data.append('\n')
             }
         }
+        def rp = 'metadata'
+        postToInfluxDB(data.toString(), rp)
     }
-    def rp = 'metadata'
-    postToInfluxDB(data.toString(), rp)
+//    def rp = 'metadata'
+//    postToInfluxDB(data.toString(), rp)
 }
 
 

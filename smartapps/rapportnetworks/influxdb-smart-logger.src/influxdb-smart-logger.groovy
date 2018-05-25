@@ -468,7 +468,7 @@ def handleValueEvent(evt) {
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')
     def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 15000 && evt.value == pEvent.value)) { // ignores repeated propagation of an event (time interval < 15 s)
+    if (!(timeElapsed < 15000 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 15 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
         logger("handleValueEvent(): Ignoring duplicate $evt.displayName ($evt.name) $evt.value","info")

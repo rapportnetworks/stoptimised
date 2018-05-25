@@ -367,7 +367,11 @@ def handleStateEvent(evt) {
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'states')
     def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 500 && evt.value == pEvent.value)) postToInfluxDB(tags.toString(), rp) // ignores repeated propagation of an event (time interval < 0.5 s)
+    if (!(timeElapsed < 500 && evt.value == pEvent.value)) { // ignores repeated propagation of an event (time interval < 0.5 s)
+        postToInfluxDB(tags.toString(), rp)
+    } else {
+        logger("handleStateEvent(): Ignoring duplicate $evt.displayName ($evt.name) $evt.value","info")
+    }
 }
 
 
@@ -464,7 +468,11 @@ def handleValueEvent(evt) {
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')
     def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 15000 && evt.value == pEvent.value)) postToInfluxDB(tags.toString(), rp) // ignores repeated propagation of an event (time interval < 15 s)
+    if (!(timeElapsed < 15000 && evt.value == pEvent.value)) { // ignores repeated propagation of an event (time interval < 15 s)
+        postToInfluxDB(tags.toString(), rp)
+    } else {
+        logger("handleValueEvent(): Ignoring duplicate $evt.displayName ($evt.name) $evt.value","info")
+    }
 }
 
 

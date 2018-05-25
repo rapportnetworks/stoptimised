@@ -340,6 +340,9 @@ def handleStateEvent(evt) {
     }
 
     def timeElapsed = (eventTime - pEventTime)
+
+    if (timeElapsed < 500 && evt.value == pEvent.value) break // ignores repeated propagation of an event (time interval < 0.5 s)
+
     def timeElapsedText = timeElapsedText(timeElapsed)
 
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
@@ -408,6 +411,9 @@ def handleValueEvent(evt) {
     def pEventTime = pEvent.date.time
 
     def timeElapsed = (eventTime - pEventTime)
+
+    if (timeElapsed < 15000 && evt.value == pEvent.value) break // ignores repeated propagation of an event (time interval < 15 s)
+
     def timeElapsedText = timeElapsedText(timeElapsed)
 
     def description = "${evt?.descriptionText}"

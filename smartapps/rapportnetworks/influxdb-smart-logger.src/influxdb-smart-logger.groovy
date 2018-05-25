@@ -339,8 +339,8 @@ def handleStateEvent(evt) {
         if (pEvent.value == 'inactive') pEventTime -= offsetTime
     }
 
-    def pTime = (eventTime - pEventTime)
-    def pTimeText = timeElapsedText(pTime)
+    def timeElapsed = (eventTime - pEventTime)
+    def timeElapsedText = timeElapsedText(timeElapsed)
 
     fields.append("eventDescription=\"${evt?.descriptionText}\"")
     fields.append(",eventId=\"${evt.id}\"")
@@ -355,14 +355,14 @@ def handleStateEvent(evt) {
     def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
     def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
     fields.append(",pBinary=${pStateBinary},pLevel=${pStateLevel}i,pState=\"${pEvent.value}\"")
-    fields.append(",pText=\"This is a change from ${pEvent.value} ${pTimeText}.\"")
+    fields.append(",pText=\"This is a change from ${pEvent.value} ${timeElapsedText}.\"")
 
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${pTime}i,tElapsedText=\"${pTimeText}\"") // append time of previous(p) state values
+    fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous(p) state values
     fields.append(",timestamp=${eventTime}i")
     if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt.value == 'inactive') fields.append(",tOffset=${offsetTime}i") // append offsetTime for motion sensor
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wLevel=${pStateLevel * pTime}i") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wLevel=${pStateLevel * timeElapsed}i") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'states')
@@ -407,8 +407,8 @@ def handleValueEvent(evt) {
     def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
     def pEventTime = pEvent.date.time
 
-    def pTime = (eventTime - pEventTime)
-    def pTimeText = timeElapsedText(pTime)
+    def timeElapsed = (eventTime - pEventTime)
+    def timeElapsedText = timeElapsedText(timeElapsed)
 
     def description = "${evt?.descriptionText}"
     if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
@@ -452,14 +452,14 @@ def handleValueEvent(evt) {
     fields.append(",nValue=${nValue}")
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")
-    fields.append(" compared to ${pTimeText}.\"")
+    fields.append(" compared to ${timeElapsedText}.\"")
     fields.append(",pValue=${pValue}")
     fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${pTime}i,tElapsedText=\"${pTimeText}\"") // append time of previous event value
+    fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous event value
     fields.append(",timestamp=${eventTime}i")
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wValue=${pValue * pTime}") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wValue=${pValue * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')

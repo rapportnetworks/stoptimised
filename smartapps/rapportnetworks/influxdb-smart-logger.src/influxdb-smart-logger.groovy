@@ -370,7 +370,7 @@ def handleStateEvent(evt) {
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) { // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
-        logger("handleStateEvent(): Ignoring duplicate $evt.displayName ($evt.name) $evt.value","info")
+        logger("handleStateEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value","info")
     }
 }
 
@@ -471,7 +471,7 @@ def handleValueEvent(evt) {
     if (!(timeElapsed < 15000 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 15 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
-        logger("handleValueEvent(): Ignoring duplicate $evt.displayName ($evt.name) $evt.value","info")
+        logger("handleValueEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value","info")
     }
 }
 

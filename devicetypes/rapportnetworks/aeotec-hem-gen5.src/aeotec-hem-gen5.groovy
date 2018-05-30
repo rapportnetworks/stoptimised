@@ -79,14 +79,6 @@ metadata {
 	}
 
 	preferences {
-		input (
-			title: "Aeotec Home Energy Meter Gen5 manual",
-			description: "Tap to view the manual.",
-			image: "http://aeotec.com/images/products/220/z-wave-home-energy-measure@2x.jpg",
-			url: "https://aeotec.freshdesk.com/helpdesk/attachments/6018901892",
-			element: "href"
-		)
-
 		parameterMap().each { param ->
 			if (param.num in (101..103)) {
 				input (
@@ -102,7 +94,6 @@ metadata {
 				getPrefsFor(param)
 			}
 		}
-
 		input ( name: "logging", title: "Logging", type: "boolean", required: false )
 	}
 }
@@ -111,15 +102,8 @@ def getPrefsFor(parameter) {
 	input (
 		title: "${parameter.num}. ${parameter.title}",
 		description: parameter.descr,
-		type: "paragraph",
-		element: "paragraph"
-	)
-	input (
 		name: parameter.key,
-		title: null,
-		// description: null,
 		type: parameter.type,
-		// options: parameter.options,
 		range: (parameter.min != null && parameter.max != null) ? "${parameter.min}..${parameter.max}" : null,
 		defaultValue: parameter.def,
 		required: false
@@ -476,21 +460,21 @@ private parameterMap() {[
 		descr: "Enable selective reporting only when power change reaches a certain threshold or percentage set in 4-11 below"],
 	[key: "thresholdHEM", num: 4, size: 2, type: "number", def: 5, min: 0, max: 60000, title: "HEM threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Whole HEM)\n0-60000 W"],
-	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 1 threshold",
+	[key: "thresholdClamp1", num: 5, size: 2, type: "number", def: 50, min: 0, max: 60000, title: "Clamp 1 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 1)\n0-60000 W"],
-	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 2 threshold",
+	[key: "thresholdClamp2", num: 6, size: 2, type: "number", def: 50, min: 0, max: 60000, title: "Clamp 2 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 2)\n0-60000 W"],
-	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: null, min: 0, max: 60000, title: "Clamp 3 threshold",
+	[key: "thresholdClamp3", num: 7, size: 2, type: "number", def: 50, min: 0, max: 60000, title: "Clamp 3 threshold",
 		descr: "Threshold change in wattage to induce a automatic report (Clamp 3)\n0-60000W"],
 	[key: "percentageHEM", num: 8, size: 1, type: "number", def: 5, min: 0, max: 100, title: "HEM percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Whole HEM)\n0-100%"],
-	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 1 percentage",
+	[key: "percentageClamp1", num: 9, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 1 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 1)\n0-100%"],
-	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 2 percentage",
+	[key: "percentageClamp2", num: 10, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 2 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 2)\n0-100%"],
-	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: null, min: 0, max: 100, title: "Clamp 3 percentage",
+	[key: "percentageClamp3", num: 11, size: 1, type: "number", def: 10, min: 0, max: 100, title: "Clamp 3 percentage",
 		descr: "Percentage change in wattage to induce a automatic report (Clamp 3)\n0-100%"],
-	[key: "crcReporting", num: 13, size: 1, type: "boolean", def: false, title: "CRC-16 reporting",
+	[key: "crcReporting", num: 13, size: 1, type: "boolean", def: true, title: "CRC-16 reporting",
 		descr: "Enable /disable reporting using CRC-16 Encapsulation Command"],
 	[key: "group1", num: 101, size: 4, type: "number", def: 2, min: 0, max: 4210702, title: null, descr: null],
 	[key: "group2", num: 102, size: 4, type: "number", def: 12, min: 0, max: 4210702, title: null, descr: null],

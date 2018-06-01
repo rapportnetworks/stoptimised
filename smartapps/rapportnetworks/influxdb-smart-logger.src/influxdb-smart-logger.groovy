@@ -329,8 +329,9 @@ def handleStateEvent(evt) {
     def eventTime = evt.date.time // get event time
     def midnight = evt.date.clone().clearTime().time
     def writeTime = new Date() // time of processing event
-    def pEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
+    def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
+    def pEvents = pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time }
+    def pEvent = pEvents.find { it.date.time < evt.date.time }
     def pEventTime = pEvent.date.time
 
     def offsetTime = 1000 * 10 / 2
@@ -407,8 +408,9 @@ def handleValueEvent(evt) {
     def eventTime = evt.date.time // get event time
     def midnight = evt.date.clone().clearTime().time
     def writeTime = new Date() // time of processing event
-    def pEvents = evt.device.statesSince("${evt.name}", writeTime - 7, [max: 3]) // get previous event
-    def pEvent = (eventTime > pEvents[1].date.time) ? pEvents[1] : pEvents[2]
+    def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
+    def pEvents = pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time }
+    def pEvent = pEvents.find { it.date.time < evt.date.time }
     def pEventTime = pEvent.date.time
 
     def timeElapsed = (eventTime - pEventTime)

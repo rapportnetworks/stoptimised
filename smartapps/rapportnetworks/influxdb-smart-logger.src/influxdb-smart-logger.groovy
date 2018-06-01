@@ -405,8 +405,8 @@ def handleValueEvent(evt) {
     def midnight = evt.date.clone().clearTime().time
     def writeTime = new Date() // time of processing event
     def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
-    def pEvents = pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time }
     def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
+    def pEvent = pEvents.find { it.date.time < evt.date.time }
     def pEventTime = pEvent.date.time
 
     def timeElapsed = (eventTime - pEventTime)

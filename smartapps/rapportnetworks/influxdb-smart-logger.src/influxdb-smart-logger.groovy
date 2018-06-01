@@ -258,9 +258,6 @@ def updated() { // runs when app settings are changed
     state.roomNameCapture = settings.prefRoomNameCapture
 
     state.groupNames = [:] // Initialise map of Group Ids and Group Names
-//    state.deviceGroup = [:] // Initialise map of Device Ids and Group Names
-
-//    state.hubLocationRef = "" // Define state variable to hold location and hub details
     state.hubLocationDetails = "" // Define state variable to hold location and hub details
     state.hubLocationText = ""
     hubLocationDetails() // generate hub location details
@@ -288,7 +285,6 @@ def updated() { // runs when app settings are changed
     runIn(30, pollLocation)
     runIn(60, pollDevices)
     runIn(90, pollAttributes)
-
 }
 
 /*****************************************************************************************************************
@@ -330,7 +326,7 @@ def handleStateEvent(evt) {
     def midnight = evt.date.clone().clearTime().time
     def writeTime = new Date() // time of processing event
     def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
-    def pEvents = pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time }
+    def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
     def pEvent = pEvents.find { it.date.time < evt.date.time }
     def pEventTime = pEvent.date.time
 
@@ -410,7 +406,7 @@ def handleValueEvent(evt) {
     def writeTime = new Date() // time of processing event
     def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
     def pEvents = pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time }
-    def pEvent = pEvents.find { it.date.time < evt.date.time }
+    def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
     def pEventTime = pEvent.date.time
 
     def timeElapsed = (eventTime - pEventTime)
@@ -470,7 +466,7 @@ def handleValueEvent(evt) {
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')
     def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 15000 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 15 s)
+    if (!(timeElapsed < 500 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
         logger("handleValueEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value","warn")

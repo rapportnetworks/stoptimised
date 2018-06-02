@@ -433,24 +433,13 @@ def handleValueEvent(evt) {
         pValue = pEvent.value.substring(0, pLength - trimLength).toFloat()
     }
 
-    def change =  nValue - pValue // calculate change from previous value
-
-    def rounding = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
-    if (rounding > 0) {
-        nValue = nValue.round(rounding)
-        pValue = pValue.round(rounding)
-        change = change.round(rounding)
-    }
-    else if (rounding == 0) {
-        nValue = nValue.round()
-        pValue = pValue.round()
-        change = change.round()
-    }
-
+    def decimalPlaces = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
+    def change =  nValue.round(decimalPlaces) - pValue.round(decimalPlaces) // calculate change from previous value
     def changeText = 'unchanged' // get text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
+
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.round(decimalPlaces)} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
     fields.append(",nValue=${nValue}")
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")

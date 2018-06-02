@@ -249,7 +249,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	state.lastbatt = now()
 	result << createEvent(map)
 	if (device.latestValue("powerSource") != "dc"){
-		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false, isStateChange: true) // *** added "isStateChange: true" to ensure value is propagated through ST system even if it hasn't changed)
+		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false) //, isStateChange: true) // *** added "isStateChange: true" to ensure value is propagated through ST system even if it hasn't changed)
 	}
 	result
 }
@@ -280,7 +280,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 		default:
 			map.descriptionText = cmd.toString()
 	}
-	map.isStateChange = true // *** added "isStateChange: true" to ensure above values are propagated through ST system even if they haven't changed
+//	map.isStateChange = true // *** added "isStateChange: true" to ensure above values are propagated through ST system even if they haven't changed
 	createEvent(map)
 }
 

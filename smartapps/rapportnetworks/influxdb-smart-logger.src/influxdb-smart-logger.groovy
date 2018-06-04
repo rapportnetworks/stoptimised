@@ -347,7 +347,7 @@ def handleStateEvent(evt) {
     def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
     def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
     fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
-    fields.append(",nText=\"${state.hubLocationText}${evt.displayName} is ${evt.value} in ${deviceGroup.replaceAll('\\\\', '')}.\"")
+    fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in ${deviceGroup.replaceAll('\\\\', '')}.\"")
 
     def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
     def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
@@ -419,32 +419,30 @@ def handleValueEvent(evt) {
 
     def nValue
     def pValue
-
+    def decimalPlaces = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
     def trimLength
-    if (evt.value.isNumber()) {
-        nValue = evt.floatValue
-        pValue = pEvent.floatValue
-    }
-    else {
+    try {
+        nValue = evt.numberValue.toBigDecimal()
+        pValue = pEvent.numberValue.toBigDecimal()
+    } catch (e) {
         trimLength = removeUnit(evt.value)
         def nLength = evt.value.length()
         def pLength = pEvent.value.length()
-        nValue = evt.value.substring(0, nLength - trimLength).toFloat()
-        pValue = pEvent.value.substring(0, pLength - trimLength).toFloat()
+        nValue = evt.value.substring(0, nLength - trimLength).toBigDecimal()
+        pValue = pEvent.value.substring(0, pLength - trimLength).toBigDecimal()
     }
 
-    def decimalPlaces = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
-    def change =  nValue.round(decimalPlaces) - pValue.round(decimalPlaces) // calculate change from previous value
-    def changeText = 'unchanged' // get text description of change
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
+    fields.append(",nValue=${nValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
+    fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
+    def change = nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value
+    def changeText = 'unchanged' // text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
-
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.round(decimalPlaces)} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
-    fields.append(",nValue=${nValue}")
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")
     fields.append(" compared to ${timeElapsedText}.\"")
-    fields.append(",pValue=${pValue}")
+    fields.append(",pValue=${pValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
     fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
     fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous event value
@@ -730,13 +728,13 @@ def pollLocation() {
 def timeElapsedText(time) {
     def phrase
     time = time / 1000
-    if (time < 60) phrase = Math.round(time / 1) + ' seconds previously'
-    else if (time < 90) phrase = Math.round(time / 60) + ' minute previously'
-    else if (time < 3600) phrase = Math.round(time / 60) + ' minutes previously'
-    else if (time < 5400) phrase = Math.round(time / 3600) + ' hour previously'
-    else if (time < 86400) phrase = Math.round(time / 3600) + ' hours previously'
-    else if (time < 129600) phrase = Math.round(time / 86400) + ' day previously'
-    else phrase = Math.round(time / 86400) + ' days previously'
+    if (time < 60) phrase = Math.round(time / 1) + ' seconds ago'
+    else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
+    else if (time < 3600) phrase = Math.round(time / 60) + ' minutes ago'
+    else if (time < 5400) phrase = Math.round(time / 3600) + ' hour ago'
+    else if (time < 86400) phrase = Math.round(time / 3600) + ' hours ago'
+    else if (time < 129600) phrase = Math.round(time / 86400) + ' day ago'
+    else phrase = Math.round(time / 86400) + ' days ago'
     return phrase
 }
 
@@ -759,7 +757,7 @@ def removeUnit(stringUnit) {
 def hubLocationDetails() {
     state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}" // tags: area,areaId,building,buildingId
     state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
-    state.hubLocationText = "At ${location.name}, in building ${location.hubs[0].name}, "
+    state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
 }
 
 def postToInfluxDB(data, rp) {
@@ -1065,9 +1063,9 @@ private getAttributeDetail() { [
     color: [type: 'value', decimalPlaces: 0, unit: '%'],
     consumableStatus: [type: 'state', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
     contact: [type: 'state', levels: [closed: -1, full: -1, flushing: 1, open: 1]],
-    current: [type: 'value', decimalPlaces: 3, unit: 'A'],
+    current: [type: 'value', decimalPlaces: 2, unit: 'A'],
     door: [type: 'state', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
-    energy: [type: 'value', decimalPlaces: 3, unit: 'kWh'],
+    energy: [type: 'value', decimalPlaces: 2, unit: 'kWh'],
     goal: [type: 'value', decimalPlaces: 0, unit: 'steps'],
     hue: [type: 'value', decimalPlaces: 0, unit: '%'],
     humidity: [type: 'value', decimalPlaces: 0, unit: '%'],
@@ -1078,7 +1076,7 @@ private getAttributeDetail() { [
     mute: [type: 'state', levels: [muted: -1, unmuted: 1]],
     optimisation: [type: 'state', levels: [inactive: -1, active: 1]],
     pH: [type: 'value', decimalPlaces: 1, unit: ''],
-    power: [type: 'value', decimalPlaces: 1, unit: 'W'],
+    power: [type: 'value', decimalPlaces: 0, unit: 'W'],
     powerFactor: [type: 'value', decimalPlaces: 2, unit: ''],
     powerSource: [type: 'state', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
     presence: [type: 'state', levels: ['not present': -1, present: 1]],
@@ -1093,14 +1091,14 @@ private getAttributeDetail() { [
     steps: [type: 'value', decimalPlaces: 0, unit: ''],
     switch: [type: 'state', levels: [off: -1, on: 1]],
     tamper: [type: 'state', levels: [clear: -1, detected: 1]],
-    temperature: [type: 'value', decimalPlaces: 1, unit: 'C'],
+    temperature: [type: 'value', decimalPlaces: 0, unit: 'C'],
     thermostatFanMode: [type: 'state', levels: [on: 1, circulate: 2, auto: 3]],
     thermostatMode: [type: 'state', levels: [cooling: -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
     thermostatOperatingState: [type: 'state', levels: [cooling: -4, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
     threeAxis: [type: 'threeAxis', decimalPlaces: 2, unit: 'g'],
     touch: [type: 'state', levels: [touched: 1]],
     ultravioletIndex: [type: 'value', decimalPlaces: 0, unit: ''],
-    voltage: [type: 'value', decimalPlaces: 1, unit: 'V'],
+    voltage: [type: 'value', decimalPlaces: 0, unit: 'V'],
     water: [type: 'state', levels: [dry: -1, wet: 1]],
     windowShade: [type: 'state', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
 ] }

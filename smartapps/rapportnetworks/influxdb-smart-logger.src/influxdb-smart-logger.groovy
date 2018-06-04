@@ -435,12 +435,12 @@ def handleValueEvent(evt) {
     fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
     fields.append(",nValue=${nValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
     fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
-    def change = nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value
+    def change = (nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value
     def changeText = 'unchanged' // text description of change
     if (change > 0) changeText = 'increased'
     else if (change < 0) changeText = 'decreased'
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
-    if (changeText != 'unchanged') fields.append(" by ${Math.abs(change)} ${unit}")
+    if (changeText != 'unchanged') fields.append(" by ${change.abs()} ${unit}")
     fields.append(" compared to ${timeElapsedText}.\"")
     fields.append(",pValue=${pValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
     fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value

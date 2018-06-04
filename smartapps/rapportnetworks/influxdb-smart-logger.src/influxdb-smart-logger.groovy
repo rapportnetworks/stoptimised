@@ -448,7 +448,7 @@ def handleValueEvent(evt) {
     fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous event value
     fields.append(",timestamp=${eventTime}i")
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wValue=${pValue * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wValue=${pValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN) * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')

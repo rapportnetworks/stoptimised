@@ -347,7 +347,7 @@ def handleStateEvent(evt) {
     def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
     def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
     fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
-    fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in ${deviceGroup.replaceAll('\\\\', '')}.\"")
+    fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in the ${deviceGroup.replaceAll('\\\\', '')}.\"")
 
     def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
     def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
@@ -432,7 +432,7 @@ def handleValueEvent(evt) {
         pValue = pEvent.value.substring(0, pLength - trimLength).toBigDecimal()
     }
 
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in the ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
     fields.append(",nValue=${nValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
     fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
     def change = (nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value

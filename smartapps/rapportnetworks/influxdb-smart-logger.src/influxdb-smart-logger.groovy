@@ -520,7 +520,7 @@ def handleHubStatus(evt) {
         tags.append(',chamber=House')
         tags.append(',deviceLabel=Hub')
         tags.append(',event=hubStatus')
-        tags.append(',eventType=state')
+        tags.append(",eventType=${eventType}")
         tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ hubStatus") // global identifier
         tags.append(",identifierLocal=${identifier}")
         tags.append(",isChange=${evt?.isStateChange}")
@@ -556,7 +556,7 @@ def handleDaylight(evt) {
     tags.append(',chamber=House')
     tags.append(',deviceLabel=Sun')
     tags.append(',event=daylight')
-    tags.append(',eventType=state')
+    tags.append(",eventType=${eventType}")
     tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ daylight") // global identifier
     tags.append(",identifierLocal=${identifier}")
     tags.append(",isChange=${evt?.isStateChange}")
@@ -659,8 +659,6 @@ def pollDevices() {
                 data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ device") // global identifier
                 data.append(",identifierLocal=${identifier}")
 
-                data.append(',type=zwave')
-
                 def power = info.zw.take(1)
                 switch(power) {
                     case "L":
@@ -684,6 +682,9 @@ def pollDevices() {
                 def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
                 info = toKeyValue(info) + ',' + "${ccSec}"
                 data.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
+
+                data.append(',type=zwave')
+
                 data.append(' ')
                 if (dev?.device.getDataValue("configuredParameters")) data.append(dev.device.getDataValue("configuredParameters")).append(',')
                 data.append(info)

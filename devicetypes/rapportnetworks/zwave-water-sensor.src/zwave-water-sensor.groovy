@@ -17,8 +17,8 @@
  */
 
 metadata {
-	definition(name: "Z-Wave Water Sensor", namespace: "smartthings", author: "SmartThings", ocfDeviceType: "x.com.st.d.sensor.moisture", runLocally: true, minHubCoreVersion: '000.017.0012', executeCommandsLocally: false) {
-		capability "Water Sensor"
+	definition(name: "Z-Wave Water Sensor Adapted", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.moisture") {
+		capability "Contact Sensor"
 		capability "Sensor"
 		capability "Battery"
 		capability "Health Check"
@@ -35,30 +35,50 @@ metadata {
 		status "wake up": "command: 8407, payload: "
 	}
 
+	preferences {
+		section {
+			input("deviceUse", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Flush"], defaultValue: "Bed", required: ture, displayDuringSetup: true)
+		}
+	}
+
 	tiles(scale: 2) {
-		multiAttributeTile(name: "water", type: "generic", width: 6, height: 4) {
-			tileAttribute("device.water", key: "PRIMARY_CONTROL") {
-				attributeState("dry", icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
-				attributeState("wet", icon: "st.alarm.water.wet", backgroundColor: "#00A0DC")
+		multiAttributeTile(name: "contact", type: "generic", width: 3, height: 3) {
+			tileAttribute("device.contact", key: "PRIMARY_CONTROL") {
+				attributeState("empty", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
+				attributeState("vacant", label: '${name}', icon: "st.presence.tile.not-present", backgroundColor: "#ffffff")
+				attributeState("full", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
+
+				attributeState("occupied", label: '${name}', icon: "st.presence.tile.present", backgroundColor: "#00A0DC")
+				attributeState("flushing", label: '${name}', icon: "st.alarm.water.wet", backgroundColor: "#00A0DC")
 			}
 		}
-		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-			state "battery", label: '${currentValue}% battery', unit: ""
+		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 3, height: 3) {
+			state "battery", label: '${currentValue} % battery', unit: ""
 		}
-
-		main "water"
-		details(["water", "battery"])
+		main "contact"
+		details(["contact", "battery"])
 	}
+}
+
+def updateDataValues() {
+	def open = [Bed: 'empty', Chair: 'vacant', Flush: 'full']
+	def closed = [Bed: 'occupied', Chair: 'occupied', Flush: 'flushing']
+	updateDataValue("deviceUse", deviceUse)
+	updateDataValue("event", 'contact')
+	updateDataValue("open", open."${deviceUse}")
+	updateDataValue("closed", closed."${deviceUse}")
 }
 
 def installed() {
 	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
 	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	updateDataValues()
 }
 
 def updated() {
 	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
 	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	updateDataValues()
 }
 
 private getCommandClassVersions() {
@@ -82,8 +102,8 @@ def parse(String description) {
 }
 
 def sensorValueEvent(value) {
-	def eventValue = value ? "wet" : "dry"
-	createEvent(name: "water", value: eventValue, descriptionText: "$device.displayName is $eventValue")
+	def eventValue = value ? "${getDataValue("closed")}" : "${getDataValue("open")}"
+	createEvent(name: 'contact', value: eventValue, descriptionText: "$device.displayName is $eventValue")
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {

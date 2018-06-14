@@ -17,7 +17,7 @@
  */
 
 metadata {
-	definition(name: "Z-Wave Water Sensor Adapted", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.moisture") {
+	definition(name: "Z-Wave Water Sensor Enhanced", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.moisture") {
 		capability "Contact Sensor"
 		capability "Sensor"
 		capability "Battery"

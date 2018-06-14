@@ -14,6 +14,8 @@
  *
  *  Author: SmartThings
  *  Date: 2013-03-05
+ *
+ *  Enhanced functionality added by Alasdair Thin, 2018-06-12
  */
 
 metadata {
@@ -24,7 +26,7 @@ metadata {
 		capability "Battery"
 		capability "Health Check"
 
-		atrtibute "composite", "string"
+		attribute "composite", "string"
 
 		fingerprint deviceId: '0xA102', inClusters: '0x30,0x9C,0x60,0x85,0x8E,0x72,0x70,0x86,0x80,0x84,0x7A'
 		fingerprint mfr: "021F", prod: "0003", model: "0085", deviceJoinName: "Dome Leak Sensor"
@@ -47,35 +49,36 @@ metadata {
 	tiles(scale: 2) {
 		multiAttributeTile(name: "composite", type: "generic", width: 6, height: 4) {
 			tileAttribute("device.composite", key: "PRIMARY_CONTROL") {
-				attributeState("empty", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
-				attributeState("vacant", label: '${name}', icon: "st.presence.tile.not-present", backgroundColor: "#ffffff")
-				attributeState("full", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
+				attributeState("dry", label: '${name}', icon:"st.contact.contact.open", backgroundColor: "#ffffff")
+				attributeState("empty", label: '${name}', icon:"st.contact.contact.open", backgroundColor: "#ffffff")
+				attributeState("vacant", label: '${name}', icon:"st.contact.contact.open", backgroundColor: "#ffffff")
+				attributeState("full", label: '${name}', icon:"st.contact.contact.open", backgroundColor: "#ffffff")
 
-				attributeState("occupied", label: '${name}', icon: "st.presence.tile.present", backgroundColor: "#00A0DC")
-				attributeState("flushing", label: '${name}', icon: "st.alarm.water.wet", backgroundColor: "#00A0DC")
+				attributeState("wet", label: '${name}', icon:"st.contact.contact.closed", backgroundColor: "#00a0dc")
+				attributeState("occupied", label: '${name}', icon:"st.contact.contact.closed", backgroundColor: "#00a0dc")
+				attributeState("flushing", label: '${name}', icon:"st.contact.contact.closed", backgroundColor: "#00a0dc")
+			}
+			tileAttribute("device.battery", key: "SECONDARY_CONTROL") {
+				attributeState("battery", label: '${currentValue} % battery', unit: "")
 			}
 		}
-		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 3, height: 3) {
-			state "battery", label: '${currentValue} % battery', unit: ""
-		}
-		main "composite"
-		details(["composite", "battery"])
 	}
 }
 
 def updateDataValues() {
-
 	def deviceStates = [
 		Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
 		Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
 		Flush: [event: 'contact', inactive: 'full', active: 'flushing'],
 		Water: [event: 'water', inactive: 'dry', active: 'wet']
 	]
-
+	def event = (deviceUse) ? deviceStates."${deviceUse}".event : 'water'
+	def inactive = (deviceUse) ? deviceStates."${deviceUse}".inactive : 'dry'
+	def active = (deviceUse) ? deviceStates."${deviceUse}".active : 'wet'
 	updateDataValue("deviceUse", deviceUse)
-	updateDataValue("event", deviceStates.get("${deviceUse.event}", 'water')
-	updateDataValue("inactive", deviceStates.get("${deviceUse.inactive}", 'dry')
-	updateDataValue("active", deviceStates.get("${deviceUse.active}", 'wet')
+	updateDataValue("event", event)
+	updateDataValue("inactive", inactive)
+	updateDataValue("active", active)
 }
 
 def installed() {

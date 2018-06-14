@@ -19,9 +19,12 @@
 metadata {
 	definition(name: "Z-Wave Water Sensor Enhanced", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.moisture") {
 		capability "Contact Sensor"
+		capability "Water Sensor"
 		capability "Sensor"
 		capability "Battery"
 		capability "Health Check"
+
+		atrtibute "composite", "string"
 
 		fingerprint deviceId: '0xA102', inClusters: '0x30,0x9C,0x60,0x85,0x8E,0x72,0x70,0x86,0x80,0x84,0x7A'
 		fingerprint mfr: "021F", prod: "0003", model: "0085", deviceJoinName: "Dome Leak Sensor"
@@ -37,13 +40,13 @@ metadata {
 
 	preferences {
 		section {
-			input("deviceUse", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Flush"], defaultValue: "Bed", required: ture, displayDuringSetup: true)
+			input("deviceUse", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Flush", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
 		}
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name: "contact", type: "generic", width: 3, height: 3) {
-			tileAttribute("device.contact", key: "PRIMARY_CONTROL") {
+		multiAttributeTile(name: "composite", type: "generic", width: 6, height: 4) {
+			tileAttribute("device.composite", key: "PRIMARY_CONTROL") {
 				attributeState("empty", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
 				attributeState("vacant", label: '${name}', icon: "st.presence.tile.not-present", backgroundColor: "#ffffff")
 				attributeState("full", label: '${name}', icon: "st.alarm.water.dry", backgroundColor: "#ffffff")
@@ -55,18 +58,24 @@ metadata {
 		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 3, height: 3) {
 			state "battery", label: '${currentValue} % battery', unit: ""
 		}
-		main "contact"
-		details(["contact", "battery"])
+		main "composite"
+		details(["composite", "battery"])
 	}
 }
 
 def updateDataValues() {
-	def open = [Bed: 'empty', Chair: 'vacant', Flush: 'full']
-	def closed = [Bed: 'occupied', Chair: 'occupied', Flush: 'flushing']
+
+	def deviceStates = [
+		Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
+		Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
+		Flush: [event: 'contact', inactive: 'full', active: 'flushing'],
+		Water: [event: 'water', inactive: 'dry', active: 'wet']
+	]
+
 	updateDataValue("deviceUse", deviceUse)
-	updateDataValue("event", 'contact')
-	updateDataValue("open", open."${deviceUse}")
-	updateDataValue("closed", closed."${deviceUse}")
+	updateDataValue("event", deviceStates.get("${deviceUse.event}", 'water')
+	updateDataValue("inactive", deviceStates.get("${deviceUse.inactive}", 'dry')
+	updateDataValue("active", deviceStates.get("${deviceUse.active}", 'wet')
 }
 
 def installed() {
@@ -102,8 +111,9 @@ def parse(String description) {
 }
 
 def sensorValueEvent(value) {
-	def eventValue = value ? "${getDataValue("closed")}" : "${getDataValue("open")}"
-	createEvent(name: 'contact', value: eventValue, descriptionText: "$device.displayName is $eventValue")
+	def eventValue = value ? "${getDataValue("active")}" : "${getDataValue("inactive")}"
+	createEvent(name: "${getDataValue("event")}", value: eventValue, descriptionText: "$device.displayName is $eventValue", display: false)
+	createEvent(name: 'composite', value: eventValue, descriptionText: "$device.displayName is $eventValue", display: true)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {

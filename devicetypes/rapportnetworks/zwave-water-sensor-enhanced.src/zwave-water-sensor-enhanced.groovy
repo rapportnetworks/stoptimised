@@ -30,6 +30,7 @@ metadata {
 
 		fingerprint deviceId: '0xA102', inClusters: '0x30,0x9C,0x60,0x85,0x8E,0x72,0x70,0x86,0x80,0x84,0x7A'
 		fingerprint mfr: "021F", prod: "0003", model: "0085", deviceJoinName: "Dome Leak Sensor"
+		fingerprint mfr: "0086", prod: "0002", model: "002D", deviceJoinName: "Water Sensor Enhanced Bed Chair Toilet"
 	}
 
 	simulator {
@@ -42,7 +43,7 @@ metadata {
 
 	preferences {
 		section {
-			input("deviceUse", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Flush", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
+			input("use", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Toilet", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
 		}
 	}
 
@@ -66,16 +67,16 @@ metadata {
 }
 
 def updateDataValues() {
-	def deviceStates = [
+	def useStates = [
 		Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
 		Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-		Flush: [event: 'contact', inactive: 'full', active: 'flushing'],
+		Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
 		Water: [event: 'water', inactive: 'dry', active: 'wet']
 	]
-	def event = (deviceUse) ? deviceStates."${deviceUse}".event : 'water'
-	def inactive = (deviceUse) ? deviceStates."${deviceUse}".inactive : 'dry'
-	def active = (deviceUse) ? deviceStates."${deviceUse}".active : 'wet'
-	updateDataValue("deviceUse", deviceUse)
+	def event = (use) ? useStates."${use}".event : 'water'
+	def inactive = (use) ? useStates."${use}".inactive : 'dry'
+	def active = (use) ? useStates."${use}".active : 'wet'
+	updateDataValue("use", use)
 	updateDataValue("event", event)
 	updateDataValue("inactive", inactive)
 	updateDataValue("active", active)

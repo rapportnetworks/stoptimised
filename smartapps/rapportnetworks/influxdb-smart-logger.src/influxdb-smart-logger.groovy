@@ -1064,7 +1064,7 @@ private getAttributeDetail() { [
     carbonMonoxide: [type: 'state', levels: [clear: -1, detected: 1, tested: 4]],
     color: [type: 'value', decimalPlaces: 0, unit: '%'],
     consumableStatus: [type: 'state', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
-    contact: [type: 'state', levels: [closed: -1, full: -1, flushing: 1, open: 1]],
+    contact: [type: 'state', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
     current: [type: 'value', decimalPlaces: 2, unit: 'A'],
     door: [type: 'state', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
     energy: [type: 'value', decimalPlaces: 2, unit: 'kWh'],

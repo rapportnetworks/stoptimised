@@ -116,7 +116,7 @@ def parse(String description) {
 
 def sensorValueEvent(value) {
 	def eventValue = value ? "${getDataValue("active")}" : "${getDataValue("inactive")}"
-	createEvent(name: "${getDataValue("event")}", value: eventValue, descriptionText: "$device.displayName is $eventValue", display: false)
+	createEvent(name: "${getDataValue("event")}", value: eventValue, descriptionText: "$device.displayName is $eventValue", display: true) // needs to be true for SmartApp logger?
 	createEvent(name: 'composite', value: eventValue, descriptionText: "$device.displayName is $eventValue", display: true)
 }
 

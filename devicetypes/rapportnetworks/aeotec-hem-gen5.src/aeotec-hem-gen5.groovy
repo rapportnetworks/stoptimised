@@ -29,6 +29,9 @@ metadata {
 
 		attribute "current", "number"
 		attribute "combinedMeter", "string"
+		attribute "reactiveEnergy", "number"
+		attribute "reactivePower", "number"
+		attribute "totalEnergy", "number"
 
 		fingerprint mfr: "0086", model: "005F"
 		fingerprint mfr: "0086", prod: "0002", model: "005F"
@@ -104,6 +107,7 @@ def getPrefsFor(parameter) {
 		description: parameter.descr,
 		name: parameter.key,
 		type: parameter.type,
+		options: parameter.options,
 		range: (parameter.min != null && parameter.max != null) ? "${parameter.min}..${parameter.max}" : null,
 		defaultValue: parameter.def,
 		required: false
@@ -304,9 +308,8 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 		case 2: type = "power"; unit = "W"; break;
 		case 4: type = "voltage"; unit = "V"; break;
 		case 5: type = "current"; unit = "A"; break;
-		case 6: type = "reactiveEnergy"; unit = "kVarh"; break;
-		case 7: type = "reactivePower"; unit = "kVar"; break; // ??? are 6 & 7 round right way?
-//		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
+		case 7: type = "reactivePower"; unit = "kVar"; break;
+		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
 	}
 	logging("${device.displayName} - MeterReport received, ep: ${((ep) ? ep:0)} value: ${cmd.scaledMeterValue} ${unit}", "info")
 	if (ep == null) {
@@ -503,9 +506,9 @@ private optionMap() {[
 	[key: "clamp1A", name: "Report Current (Amperes) of Clamp 1.", value: 524288, def: null],
 	[key: "clamp2A", name: "Report Current (Amperes) of Clamp 2.", value: 1048576, def: null],
 	[key: "clamp3A", name: "Report Current (Amperes) of Clamp 3.", value: 2097152, def: null],
-	[key: "clamp1KVarh", name: "Report KVarh of Clamp 1.", value: 16777216, def: null],
-	[key: "clamp2KVarh", name: "Report KVarh of Clamp 2.", value: 33554432, def: null],
-	[key: "clamp3KVarh", name: "Report KVarh of Clamp 3.", value: 67108864, def: null],
+	[key: "clamp1KVarh", name: "Report KVah of Clamp 1.", value: 16777216, def: null],
+	[key: "clamp2KVarh", name: "Report KVah of Clamp 2.", value: 33554432, def: null],
+	[key: "clamp3KVarh", name: "Report KVah of Clamp 3.", value: 67108864, def: null],
 	[key: "clamp1KVar", name: "Report kVar of Clamp 1.", value: 134217728, def: null],
 	[key: "clamp2KVar", name: "Report kVar of Clamp 2.", value: 268435456, def: null],
 	[key: "clamp3KVar", name: "Report kVar of Clamp 3.", value: 536870912, def: null]

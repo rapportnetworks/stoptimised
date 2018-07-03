@@ -304,8 +304,9 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 		case 2: type = "power"; unit = "W"; break;
 		case 4: type = "voltage"; unit = "V"; break;
 		case 5: type = "current"; unit = "A"; break;
-		case 7: type = "reactivePower"; unit = "kVar"; break;
-		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
+		case 6: type = "reactiveEnergy"; unit = "kVarh"; break;
+		case 7: type = "reactivePower"; unit = "kVar"; break; // ??? are 6 & 7 round right way?
+//		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
 	}
 	logging("${device.displayName} - MeterReport received, ep: ${((ep) ? ep:0)} value: ${cmd.scaledMeterValue} ${unit}", "info")
 	if (ep == null) {
@@ -449,13 +450,9 @@ private Map cmdVersions() {
 }
 
 private parameterMap() {[
-	//[key: "detectionMode", num: 2, size: 1, type: "enum", options: [
-	//	0: "0 - power, energy absolute value",
-	//	1: "1 - positive/negative power, algebraic sum energy",
-	//	2: "2 - positive/negative power, energy positive part",
-	//	3: "3 - positive/negative power, energy negative part"],
-	//	def: "0", title: "Power and Energy mode",
-	//	descr: "For parameters of 101 ~ 103, power, energy detection mode configuration"],
+	[key: "detectionMode", num: 2, size: 1, type: "enum", options: [0: "0 - power, energy absolute value", 1: "1 - positive/negative power, algebraic sum energy",
+		2: "2 - positive/negative power, energy positive part", 3: "3 - positive/negative power, energy negative part"], def: "0", title: "Power and Energy mode",
+		descr: "For parameters of 101 ~ 103, power, energy detection mode configuration"],
 	[key: "reportingThreshold", num: 3, size: 1, type: "boolean", def: true, title: "Reporting Threshold",
 		descr: "Enable selective reporting only when power change reaches a certain threshold or percentage set in 4-11 below"],
 	[key: "thresholdHEM", num: 4, size: 2, type: "number", def: 5, min: 0, max: 60000, title: "HEM threshold",
@@ -492,8 +489,8 @@ private optionMap() {[
 	[key: "hemW", name: "Report Watts of whole HEM.", value: 2, def:[101]],
 	[key: "hemV", name: "Report Voltage of whole HEM.", value: 4, def:[102]],
 	[key: "hemA", name: "Report Current (Amperes) of whole HEM.", value: 8, def:[102]],
-	//[key: "hemKVarh", name: "Report KVarh of whole HEM", value: 16, def: null], //Doesn't work
-	//[key: "hemkVar", name: "Report kVar of whole HEM", value: 32, def: null], //Doesn't work
+	[key: "hemKVarh", name: "Report KVarh of whole HEM", value: 16, def: null],
+	[key: "hemkVar", name: "Report kVar of whole HEM", value: 32, def: null],
 	[key: "clamp1W", name: "Report Watts of Clamp 1.", value: 256, def: null],
 	[key: "clamp2W", name: "Report Watts of Clamp 2.", value: 512, def: null],
 	[key: "clamp3W", name: "Report Watts of Clamp 3.", value: 1024, def: null],
@@ -506,10 +503,10 @@ private optionMap() {[
 	[key: "clamp1A", name: "Report Current (Amperes) of Clamp 1.", value: 524288, def: null],
 	[key: "clamp2A", name: "Report Current (Amperes) of Clamp 2.", value: 1048576, def: null],
 	[key: "clamp3A", name: "Report Current (Amperes) of Clamp 3.", value: 2097152, def: null],
-	//[key: "clamp1KVarh", name: "Report KVarh of Clamp 1.", value: 16777216, def: null], //Doesn't work
-	//[key: "clamp2KVarh", name: "Report KVarh of Clamp 2.", value: 33554432, def: null], //Doesn't work
-	//[key: "clamp3KVarh", name: "Report KVarh of Clamp 3.", value: 67108864, def: null], //Doesn't work
-	//[key: "clamp1KVar", name: "Report kVar of Clamp 1.", value: 134217728, def: null], //Doesn't work
-	//[key: "clamp2KVar", name: "Report kVar of Clamp 2.", value: 268435456, def: null], //Doesn't work
-	//[key: "clamp3KVar", name: "Report kVar of Clamp 3.", value: 536870912, def: null] //Doesn't work
+	[key: "clamp1KVarh", name: "Report KVarh of Clamp 1.", value: 16777216, def: null],
+	[key: "clamp2KVarh", name: "Report KVarh of Clamp 2.", value: 33554432, def: null],
+	[key: "clamp3KVarh", name: "Report KVarh of Clamp 3.", value: 67108864, def: null],
+	[key: "clamp1KVar", name: "Report kVar of Clamp 1.", value: 134217728, def: null],
+	[key: "clamp2KVar", name: "Report kVar of Clamp 2.", value: 268435456, def: null],
+	[key: "clamp3KVar", name: "Report kVar of Clamp 3.", value: 536870912, def: null]
 ]}

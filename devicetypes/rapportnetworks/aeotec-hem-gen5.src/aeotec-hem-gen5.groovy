@@ -97,6 +97,7 @@ metadata {
 				getPrefsFor(param)
 			}
 		}
+		input ( name: "isStateChange", title: "Force State Change", type: "boolean", required: false )
 		input ( name: "logging", title: "Logging", type: "boolean", required: false )
 	}
 }
@@ -302,7 +303,8 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejec
 def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 	String unit
 	String type
-	switch (cmd.scale+((cmd.scale2) ? 1:0)) {
+//	switch (cmd.scale+((cmd.scale2) ? 1:0)) {
+	switch (cmd.scale+((cmd.scale == 7 && cmd.scaledPreviousMeterValue > 0) ? 1:0)) { // workaround for bug cmd.scale2 always parsed as false
 		case 0: type = "energy"; unit = "kWh"; break;
 		case 1: type = "totalEnergy"; unit = "kVAh"; break;
 		case 2: type = "power"; unit = "W"; break;
@@ -313,7 +315,10 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 	}
 	logging("${device.displayName} - MeterReport received, ep: ${((ep) ? ep:0)} value: ${cmd.scaledMeterValue} ${unit}", "info")
 	if (ep == null) {
-		sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])
+		def event = [name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true]
+		if (settings.isStateChange) event << [isStateChange: true]
+//		sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])
+		sendEvent(event)
 		if (!device.currentValue("combinedMeter")?.contains("SYNC") || device.currentValue("combinedMeter") == "SYNC OK." || device.currentValue("combinedMeter") == null ) {
 			sendEvent([name: "combinedMeter", value: "${device.currentValue("voltage")} V | ${device.currentValue("current")} A | ${device.currentValue("energy")} kWh", displayed: false])
 		}

@@ -433,7 +433,7 @@ def handleValueEvent(evt) {
     }
 
     fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in the ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
-    fields.append(",nValue=${nValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
+    fields.append(",nValue=${nValue}")
     fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
     def change = (nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value
     def changeText = 'unchanged' // text description of change
@@ -442,13 +442,13 @@ def handleValueEvent(evt) {
     fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
     if (changeText != 'unchanged') fields.append(" by ${change.abs()} ${unit}")
     fields.append(" compared to ${timeElapsedText}.\"")
-    fields.append(",pValue=${pValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN)}")
+    fields.append(",pValue=${pValue}")
     fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
     fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous event value
     fields.append(",timestamp=${eventTime}i")
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wValue=${pValue.setScale(decimalPlaces+1, BigDecimal.ROUND_HALF_EVEN) * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
+    fields.append(",wValue=${pValue * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'values')

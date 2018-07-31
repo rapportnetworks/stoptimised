@@ -326,8 +326,13 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 		if (settings.isStateChange) event << [isStateChange: true]
 //		sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])
 		sendEvent(event)
+
+		if (type == "reactivePower") {
+			logging("${device.displayName} - Combined Power Report: V=${device.currentValue("voltage")}, A=${device.currentValue("current")}, W=${device.currentValue("power")}, kVar=${device.currentValue("reactivePower")}", "info")
+		}
+
 		if (!device.currentValue("combinedMeter")?.contains("SYNC") || device.currentValue("combinedMeter") == "SYNC OK." || device.currentValue("combinedMeter") == null ) {
-			sendEvent([name: "combinedMeter", value: "${device.currentValue("voltage")} V | ${device.currentValue("current")} A | ${device.currentValue("energy")} kWh", displayed: false])
+			sendEvent([name: "combinedMeter", value: "${device.currentValue("voltage")} V | ${device.currentValue("current")} A | ${device.currentValue("energy")} kWh", displayed: false]) // sent evey time there is an event - ? would be better to send less frequently ?
 		}
 	} else {
 		getChild(ep)?.sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])

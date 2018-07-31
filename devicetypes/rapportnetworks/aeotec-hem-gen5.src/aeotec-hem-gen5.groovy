@@ -98,7 +98,9 @@ metadata {
 			}
 		}
 		input ( name: "isStateChange", title: "Force State Change", type: "boolean", required: false )
-		input ( name: "logging", title: "Logging", type: "boolean", required: false )
+//		input ( name: "logging", title: "Logging", type: "boolean", required: false )
+		input ( name: "logging", title: "Logging", type: "enum", options: [ "0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace" ],
+		defaultValue: "3", required: false ) // changed logging selection to levels
 	}
 }
 
@@ -113,6 +115,10 @@ def getPrefsFor(parameter) {
 		defaultValue: parameter.def,
 		required: false
 	)
+}
+
+def configure() {
+	state.loggingLevelIDE = 3 // sets default logging level on installation
 }
 
 def refresh() {
@@ -189,6 +195,7 @@ private physicalgraph.app.ChildDeviceWrapper getChild(Integer childNum) {
 
 // Parameter configuration, synchronization and verification
 def updated() {
+	state.loggingLevelIDE = (settings.logging) ? settings.logging.toInteger() : 3 // added logging levels
 	if ( state.lastUpdated && (now() - state.lastUpdated) < 500 ) return
 	logging("${device.displayName} - Executing updated()","info")
 	Integer epc = (zwaveInfo.epc) ? (zwaveInfo.epc as Integer):0
@@ -388,10 +395,35 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 	}
 }
 
+/*
 private logging(text, type = "debug") {
 	if (settings.logging == "true") {
 		log."$type" text
 	}
+}
+*/
+
+private logging(msg, level = "debug") { // updated logging function for levels
+    switch(level) {
+        case "error":
+            if (state.loggingLevelIDE >= 1) log.error msg
+            break
+        case "warn":
+            if (state.loggingLevelIDE >= 2) log.warn msg
+            break
+        case "info":
+            if (state.loggingLevelIDE >= 3) log.info msg
+            break
+        case "debug":
+            if (state.loggingLevelIDE >= 4) log.debug msg
+            break
+        case "trace":
+            if (state.loggingLevelIDE >= 5) log.trace msg
+            break
+        default:
+            log.debug msg
+            break
+    }
 }
 
 private secEncap(physicalgraph.zwave.Command cmd) {
@@ -406,7 +438,7 @@ private crcEncap(physicalgraph.zwave.Command cmd) {
 
 private multiEncap(physicalgraph.zwave.Command cmd, Integer ep) {
 	logging("${device.displayName} - encapsulating command using Multi Channel Encapsulation, ep: $ep command: $cmd","info")
-	zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint:ep).encapsulate(cmd)
+	zwave.multichannelV3.MultiChannelCmdEncap(destinationEndPoint:ep).encapsulate(cmd)
 }
 
 private encap(physicalgraph.zwave.Command cmd) {

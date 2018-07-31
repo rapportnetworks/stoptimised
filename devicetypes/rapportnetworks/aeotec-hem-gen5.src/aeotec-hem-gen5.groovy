@@ -328,7 +328,7 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 		sendEvent(event)
 
 		if (type == "reactivePower") {
-			logging("${device.displayName} - Combined Power Report: V=${device.currentValue("voltage")}, A=${device.currentValue("current")}, W=${device.currentValue("power")}, kVar=${device.currentValue("reactivePower")}", "info")
+			logging("${device.displayName} - Combined Power Report: V=${device.currentValue("voltage")}(${device.statesSince("voltage", new Date() - 1, [max: 2])[1].value}), A=${device.currentValue("current")}(${device.statesSince("current", new Date() - 1, [max: 2])[1].value}), W=${device.currentValue("power")}(${device.statesSince("power", new Date() - 1, [max: 2])[1].value}), kVar=${device.currentValue("reactivePower")}(${device.statesSince("reactivePower", new Date() - 1, [max: 2])[1].value})", "info")
 		}
 
 		if (!device.currentValue("combinedMeter")?.contains("SYNC") || device.currentValue("combinedMeter") == "SYNC OK." || device.currentValue("combinedMeter") == null ) {

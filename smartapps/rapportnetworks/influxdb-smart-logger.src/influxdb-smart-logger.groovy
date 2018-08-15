@@ -245,14 +245,10 @@ def updated() { // runs when app settings are changed
     state.databaseUser = settings.prefDatabaseUser
     state.databasePass = settings.prefDatabasePass
 
+    state.headers = [HOST: "${state.databaseHost}:${state.databasePort}", "Content-Type": "application/x-www-form-urlencoded"]
     state.uri = "https://${state.databaseHost}:${state.databasePort}"
     state.path = "/write"
     state.query = [db: "${state.databaseName}", rp: 'autogen', precision: 'ms', u: "${state.databaseUser}", p: "${state.databasePass}"]
-
-    state.headers = [:]
-    state.headers.put("HOST", "${state.databaseHost}:${state.databasePort}")
-    state.headers.put("Content-Type", "application/x-www-form-urlencoded")
-    if (state.databaseUser && state.databasePass) state.headers.put("Authorization", encodeCredentialsBasic(state.databaseUser, state.databasePass))
 
     state.adjustInactiveTimestamp = settings.prefAdjustInactiveTimestamp
     state.roomNameCapture = settings.prefRoomNameCapture
@@ -761,19 +757,23 @@ def hubLocationDetails() {
     state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
 }
 
-def postToInfluxDB(data, rp) {
+def postToInfluxDB(data, rp = 'autogen') {
 // need to update hubAction state variables and rewrite the hubAction function
     if (state.databaseHost.take(3) == "192") {
         try {
+            def query = state.query.clone()
+            query.rp = rp
             def hubAction = new physicalgraph.device.HubAction([
                 method: "POST",
+                headers: state.headers,
                 path: state.path,
-                body: data,
-                headers: state.headers
+                query: query,
+                body: data
             ],
             null,
-            [ callback: handleInfluxResponse ]
+            [ callback: handleInfluxResponseHubAction ]
             )
+            logger("postToInfluxDB(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}","info")
             sendHubCommand(hubAction)
         }
         catch (Exception e) {
@@ -794,6 +794,16 @@ def postToInfluxDB(data, rp) {
             ]
         logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}","info")
         asynchttp_v1.post(handleInfluxResponse, params)
+    }
+}
+
+def handleInfluxResponseHubAction(physicalgraph.device.HubResponse hubResponse) {
+    def status = hubResponse.status
+    if (status == 204) {
+        logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}","trace")
+    }
+    if (status >= 400) {
+        logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}","error")
     }
 }
 
@@ -884,7 +894,6 @@ private manageSubscriptions() { // Configures subscriptions
     }
 }
 
-
 private logger(msg, level = "debug") { // Wrapper function for all logging
     switch(level) {
         case "error":
@@ -906,11 +915,6 @@ private logger(msg, level = "debug") { // Wrapper function for all logging
             log.debug msg
             break
     }
-}
-
-// Encode credentials for HTTP Basic authentication.
-private encodeCredentialsBasic(username, password) {
-    return "Basic " + "${username}:${password}".encodeAsBase64().toString()
 }
 
 private getDeviceAllowedAttrs(deviceName) {

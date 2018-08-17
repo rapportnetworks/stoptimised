@@ -41,6 +41,7 @@ metadata {
         capability "Configuration"
         capability "Holdable Button"
         capability "Refresh"
+        capability "Sensor"
 
         command "describeAttributes"
 

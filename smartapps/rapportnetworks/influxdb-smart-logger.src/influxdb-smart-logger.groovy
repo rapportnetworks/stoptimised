@@ -292,10 +292,10 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 }
 
 
-def handleStateEvent(evt) {
+def handleEnumEvent(evt) {
     def eventType = 'state'
 
-    logger("handleStateEvent(): $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
@@ -363,15 +363,15 @@ def handleStateEvent(evt) {
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) { // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
-        logger("handleStateEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value","warn")
+        logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value","warn")
     }
 }
 
 
-def handleValueEvent(evt) {
+def handleNumberEvent(evt) {
     def eventType = 'value'
 
-    logger("handleValueEvent(): $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleNumberEvent(): $evt.displayName ($evt.name) $evt.value","info")
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
@@ -452,15 +452,15 @@ def handleValueEvent(evt) {
     if (!(timeElapsed < 500 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), rp)
     } else {
-        logger("handleValueEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value","warn")
+        logger("handleNumberEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value","warn")
     }
 }
 
 
-def handleThreeAxisEvent(evt) {
+def handleVector3Event(evt) {
     def eventType = 'threeAxis'
 
-    logger("handleThreeAxisEvent(): $evt.displayName ($evt.name) $evt.value","info")
+    logger("handleVector3Event(): $evt.displayName ($evt.name) $evt.value","info")
 
     def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     def deviceGroup = 'unassigned'
@@ -855,17 +855,25 @@ private manageSubscriptions() { // Configures subscriptions
 
                 def type = getAttributeDetail().find { it.key == attr }.value.type
 
-                    if (type == 'state') {
-                        logger("manageSubscriptions(): Subscribing 'handleStateEvent' to attribute: ${attr}, for device: ${dev}","info")
-                        subscribe(dev, attr, handleStateEvent)
+                    if (type == 'enum') {
+                        logger("manageSubscriptions(): Subscribing 'handleEnumEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleEnumEvent)
                     }
-                    else if (type == 'value') {
-                        logger("manageSubscriptions(): Subscribing 'handleValueEvent' to attribute: ${attr}, for device: ${dev}","info")
-                        subscribe(dev, attr, handleValueEvent)
+                    else if (type == 'number') {
+                        logger("manageSubscriptions(): Subscribing 'handleNumberEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleNumberEvent)
                     }
-                    else if (type == 'threeAxis') {
-                        logger("manageSubscriptions(): Subscribing 'handleThreeAxisEvent' to attribute: ${attr}, for device: ${dev}","info")
-                        subscribe(dev, attr, handleThreeAxisEvent)
+                    else if (type == 'vector3') {
+                        logger("manageSubscriptions(): Subscribing 'handleVector3Event' to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleVector3Event)
+                    }
+                    else if (type == 'color_map') {
+                        logger("manageSubscriptions(): Subscribing 'handleColor_mapEvent' to attribute: ${attr}, for device: ${dev}","info")
+                    //    subscribe(dev, attr, handleColor_mapEvent) *** TO DO - write handler
+                    }
+                    else if (type == 'json_object') {
+                        logger("manageSubscriptions(): Subscribing 'handleJson_objectEvent' to attribute: ${attr}, for device: ${dev}","info")
+                    //    subscribe(dev, attr, handleJson_objectEvent) *** TO DO - write handler (if needed)
                     }
                 }
             }
@@ -1004,110 +1012,111 @@ private getSelectedDevices() {
 }
 
 private getCapabilities() { [
-		[title: "Actuators", cap: "actuator"],
-		[title: "Sensors", cap: "sensor"],
-        [title: "Room Name Virtual Devices", cap: "bridge"], // added in
-		[title: "Acceleration Sensors", cap: "accelerationSensor", attr: "acceleration"],
-		[title: "Alarms", cap: "alarm", attr: "alarm"],
-		[title: "Batteries", cap: "battery", attr: "battery"],
-		[title: "Beacons", cap: "beacon", attr: "presence"],
-		[title: "Bulbs", cap: "bulb", attr: "switch"],
-		[title: "Buttons", cap: "button", attr: ["button", "buttonClicks"]],
-		[title: "Carbon Dioxide Measurement Sensors", cap: "carbonDioxideMeasurement", attr: "carbonDioxide"],
-		[title: "Carbon Monoxide Detectors", cap: "carbonMonoxideDetector", attr: "carbonMonoxide"],
-		[title: "Color Control Devices", cap: "colorControl", attr: ["color", "hue", "saturation"]],
-		[title: "Color Temperature Devices", cap: "colorTemperature", attr: "colorTemperature"],
-		[title: "Consumable Devices", cap: "consumable", attr: "consumableStatus"],
-		[title: "Contact Sensors", cap: "contactSensor", attr: "contact"],
-		[title: "Doors", cap: "doorControl", attr: "door"],
-		[title: "Energy Meters", cap: "energyMeter", attr: ["energy", "reactiveEnergy", "totalEnergy"]],
-		[title: "Garage Doors", cap: "garageDoorControl", attr: "door"],
-		[title: "Illuminance Measurement Sensors", cap: "illuminanceMeasurement", attr: "illuminance"],
-		[title: "Image Capture Devices", cap: "imageCapture", attr: "image"],
-		[title: "Indicators", cap: "indicator", attr: "indicatorStatus"],
-		[title: "Lights", cap: "light", attr: "switch"],
-		[title: "Locks", cap: "lock", attr: "lock"],
-		[title: "Media Controllers", cap: "mediaController", attr: "currentActivity"],
-		[title: "Motion Sensors", cap: "motionSensor", attr: "motion"],
-		[title: "Music Players", cap: "musicPlayer", attr: ["level", "mute", "status", "trackDescription"]],
-		[title: "Outlets", cap: "outlet", attr: "switch"],
-		[title: "pH Measurement Sensors", cap: "phMeasurement", attr: "pH"],
-		[title: "Power Meters", cap: "powerMeter", attr: ["power", "reactivePower"]],
-		[title: "Power Sources", cap: "powerSource", attr: "powerSource"],
-		[title: "Presence Sensors", cap: "presenceSensor", attr: "presence"],
-		[title: "Relative Humidity Measurement Sensors", cap: "relativeHumidityMeasurement", attr: "humidity"],
-		[title: "Relay Switches", cap: "relaySwitch", attr: "switch"],
-		[title: "Shock Sensors", cap: "shockSensor", attr: "shock"],
-		[title: "Signal Strength Sensors", cap: "signalStrength", attr: ["lqi", "rssi"]],
-		[title: "Sleep Sensors", cap: "sleepSensor", attr: "sleeping"],
-		[title: "Smoke Detectors", cap: "smokeDetector", attr: "smoke"],
-		[title: "Sound Pressure Level Sensors", cap: "soundPressureLevel", attr: "soundPressureLevel"],
-		[title: "Sound Sensors", cap: "soundSensor", attr: "sound"],
-		[title: "Speech Recognition Sensors", cap: "speechRecognition", attr: "phraseSpoken"],
-		[title: "Switches", cap: "switch", attr: "switch"],
-		[title: "Switch Level Sensors", cap: "switchLevel", attr: "level"],
-		[title: "Tamper Alert Sensors", cap: "tamperAlert", attr: "tamper"],
-		[title: "Temperature Measurement Sensors", cap: "temperatureMeasurement", attr: "temperature"],
-		[title: "Thermostats", cap: "thermostat", attr: ["coolingSetpoint", "heatingSetpoint", "temperature", "thermostatFanMode", "thermostatMode", "thermostatOperatingState", "thermostatSetpoint"]],
-		[title: "Three Axis Sensors", cap: "threeAxis", attr: "threeAxis"],
-		[title: "Touch Sensors", cap: "touchSensor", attr: "touch"],
-		[title: "Ultraviolet Index Sensors", cap: "ultravioletIndex", attr: "ultravioletIndex"],
-		[title: "Valves", cap: "valve", attr: "valve"],
-		[title: "Voltage Measurement Sensors", cap: "voltageMeasurement", attr: ["current", "voltage"]],
-		[title: "Water Sensors", cap: "waterSensor", attr: "water"],
-		[title: "Window Shades", cap: "windowShade", attr: "windowShade"]
+        [title: 'Actuators', cap: 'actuator'],
+        [title: 'Bridges', cap: 'bridge'],
+        [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
+        [title: 'Acceleration Sensors', cap: 'accelerationSensor', attr: 'acceleration'],
+        [title: 'Alarms', cap: 'alarm', attr: 'alarm'],
+        [title: 'Batteries', cap: 'battery', attr: 'battery'],
+        [title: 'Beacons', cap: 'beacon', attr: 'presence'],
+        [title: 'Bulbs', cap: 'bulb', attr: 'switch'],
+        [title: 'Buttons', cap: 'button', attr: ['button', 'numberOfButtons']],
+        [title: 'Carbon Dioxide Measurement Sensors', cap: 'carbonDioxideMeasurement', attr: 'carbonDioxide'],
+        [title: 'Carbon Monoxide Detectors', cap: 'carbonMonoxideDetector', attr: 'carbonMonoxide'],
+        [title: 'Color Control Devices', cap: 'colorControl', attr: ['color', 'hue', 'saturation']],
+        [title: 'Color Temperature Devices', cap: 'colorTemperature', attr: 'colorTemperature'],
+        [title: 'Consumable Devices', cap: 'consumable', attr: 'consumableStatus'],
+        [title: 'Contact Sensors', cap: 'contactSensor', attr: 'contact'],
+        [title: 'Doors', cap: 'doorControl', attr: 'door'],
+        [title: 'Energy Meters', cap: 'energyMeter', attr: 'energy'],
+        [title: 'Garage Doors', cap: 'garageDoorControl', attr: 'door'],
+        [title: 'Holdable Buttons', cap: 'holdableButton', attr: ['button', 'numberOfButtons']],
+        [title: 'Illuminance Measurement Sensors', cap: 'illuminanceMeasurement', attr: 'illuminance'],
+        [title: 'Lights', cap: 'light', attr: 'switch'],
+        [title: 'Locks', cap: 'lock', attr: 'lock'],
+        [title: 'Motion Sensors', cap: 'motionSensor', attr: 'motion'],
+        [title: 'Music Players', cap: 'musicPlayer', attr: ['level', 'mute', 'status', 'trackDescription']],
+        [title: 'Outlets', cap: 'outlet', attr: 'switch'],
+        [title: 'Power Meters', cap: 'powerMeter', attr: 'power'],
+        [title: 'Power Sources', cap: 'powerSource', attr: 'powerSource'],
+        [title: 'Power', cap: 'power', attr: 'powerSource'],
+        [title: 'Presence Sensors', cap: 'presenceSensor', attr: 'presence'],
+        [title: 'Relative Humidity Measurement Sensors', cap: 'relativeHumidityMeasurement', attr: 'humidity'],
+        [title: 'Relay Switches', cap: 'relaySwitch', attr: 'switch'],
+        [title: 'Shock Sensors', cap: 'shockSensor', attr: 'shock'],
+        [title: 'Signal Strength Sensors', cap: 'signalStrength', attr: ['lqi', 'rssi']],
+        [title: 'Sleep Sensors', cap: 'sleepSensor', attr: 'sleeping'],
+        [title: 'Smoke Detectors', cap: 'smokeDetector', attr: 'smoke'],
+        [title: 'Sound Pressure Level Sensors', cap: 'soundPressureLevel', attr: 'soundPressureLevel'],
+        [title: 'Sound Sensors', cap: 'soundSensor', attr: 'sound'],
+        [title: 'Switch Level Sensors', cap: 'switchLevel', attr: 'level'],
+        [title: 'Switches', cap: 'switch', attr: 'switch'],
+        [title: 'Tamper Alert Sensors', cap: 'tamperAlert', attr: 'tamper'],
+        [title: 'Temperature Measurement Sensors', cap: 'temperatureMeasurement', attr: 'temperature'],
+        [title: 'Thermostats', cap: 'thermostat', attr: ['heatingSetpoint', 'temperature', 'thermostatFanMode', 'thermostatMode', 'thermostatOperatingState', 'thermostatSetpoint']],
+        [title: 'Three Axis Sensors', cap: 'threeAxis', attr: 'threeAxis'],
+        [title: 'Touch Sensors', cap: 'touchSensor', attr: 'touch'],
+        [title: 'Ultraviolet Index Sensors', cap: 'ultravioletIndex', attr: 'ultravioletIndex'],
+        [title: 'Valves', cap: 'valve', attr: 'valve'],
+        [title: 'Voltage Measurement Sensors', cap: 'voltageMeasurement', attr: 'voltage'],
+        [title: 'Water Sensors', cap: 'waterSensor', attr: 'water'],
+        [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
 ] }
 
 private getAttributeDetail() { [
-    acceleration: [type: 'state', levels: [inactive: -1, active: 1]],
-    alarm: [type: 'state', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
-    battery: [type: 'value', decimalPlaces: 0, unit: '%'],
-    button: [type: 'state', levels: [released: -1, pushed: 1, held: 2]],
-    buttonClicks: [type: 'state', levels: ['one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
-    carbonDioxide: [type: 'value', decimalPlaces: 0, unit: 'ppm'],
-    carbonMonoxide: [type: 'state', levels: [clear: -1, detected: 1, tested: 4]],
-    color: [type: 'value', decimalPlaces: 0, unit: '%'],
-    consumableStatus: [type: 'state', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
-    contact: [type: 'state', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
-    current: [type: 'value', decimalPlaces: 2, unit: 'A'],
-    door: [type: 'state', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
-    energy: [type: 'value', decimalPlaces: 2, unit: 'kWh'],
-    goal: [type: 'value', decimalPlaces: 0, unit: 'steps'],
-    hue: [type: 'value', decimalPlaces: 0, unit: '%'],
-    humidity: [type: 'value', decimalPlaces: 0, unit: '%'],
-    illuminance: [type: 'value', decimalPlaces: 0, unit: 'lux'],
-    lock: [type: 'state', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
-    lqi: [type: 'value', decimalPlaces: 2, unit: 'dB'],
-    motion: [type: 'state', levels: [inactive: -1, active: 1]],
-    mute: [type: 'state', levels: [muted: -1, unmuted: 1]],
-    optimisation: [type: 'state', levels: [inactive: -1, active: 1]],
-    pH: [type: 'value', decimalPlaces: 1, unit: ''],
-    power: [type: 'value', decimalPlaces: 0, unit: 'W'],
-    powerFactor: [type: 'value', decimalPlaces: 2, unit: ''],
-    powerSource: [type: 'state', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
-    presence: [type: 'state', levels: ['not present': -1, present: 1]],
-    reactiveEnergy: [type: 'value', decimalPlaces: 2, unit: 'kVarh'],
-    reactivePower: [type: 'value', decimalPlaces: 3, unit: 'kVar'],
-    rssi: [type: 'value', decimalPlaces: 2, unit: 'dB'],
-    saturation: [type: 'value', decimalPlaces: 0, unit: '%'],
-    shock: [type: 'state', levels: [clear: -1, detected: 1]],
-    sleeping: [type: 'state', levels: [sleeping: -1, 'not sleeping': 1]],
-    smoke: [type: 'state', levels: [clear: -1, detected: 1, tested: 4]],
-    sound: [type: 'state', levels: ['not detected': -1, detected: 1]],
-    soundPressureLevel: [type: 'value', decimalPlaces: 2, unit: ''],
-    status: [type: 'state'], // need to change to new 'string' type
-    steps: [type: 'value', decimalPlaces: 0, unit: ''],
-    switch: [type: 'state', levels: [off: -1, on: 1]],
-    tamper: [type: 'state', levels: [clear: -1, detected: 1]],
-    temperature: [type: 'value', decimalPlaces: 0, unit: 'C'],
-    thermostatFanMode: [type: 'state', levels: [on: 1, circulate: 2, auto: 3]],
-    thermostatMode: [type: 'state', levels: [cooling: -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
-    thermostatOperatingState: [type: 'state', levels: [cooling: -4, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
-    threeAxis: [type: 'threeAxis', decimalPlaces: 2, unit: 'g'],
-    totalEnergy: [type: 'value', decimalPlaces: 2, unit: 'kVAh'],
-    touch: [type: 'state', levels: [touched: 1]],
-    ultravioletIndex: [type: 'value', decimalPlaces: 0, unit: ''],
-    voltage: [type: 'value', decimalPlaces: 0, unit: 'V'],
-    water: [type: 'state', levels: [dry: -1, wet: 1]],
-    windowShade: [type: 'state', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
+    acceleration: [type: 'enum', levels: [inactive: -1, active: 1]],
+    alarm: [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
+    battery: [type: 'number', decimalPlaces: 0, unit: '%'],
+    button: [type: 'enum', levels: [released: -1, pushed: 1, double: 2, held: 3]],
+    buttonClicks: [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
+    carbonDioxide: [type: 'number', decimalPlaces: 0, unit: 'ppm'],
+    carbonMonoxide: [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+    color: [type: 'color_map'],
+    colorTemperature: [type: 'number', decimalPlaces: 0, unit: 'K'],
+    consumableStatus: [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
+    contact: [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
+    current: [type: 'number', decimalPlaces: 2, unit: 'A'],
+    door: [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
+    energy: [type: 'number', decimalPlaces: 2, unit: 'kWh'],
+    heatingSetpoint: [type: 'number', decimalPlaces: 0, unit: 'C'],
+    hue: [type: 'number', decimalPlaces: 0, unit: '%'],
+    humidity: [type: 'number', decimalPlaces: 0, unit: '%'],
+    illuminance: [type: 'number', decimalPlaces: 0, unit: 'lux'],
+    level: [type: 'number', decimalPlaces: 0, unit: ''],
+    lock: [type: 'enum', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
+    lqi: [type: 'number', decimalPlaces: 2, unit: 'dB'],
+    motion: [type: 'enum', levels: [inactive: -1, active: 1]],
+    mute: [type: 'enum', levels: [muted: -1, unmuted: 1]],
+    numberOfButtons: [type: 'number', decimalPlaces: 0, unit: ''],
+    pH: [type: 'number', decimalPlaces: 1, unit: ''],
+    power: [type: 'number', decimalPlaces: 0, unit: 'W'],
+    powerSource: [type: 'enum', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
+    presence: [type: 'enum', levels: ['not present': -1, present: 1]],
+    pressure: [type: 'number', decimalPlaces: 1, unit: 'mbar'],
+    reactiveEnergy: [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
+    reactivePower: [type: 'number', decimalPlaces: 3, unit: 'kVar'],
+    rssi: [type: 'number', decimalPlaces: 2, unit: 'dB'],
+    saturation: [type: 'number', decimalPlaces: 0, unit: '%'],
+    shock: [type: 'enum', levels: [clear: -1, detected: 1]],
+    sleeping: [type: 'enum', levels: [sleeping: -1, 'not sleeping': 1]],
+    smoke: [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+    sound: [type: 'enum', levels: ['not detected': -1, detected: 1]],
+    soundPressureLevel: [type: 'number', decimalPlaces: 0, unit: 'dB'],
+    status: [type: 'string'],
+    switch: [type: 'enum', levels: [off: -1, on: 1]],
+    tamper: [type: 'enum', levels: [clear: -1, detected: 1]],
+    temperature: [type: 'number', decimalPlaces: 0, unit: 'C'],
+    thermostatFanMode: [type: 'enum', levels: [on: 1, circulate: 2, auto: 3, followschedule: 4]],
+    thermostatMode: [type: 'enum', levels: ['rush hour': -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
+    thermostatOperatingState: [type: 'enum', levels: [cooling: -3, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
+    thermostatSetpoint: [type: 'number', decimalPlaces: 0, unit: 'C'],
+    threeAxis: [type: 'vector3', decimalPlaces: 2, unit: 'g'],
+    totalEnergy: [type: 'number', decimalPlaces: 2, unit: 'kVAh'],
+    touch: [type: 'enum', levels: [touched: 1]],
+    trackDescription: [type: 'string'],
+    ultravioletIndex: [type: 'number', decimalPlaces: 0, unit: ''],
+    valve: [type: 'enum', levels: [closed: -1, open: 1]],
+    voltage: [type: 'number', decimalPlaces: 0, unit: 'V'],
+    water: [type: 'enum', levels: [dry: -1, wet: 1]],
+    windowShade: [type: 'enum', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
 ] }

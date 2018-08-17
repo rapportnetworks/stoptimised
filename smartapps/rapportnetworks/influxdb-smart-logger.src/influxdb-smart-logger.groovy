@@ -895,9 +895,11 @@ private manageSubscriptions() { // Configures subscriptions
         def groupId
         def groupName
         settings.bridgePref.each {
-            groupId = it.device?.groupId
-            groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
-            if (groupId) state.groupNames << [(groupId): groupName]
+            if (it.name?.take(1) == '~') {
+                groupId = it.device?.groupId
+                groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
+                if (groupId) state.groupNames << [(groupId): groupName]
+            }
         }
     }
 }

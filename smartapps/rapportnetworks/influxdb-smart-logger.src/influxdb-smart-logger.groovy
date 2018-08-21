@@ -856,23 +856,23 @@ private manageSubscriptions() { // Configures subscriptions
                 def type = getAttributeDetail().find { it.key == attr }.value.type
 
                     if (type == 'enum') {
-                        logger("manageSubscriptions(): Subscribing 'handleEnumEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        logger("manageSubscriptions(): Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}","info")
                         subscribe(dev, attr, handleEnumEvent)
                     }
                     else if (type == 'number') {
-                        logger("manageSubscriptions(): Subscribing 'handleNumberEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        logger("manageSubscriptions(): Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}","info")
                         subscribe(dev, attr, handleNumberEvent)
                     }
                     else if (type == 'vector3') {
-                        logger("manageSubscriptions(): Subscribing 'handleVector3Event' to attribute: ${attr}, for device: ${dev}","info")
+                        logger("manageSubscriptions(): Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}","info")
                         subscribe(dev, attr, handleVector3Event)
                     }
                     else if (type == 'color_map') {
-                        logger("manageSubscriptions(): Subscribing 'handleColor_mapEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        logger("manageSubscriptions(): Subscribing 'handleColor_mapEvent' listener to attribute: ${attr}, for device: ${dev}","info")
                     //    subscribe(dev, attr, handleColor_mapEvent) *** TO DO - write handler
                     }
                     else if (type == 'json_object') {
-                        logger("manageSubscriptions(): Subscribing 'handleJson_objectEvent' to attribute: ${attr}, for device: ${dev}","info")
+                        logger("manageSubscriptions(): Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}","info")
                     //    subscribe(dev, attr, handleJson_objectEvent) *** TO DO - write handler (if needed)
                     }
                 }
@@ -883,12 +883,12 @@ private manageSubscriptions() { // Configures subscriptions
     // subscribe to Sunrise and Sunset events
     subscribe(location, "sunrise", handleDaylight)
     subscribe(location, "sunset", handleDaylight)
-    logger("manageSubscriptions(): Subscribing to 'Sunrise' and 'Sunset' events","info")
+    logger("manageSubscriptions(): Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events","info")
 
     // subscribe to Hub status
     def hub = location.hubs[0]
     subscribe(hub, "hubStatus", handleHubStatus)
-    logger("manageSubscriptions(): Subscribing to 'Hub Status' events","info")
+    logger("manageSubscriptions(): Subscribing 'handleHubStatus' listener to 'Hub Status' events","info")
 
     // build state maps of group Ids and group names
     if (state.roomNameCapture) {

@@ -668,21 +668,28 @@ def pollDevices() {
                     break
                 }
                 def secure = (info.zw.endsWith("s")) ? 'true' : 'false'
-                def cc = info.cc
-                if (info?.sec) cc.addAll(info.sec)
-                def ccSec = 'zz' + cc.sort().join("=true,zz") + '=true'
-                info.remove('cc')
-                info.remove('sec')
-                info.remove('zw')
-                info = info.sort()
-                def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-                info = toKeyValue(info) + ',' + "${ccSec}"
                 data.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
-
+                def status = (dev?.status.toUpperCase() in ["ONLINE"]) ? 'true' : 'false'
+                data.append(",status=${status}")
                 data.append(',type=zwave')
 
                 data.append(' ')
                 if (dev?.device.getDataValue("configuredParameters")) data.append(dev.device.getDataValue("configuredParameters")).append(',')
+
+                def checkInterval = dev.latestState('checkInterval')?.value
+                if (checkInterval) data.append("checkInterval=${checkInterval}i").append(',')
+
+                def cc = info.cc
+                if (info?.ccOut) cc.addAll(info.ccOut)
+                if (info?.sec) cc.addAll(info.sec)
+                def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
+                info.remove('zw')
+                info.remove('cc')
+                info.remove('ccOut')
+                info.remove('sec')
+                info = info.sort()
+                def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+                info = toKeyValue(info) + ',' + "${ccList}"
                 data.append(info)
                 data.append('\n')
             }

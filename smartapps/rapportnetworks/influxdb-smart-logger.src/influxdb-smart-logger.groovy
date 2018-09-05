@@ -278,9 +278,10 @@ def updated() { // runs when app settings are changed
     manageSubscriptions()
     manageSchedules()
 
-    runIn(30, pollLocation)
-    runIn(60, pollDevices)
-    runIn(90, pollAttributes)
+    runIn(100, pollLocation)
+    runIn(300, pollDevices)
+    runIn(600, pollAttributes)
+    runIn(900, pollDeviceChecks)
 }
 
 /*****************************************************************************************************************
@@ -669,8 +670,7 @@ def pollDevices() {
                 }
                 def secure = (info.zw.endsWith("s")) ? 'true' : 'false'
                 data.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
-                def status = (dev?.status.toUpperCase() in ["ONLINE"]) ? 'true' : 'false'
-                data.append(",status=${status}")
+                data.append(",status=${dev?.status}")
                 data.append(',type=zwave')
 
                 data.append(' ')
@@ -724,6 +724,40 @@ def pollLocation() {
     data.append(",zwavePowerLevel=\"${h.hub.getDataValue("zwavePowerLevel")}\"")
 
     def rp = 'metadata'
+    postToInfluxDB(data.toString(), rp)
+}
+
+
+def pollDeviceChecks() {
+    logger("pollDeviceChecks()","trace")
+    def data = new StringBuilder()
+    getSelectedDevices()?.each  { dev ->
+        if (!dev.displayName.startsWith("~")) {
+            logger("pollDeviceChecks(): device health check report for device ${dev}","info")
+            data.append('deviceChecks') // measurement name
+            data.append(state.hubLocationDetails) // Add hub tags
+            def deviceGroup = 'unassigned'
+            def deviceGroupId = 'unassigned'
+            if (state?.groupNames?.(dev.device?.groupId)) {
+                deviceGroupId = dev.device.groupId
+                deviceGroup = state.groupNames."${deviceGroupId}"
+            }
+            def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
+            data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
+            data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
+            data.append(",deviceId=${dev.id}")
+            data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
+            data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
+            data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ device") // global identifier
+            data.append(",identifierLocal=${identifier}")
+            data.append(",status=${dev?.status}")
+            data.append(' ')
+            def statusLevel = (dev?.status.toUpperCase() in ["ONLINE"]) ? '1i' : '0i'
+            data.append("statusLevel=${statusLevel}")
+            data.append('\n')
+        }
+    }
+    def rp = 'autogen'
     postToInfluxDB(data.toString(), rp)
 }
 
@@ -846,6 +880,10 @@ private manageSchedules() {
     try { unschedule(pollAttributes) }
     catch(e) { logger("manageSchedules(): Unschedule pollAttributes failed!","error") }
     runEvery3Hours(pollAttributes)
+
+    try { unschedule(pollDeviceChecks) }
+    catch(e) { logger("manageSchedules(): Unschedule pollDeviceChecks failed!","error") }
+    runEvery3Hours(pollDeviceChecks)
 }
 
 private manageSubscriptions() { // Configures subscriptions

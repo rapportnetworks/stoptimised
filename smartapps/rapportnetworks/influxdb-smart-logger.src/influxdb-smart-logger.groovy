@@ -653,7 +653,7 @@ def pollDevices() {
                 data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
                 data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
 
-                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ device") // global identifier
+                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
                 data.append(",identifierLocal=${identifier}")
 
                 def power = info.zw.take(1)
@@ -748,7 +748,7 @@ def pollDeviceChecks() {
             data.append(",deviceId=${dev.id}")
             data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
             data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
-            data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ device") // global identifier
+            data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
             data.append(",identifierLocal=${identifier}")
             data.append(",status=${dev?.status}")
             data.append(' ')

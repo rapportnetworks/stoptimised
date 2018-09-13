@@ -99,14 +99,11 @@ def updated() {
 	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
 	setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
 
-//	result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 2 * 3600, nodeid: zwaveHubNodeId).format())
-//	result << response(zwave.manufacturerspecificv2.ManufacturerSpecificGet().format())
-
 	return result
 }
 
 private getCommandClassVersions() {
-	[0x20: 1, 0x30: 1, 0x31: 5, 0x70: 1, 0x71: 3, 0x80: 1, 0x84: 1, 0x9C: 1]
+	[0x20: 1, 0x30: 1, 0x31: 5, 0x70: 1, 0x71: 3, 0x72: 1, 0x80: 1, 0x84: 1, 0x9C: 1]
 }
 
 def parse(String description) {
@@ -216,7 +213,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	if (!isConfigured()) {
 		log.debug("late configure")
 		result << response(configure())
-	} else if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
+	} else if (!state.lastbat || (new Date().time) - state.lastbat > 7 * 24 * 60 * 60 * 1000) {
 		result << response(zwave.batteryV1.batteryGet().format())
 		result << "delay 1200"
 		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // ? delay and wakeUpNoMoreInformation - so as to not disrupt configuredParameters report by sending to sleep after BatteryReport
@@ -298,20 +295,26 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	createEvent(descriptionText: "$device.displayName: $cmd", displayed: false)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd) {
 	def result = []
-
 	def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
 	log.debug "msr: $msr"
-	updateDataValue("MSR", msr)
-
-	if (msr == "0086-0002-002D") {  // Aeon Water Sensor needs to have wakeup interval set
+	updateDataValue("msr", msr)
+/*	if (msr == "0086-0002-002D") {  // Aeon Water Sensor needs to have wakeup interval set
 		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format()) // *** needs .format() ??? // *** wake-up interval set
-	}
+	} */
 	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 	result
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
+	def result = []
+	def wakeupInterval = cmd.seconds
+	log.debug "wakeupInterval: $wakeupInterval"
+	updateDataValue("wakeupInterval", "$wakeupInterval")
+	result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
+	result
+}
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
 	log.debug "ConfigurationReport: $cmd"
@@ -332,18 +335,22 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
 def configure() {
 	log.debug "${device.displayName} is configuring its settings"
 	def request = []
-	//	set wakeup interval - *** leave for now
+	//	request << zwave.wakeUpV1.wakeUpIntervalSet(seconds: 24 * 3600, nodeid: zwaveHubNodeId).format()
 	request << zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: 1)
 	log.debug "Requesting Sensor Values"
 	request << zwave.batteryV1.batteryGet()
 	request << zwave.sensorBinaryV1.sensorBinaryGet()
+	log.debug "Requesting Wake Up Interval Report"
+	request << zwave.wakeUpV1.wakeUpIntervalGet()
+	log.debug "Requesting Manufacturer Specific Report"
+	request << zwave.manufacturerSpecificV1.manufacturerSpecificGet()
 	log.debug "Requesting Configuration Report"
 	def params = [1, 2, 3, 121]
 	params.each { n ->
 		request << zwave.configurationV1.configurationGet(parameterNumber: n)
 	}
 	setConfigured("true")
-	// def checkInterval = 14400
+	// def checkInterval = 49 * 3600
 	// sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 	commands(request) + ["delay 5000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
 }

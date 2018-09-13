@@ -150,17 +150,9 @@ def updated() {
 
 	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
 
-	def powerSource = device.latestValue("powerSource")
+	def powerSource = device.latestValue("powerSource") ?: 'battery' // Check to see if we have updated to new powerSource attr, if not default to 'battery'
 
-	if (!powerSource) { // Check to see if we have updated to new powerSource attr
-		def powerSupply = device.latestValue("powerSupply")
-
-		if (powerSupply) {
-			powerSource = (powerSupply == "Battery") ? "battery" : "dc"
-
-			sendEvent(name: "powerSource", value: powerSource, displayed: false)
-		}
-	}
+	sendEvent(name: "powerSource", value: powerSource, displayed: false)
 
 	if (powerSource == "battery") {
 		setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference

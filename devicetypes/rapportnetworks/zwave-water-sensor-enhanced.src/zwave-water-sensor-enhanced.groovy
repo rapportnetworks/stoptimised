@@ -89,9 +89,15 @@ def installed() {
 }
 
 def updated() {
+	def result = []
 	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
 	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 	updateDataValues()
+
+	result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 2 * 3600, nodeid: zwaveHubNodeId).format())
+	result << response(zwave.manufacturerspecificv2.ManufacturerSpecificGet().format())
+
+	return result
 }
 
 private getCommandClassVersions() {
@@ -188,7 +194,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 			result << createEvent(descriptionText: "$device.displayName covering was removed", isStateChange: true)
 			result << response([
 				zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format(),
-				zwave.batteryV1.batteryGet().format()])
+				zwave.batteryV1.batteryGet().format()]) // *** wake-up interval set
 		}
 	} else if (cmd.notificationType) {
 		def text = "Notification $cmd.notificationType: event ${([cmd.event] + cmd.eventParameter).join(", ")}"
@@ -203,9 +209,10 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
 	if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
-		result << response(zwave.batteryV1.batteryGet())
+		result << response(zwave.batteryV1.batteryGet().format()) // *** needs .format() ???
 	} else {
-		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation())
+		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // *** needs .format() ???
+		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)// added event to report battery (stored latest value)
 	}
 	result
 }
@@ -218,9 +225,10 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 		map.isStateChange = true
 	} else {
 		map.value = cmd.batteryLevel
+		map.isStateChange = true // force propogation of event
 	}
 	state.lastbat = new Date().time
-	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation())]
+	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())] // *** needs .format() ???
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
@@ -287,7 +295,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 	updateDataValue("MSR", msr)
 
 	if (msr == "0086-0002-002D") {  // Aeon Water Sensor needs to have wakeup interval set
-		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId))
+		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format()) // *** needs .format() ??? // *** wake-up interval set
 	}
 	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 	result

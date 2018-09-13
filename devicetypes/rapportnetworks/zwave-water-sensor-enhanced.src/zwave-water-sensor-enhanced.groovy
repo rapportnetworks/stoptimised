@@ -106,7 +106,7 @@ def updated() {
 }
 
 private getCommandClassVersions() {
-	[0x20: 1, 0x30: 1, 0x31: 5, 0x80: 1, 0x84: 1, 0x71: 3, 0x9C: 1]
+	[0x20: 1, 0x30: 1, 0x31: 5, 0x70: 1, 0x71: 3, 0x80: 1, 0x84: 1, 0x9C: 1]
 }
 
 def parse(String description) {
@@ -345,7 +345,7 @@ def configure() {
 	setConfigured("true")
 	// def checkInterval = 14400
 	// sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-	commands(request) + ["delay 30000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
+	commands(request) + ["delay 5000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
 }
 
 private setConfigured(configure) {

@@ -25,6 +25,7 @@ metadata {
 		capability "Sensor"
 		capability "Battery"
 		capability "Health Check"
+		capability "Configuration" // added
 
 		attribute "composite", "string"
 
@@ -299,4 +300,113 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 	}
 	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
 	result
+}
+
+
+
+
+
+		capability "Configuration"
+
+def installed(){
+//	sendEvent(name: "checkInterval", value: 14400, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+}
+
+def updated() {
+	log.debug "Updated with settings: ${settings}"
+	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
+	setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
+}
+
+
+
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
+	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+	def cmds = []
+	if (!isConfigured()) {
+		log.debug("late configure")
+		result << response(configure())
+	} else {
+		log.debug("Device has been configured sending >> wakeUpNoMoreInformation()")
+		cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format()
+		result << response(cmds)
+	}
+	result
+}
+
+
+
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
+	def result = []
+	def map = [ name: "battery", unit: "%" ]
+	if (cmd.batteryLevel == 0xFF) {
+		map.value = 1
+		map.descriptionText = "${device.displayName} battery is low"
+		map.isStateChange = true
+	} else {
+		map.value = cmd.batteryLevel
+	}
+	state.lastbatt = now()
+	result << createEvent(map)
+	if (device.latestValue("powerSource") != "dc"){
+		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false)
+	}
+	result
+}
+
+
+def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
+	log.debug "ConfigurationReport: $cmd"
+	def nparam = "${cmd.parameterNumber}"
+	def nvalue = "${cmd.scaledConfigurationValue}"
+	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+	def cP = [:]
+	cP = state.configuredParameters
+	cP.put("${nparam}", "${nvalue}")
+	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+    cPReport = cPReport.sort()
+    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+    cPReport = toKeyValue(cPReport)
+	updateDataValue("configuredParameters", cPReport)
+	state.configuredParameters = cP
+}
+
+def configure() {
+	log.debug "${device.displayName} is configuring its settings"
+	def request = []
+	//	set wakeup interval - *** leave for now
+	request << zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: 1)
+	log.debug "Requesting Sensor Values"
+	request << zwave.batteryV1.batteryGet()
+	request << zwave.sensorBinaryV1.sensorBinaryGet()
+	log.debug "Requesting Configuration Report"
+	def params = [1, 2, 3, 121]
+	params.each { n ->
+		request << zwave.configurationV1.configurationGet(parameterNumber: n)
+	}
+	setConfigured("true")
+	// def checkInterval = 14400
+	// sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	commands(request) + ["delay 30000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
+}
+
+private setConfigured(configure) {
+	updateDataValue("configured", configure)
+}
+
+private isConfigured() {
+	getDataValue("configured") == "true"
+}
+
+private command(physicalgraph.zwave.Command cmd) {
+	if (state.sec) {
+		zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+	} else {
+		cmd.format()
+	}
+}
+
+private commands(commands, delay=1000) { // *** delay was 200
+	log.info "sending commands: ${commands}"
+	delayBetween(commands.collect{ command(it) }, delay)
 }

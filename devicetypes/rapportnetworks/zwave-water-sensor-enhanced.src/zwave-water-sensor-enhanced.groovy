@@ -218,7 +218,9 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 		result << response(configure())
 	} else if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
 		result << response(zwave.batteryV1.batteryGet().format())
-	} else {
+		result << "delay 1200"
+		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // ? delay and wakeUpNoMoreInformation - so as to not disrupt configuredParameters report by sending to sleep after BatteryReport
+		} else {
 		log.debug("Device has been configured sending >> wakeUpNoMoreInformation()")
 		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
 		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false) // added event to report battery (stored latest value)
@@ -238,7 +240,6 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	}
 	state.lastbat = new Date().time
 	createEvent(map)
-//	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())] // *** needs .format() ??? - don't think this is needed as device will automatically sleep after sending a report (only listens during wakeup)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
@@ -363,7 +364,7 @@ private command(physicalgraph.zwave.Command cmd) {
 	}
 }
 
-private commands(commands, delay=1000) { // *** delay was 200
+private commands(commands, delay=1200) { // *** delay was 200
 	log.info "sending commands: ${commands}"
 	delayBetween(commands.collect{ command(it) }, delay)
 }

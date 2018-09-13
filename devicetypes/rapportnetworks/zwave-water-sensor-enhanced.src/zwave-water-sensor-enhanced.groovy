@@ -95,8 +95,12 @@ def updated() {
 	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 	updateDataValues()
 
-	result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 2 * 3600, nodeid: zwaveHubNodeId).format())
-	result << response(zwave.manufacturerspecificv2.ManufacturerSpecificGet().format())
+	log.debug "Updated with settings: ${settings}"
+	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
+	setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
+
+//	result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 2 * 3600, nodeid: zwaveHubNodeId).format())
+//	result << response(zwave.manufacturerspecificv2.ManufacturerSpecificGet().format())
 
 	return result
 }
@@ -209,11 +213,15 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
-	if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
-		result << response(zwave.batteryV1.batteryGet().format()) // *** needs .format() ???
+	if (!isConfigured()) {
+		log.debug("late configure")
+		result << response(configure())
+	} else if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
+		result << response(zwave.batteryV1.batteryGet().format())
 	} else {
-		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // *** needs .format() ???
-		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)// added event to report battery (stored latest value)
+		log.debug("Device has been configured sending >> wakeUpNoMoreInformation()")
+		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
+		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false) // added event to report battery (stored latest value)
 	}
 	result
 }
@@ -229,7 +237,8 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 		map.isStateChange = true // force propogation of event
 	}
 	state.lastbat = new Date().time
-	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())] // *** needs .format() ???
+	createEvent(map)
+//	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())] // *** needs .format() ??? - don't think this is needed as device will automatically sleep after sending a report (only listens during wakeup)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
@@ -299,58 +308,6 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format()) // *** needs .format() ??? // *** wake-up interval set
 	}
 	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
-	result
-}
-
-
-
-
-
-		capability "Configuration"
-
-def installed(){
-//	sendEvent(name: "checkInterval", value: 14400, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-}
-
-def updated() {
-	log.debug "Updated with settings: ${settings}"
-	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
-	setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
-}
-
-
-
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
-	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
-	def cmds = []
-	if (!isConfigured()) {
-		log.debug("late configure")
-		result << response(configure())
-	} else {
-		log.debug("Device has been configured sending >> wakeUpNoMoreInformation()")
-		cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format()
-		result << response(cmds)
-	}
-	result
-}
-
-
-
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
-	def result = []
-	def map = [ name: "battery", unit: "%" ]
-	if (cmd.batteryLevel == 0xFF) {
-		map.value = 1
-		map.descriptionText = "${device.displayName} battery is low"
-		map.isStateChange = true
-	} else {
-		map.value = cmd.batteryLevel
-	}
-	state.lastbatt = now()
-	result << createEvent(map)
-	if (device.latestValue("powerSource") != "dc"){
-		result << createEvent(name: "batteryStatus", value: "${map.value}% battery", displayed: false)
-	}
 	result
 }
 

@@ -335,7 +335,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport 
 def configure() {
 	log.debug "${device.displayName} is configuring its settings"
 	def request = []
-	//	request << zwave.wakeUpV1.wakeUpIntervalSet(seconds: 24 * 3600, nodeid: zwaveHubNodeId).format()
+	request << zwave.wakeUpV1.wakeUpIntervalSet(seconds: 24 * 3600, nodeid: zwaveHubNodeId)
 	request << zwave.configurationV1.configurationSet(parameterNumber: 2, size: 1, scaledConfigurationValue: 1)
 	log.debug "Requesting Sensor Values"
 	request << zwave.batteryV1.batteryGet()
@@ -350,9 +350,9 @@ def configure() {
 		request << zwave.configurationV1.configurationGet(parameterNumber: n)
 	}
 	setConfigured("true")
-	// def checkInterval = 49 * 3600
-	// sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-	commands(request) + ["delay 5000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
+	def checkInterval = 49 * 3600
+	sendEvent(name: "checkInterval", value: checkInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	commands(request) + ["delay 7000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
 }
 
 private setConfigured(configure) {

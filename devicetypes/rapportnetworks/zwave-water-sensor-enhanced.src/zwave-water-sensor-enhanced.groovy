@@ -131,6 +131,8 @@ private getCommandClassVersions() {
 }
 
 
+// Provide Comments about how handler implements supported attributes
+
 /**
  * Application Events
 */
@@ -358,7 +360,9 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 
 
 /**
- * Commands
+ * Supported Command Methods
+ * Capability Commands -
+ * Custom Commands -
  */
 /*
 def on() {

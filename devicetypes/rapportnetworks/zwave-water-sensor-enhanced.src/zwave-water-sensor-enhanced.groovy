@@ -67,6 +67,32 @@ metadata {
 	}
 }
 
+
+def installed() {
+	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
+	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	updateDataValues()
+}
+
+def updated() {
+	if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
+		state.updatedLastRanAt = now()
+
+		def result = []
+		// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
+		sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+		updateDataValues()
+
+		log.debug "Updated with settings: ${settings}"
+		state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
+		setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
+		return result
+	}
+	else {
+		log.debug("updated(): Ran within last 2 seconds so aborting.")
+	}
+}
+
 def updateDataValues() {
 	def useStates = [
 		Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
@@ -83,28 +109,6 @@ def updateDataValues() {
 	updateDataValue("active", active)
 }
 
-def installed() {
-	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
-	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-	updateDataValues()
-}
-
-def updated() {
-	def result = []
-	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
-	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-	updateDataValues()
-
-	log.debug "Updated with settings: ${settings}"
-	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
-	setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
-
-	return result
-}
-
-private getCommandClassVersions() {
-	[0x20: 1, 0x30: 1, 0x31: 5, 0x70: 1, 0x71: 3, 0x72: 1, 0x80: 1, 0x84: 1, 0x9C: 1]
-}
 
 def parse(String description) {
 	def result = null
@@ -122,22 +126,19 @@ def parse(String description) {
 	return result
 }
 
-def sensorValueEvent(value) {
-	def eventValue = value ? "${getDataValue("active")}" : "${getDataValue("inactive")}"
-	def event = createEvent(name: "${getDataValue("event")}", value: eventValue, descriptionText: "$device.displayName is $eventValue", display: false)
-	def composite = createEvent(name: 'composite', value: eventValue, descriptionText: "$device.displayName is $eventValue", display: true)
-	return [event, composite]
+private getCommandClassVersions() {
+	[0x20: 1, 0x30: 1, 0x31: 5, 0x70: 1, 0x71: 3, 0x72: 1, 0x80: 1, 0x84: 1, 0x9C: 1]
 }
 
+
+/**
+ * Application Events
+*/
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
 	sensorValueEvent(cmd.value)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
-	sensorValueEvent(cmd.value)
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
 	sensorValueEvent(cmd.value)
 }
 
@@ -147,6 +148,17 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.sensoralarmv1.SensorAlarmReport cmd) {
 	sensorValueEvent(cmd.sensorState)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
+	sensorValueEvent(cmd.value)
+}
+
+def sensorValueEvent(value) {
+	def eventValue = value ? "${getDataValue("active")}" : "${getDataValue("inactive")}"
+	def event = createEvent(name: "${getDataValue("event")}", value: eventValue, descriptionText: "$device.displayName is $eventValue", display: false)
+	def composite = createEvent(name: 'composite', value: eventValue, descriptionText: "$device.displayName is $eventValue", display: true)
+	return [event, composite]
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
@@ -208,6 +220,42 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 	result
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
+	def map = [displayed: true, value: cmd.scaledSensorValue.toString()]
+	switch (cmd.sensorType) {
+		case 1:
+			map.name = "temperature"
+			map.unit = cmd.scale == 1 ? "F" : "C"
+			break;
+		case 5:
+			map.name = "humidity"
+			map.value = cmd.scaledSensorValue.toInteger().toString()
+			map.unit = cmd.scale == 0 ? "%" : ""
+			break;
+	}
+	createEvent(map)
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
+	log.debug "ConfigurationReport: $cmd"
+	def nparam = "${cmd.parameterNumber}"
+	def nvalue = "${cmd.scaledConfigurationValue}"
+	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+	def cP = [:]
+	cP = state.configuredParameters
+	cP.put("${nparam}", "${nvalue}")
+	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+    cPReport = cPReport.sort()
+    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+    cPReport = toKeyValue(cPReport)
+	updateDataValue("configuredParameters", cPReport)
+	state.configuredParameters = cP
+}
+
+
+/**
+ * Management Events
+ */
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
 	if (!isConfigured()) {
@@ -225,6 +273,15 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	result
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
+	def result = []
+	def wakeupInterval = cmd.seconds
+	log.debug "wakeupInterval: $wakeupInterval"
+	updateDataValue("wakeupInterval", "$wakeupInterval")
+	result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
+	result
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	def map = [name: "battery", unit: "%"]
 	if (cmd.batteryLevel == 0xFF) {
@@ -239,22 +296,22 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 	createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
-	def map = [displayed: true, value: cmd.scaledSensorValue.toString()]
-	switch (cmd.sensorType) {
-		case 1:
-			map.name = "temperature"
-			map.unit = cmd.scale == 1 ? "F" : "C"
-			break;
-		case 5:
-			map.name = "humidity"
-			map.value = cmd.scaledSensorValue.toInteger().toString()
-			map.unit = cmd.scale == 0 ? "%" : ""
-			break;
-	}
-	createEvent(map)
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd) {
+	def result = []
+	def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+	log.debug "msr: $msr"
+	updateDataValue("msr", msr)
+/*	if (msr == "0086-0002-002D") {  // Aeon Water Sensor needs to have wakeup interval set
+		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format()) // *** needs .format() ??? // *** wake-up interval set
+	} */
+	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
+	result
 }
 
+
+/**
+ * Transport Encapsulation Events
+ */
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
 	def encapsulatedCommand = cmd.encapsulatedCommand(commandClassVersions)
 	// log.debug "encapsulated: $encapsulatedCommand"
@@ -291,47 +348,61 @@ def zwaveEvent(physicalgraph.zwave.commands.multicmdv1.MultiCmdEncap cmd) {
 	}.flatten()
 }
 
+
+/**
+ * Unparsed Events
+ */
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	createEvent(descriptionText: "$device.displayName: $cmd", displayed: false)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv1.ManufacturerSpecificReport cmd) {
-	def result = []
-	def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
-	log.debug "msr: $msr"
-	updateDataValue("msr", msr)
-/*	if (msr == "0086-0002-002D") {  // Aeon Water Sensor needs to have wakeup interval set
-		result << response(zwave.wakeUpV1.wakeUpIntervalSet(seconds: 4 * 3600, nodeid: zwaveHubNodeId).format()) // *** needs .format() ??? // *** wake-up interval set
-	} */
-	result << createEvent(descriptionText: "$device.displayName MSR: $msr", isStateChange: false)
-	result
+
+/**
+ * Commands
+ */
+/*
+def on() {
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
-	def result = []
-	def wakeupInterval = cmd.seconds
-	log.debug "wakeupInterval: $wakeupInterval"
-	updateDataValue("wakeupInterval", "$wakeupInterval")
-	result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
-	result
+def off() {
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
-	log.debug "ConfigurationReport: $cmd"
-	def nparam = "${cmd.parameterNumber}"
-	def nvalue = "${cmd.scaledConfigurationValue}"
-	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-	def cP = [:]
-	cP = state.configuredParameters
-	cP.put("${nparam}", "${nvalue}")
-	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-    cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-    cPReport = toKeyValue(cPReport)
-	updateDataValue("configuredParameters", cPReport)
-	state.configuredParameters = cP
+def refresh() {
+}
+*/
+
+private command(physicalgraph.zwave.Command cmd) {
+	if (state.sec) {
+		zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+	} else {
+		cmd.format()
+	}
 }
 
+private commands(commands, delay=1200) { // *** delay was 200
+	log.info "sending commands: ${commands}"
+	delayBetween(commands.collect{ command(it) }, delay)
+}
+
+/**
+ * ping
+ */
+/*
+def ping() {
+}
+*/
+
+/**
+ * poll
+ */
+/*
+def poll() {
+}
+*/
+
+/**
+ * configure()
+ */
 def configure() {
 	log.debug "${device.displayName} is configuring its settings"
 	def request = []
@@ -361,17 +432,4 @@ private setConfigured(configure) {
 
 private isConfigured() {
 	getDataValue("configured") == "true"
-}
-
-private command(physicalgraph.zwave.Command cmd) {
-	if (state.sec) {
-		zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-	} else {
-		cmd.format()
-	}
-}
-
-private commands(commands, delay=1200) { // *** delay was 200
-	log.info "sending commands: ${commands}"
-	delayBetween(commands.collect{ command(it) }, delay)
 }

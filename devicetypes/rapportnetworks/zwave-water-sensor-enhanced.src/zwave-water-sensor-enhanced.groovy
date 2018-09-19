@@ -72,21 +72,26 @@ def installed() {
 	// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
 	sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 	updateDataValues()
+	/*
+	def result = []
+	result << createEvent()
+	return response(result)
+	*/
 }
 
 def updated() {
 	if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
 		state.updatedLastRanAt = now()
 
-		def result = []
+		def result = [] // use cmds instead - not parsing anything?
 		// Dome Leak Sensor sends WakeUpNotification every 12 hours. Please add zwaveinfo.mfr check when adding other sensors with different interval.
 		sendEvent(name: "checkInterval", value: (2 * 12 + 2) * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-		updateDataValues()
+		updateDataValues() // ?? result << createEvent()
 
 		log.debug "Updated with settings: ${settings}"
-		state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
+		state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor - is this needed?
 		setConfigured("false") //wait until the next time device wakeup to send configure command after user change preference
-		return result
+		return result // ?? return response(result)
 	}
 	else {
 		log.debug("updated(): Ran within last 2 seconds so aborting.")

@@ -14,7 +14,7 @@
  */
 
 metadata {
-	definition (name: "Aeon Multisensor 6 Optimised", namespace: "rapportnetworks", author: "SmartThings") {
+	definition (name: "Aeon Multisensor 6 Optimised Test", namespace: "rapportnetworks", author: "SmartThings") {
 		capability "Motion Sensor"
 		capability "Temperature Measurement"
 		capability "Relative Humidity Measurement"
@@ -147,8 +147,6 @@ def installed(){
 def updated() {
 	log.debug "Updated with settings: ${settings}"
 	log.debug "${device.displayName} is now ${device.latestValue("powerSource")}"
-
-	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
 
 	def powerSource = device.latestValue("powerSource") ?: 'battery' // Check to see if we have updated to new powerSource attr, if not default to 'battery'
 
@@ -325,22 +323,18 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
-	log.debug "ConfigurationReport: $cmd"
-
-// *** added processing of configuration report to update data value
-	def nparam = "${cmd.parameterNumber}"
-	def nvalue = "${cmd.scaledConfigurationValue}"
-	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-	def cP = [:]
-	cP = state.configuredParameters
-	cP.put("${nparam}", "${nvalue}")
-	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-    cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-    cPReport = toKeyValue(cPReport)
-	updateDataValue("configuredParameters", cPReport)
-	state.configuredParameters = cP
-// *** end of processing configuration report
+	log.debug "Configuration Report: $cmd"
+	def paramNum = "${cmd.parameterNumber}"
+	def paramValue = "${cmd.scaledConfigurationValue}"
+	log.debug "Processing Configuration Report: (Parameter: $paramNum, Value: $paramValue)"
+	def entries = [:]
+	entries = state.configuredParameters
+	entries.put("${paramNum}", "${paramValue}")
+	def report = entries.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+	def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+	report = toKeyValue(report.sort())
+	updateDataValue("configuredParameters", report)
+	state.configuredParameters = entries
 
 	def result = []
 	def value
@@ -362,6 +356,22 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	}
 */
 	result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+	def ccValue = "${Integer.toHexString(cmd.requestedCommandClass).toUpperCase()}"
+	def ccVersion = "${cmd.commandClassVersion}"
+	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
+	def entries = [:]
+	entries = state.commandClassVersions
+	entries.put("${ccValue}", "${ccVersion}")
+	def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," } // *** could filter out any 0 values
+	def report = toKeyValue(entries.sort())
+
+//	def report = entries.findAll { it.value > 0 }.sort().{ it.collect { /$it.key=$it.value/ } join "," }
+
+	updateDataValue("commandClassVersions", report)
+	state.commandClassVersions = entries
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -436,12 +446,20 @@ def configure() {
 
 
 	log.debug "Requesting Configuration Report"
+	state.configuredParameters = [:]
 	def params = [3, 4, 8, 40, 81, 101, 102, 111, 112]
 	params.each { n ->
 		request << zwave.configurationV1.configurationGet(parameterNumber: n)
 	}
 
 	setConfigured("true")
+
+	log.debug "Requesting Command Class Report" // request command class report
+	state.commandClassVersions = [:]
+	def classes = [0x20, 0x30, 0x31, 0x5E, 0x7A, 0x84]
+	classes.each { cc ->
+		request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: cc)
+	}
 
 	// set the check interval based on the report interval preference. (default 122 minutes)
 	// we do this here in case the device is in wakeup mode

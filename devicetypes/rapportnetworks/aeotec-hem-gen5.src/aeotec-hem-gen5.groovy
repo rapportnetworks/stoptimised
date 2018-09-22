@@ -310,24 +310,33 @@ def zwaveEvent(physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejec
 def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 	String unit
 	String type
-//	switch (cmd.scale+((cmd.scale2) ? 1:0)) {
-	switch (cmd.scale+((cmd.scale == 7 && cmd.scaledPreviousMeterValue > 0) ? 1:0)) { // workaround for bug cmd.scale2 always parsed as false
+//	switch (cmd.scale + ((cmd.scale2) ? 1:0)) {
+	switch (cmd.scale) { // workaround for bug cmd.scale2 always parsed as false - Check if CRC16 is needed? - since secure Inclusion - looks like this is case - but Security Encapsulation - still has this bug for cmd.scale2
 		case 0: type = "energy"; unit = "kWh"; break;
 		case 1: type = "totalEnergy"; unit = "kVAh"; break;
 		case 2: type = "power"; unit = "W"; break;
 		case 4: type = "voltage"; unit = "V"; break;
 		case 5: type = "current"; unit = "A"; break;
-		case 7: type = "reactivePower"; unit = "kVar"; break;
-		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
+//		case 7: type = "reactivePower"; unit = "kVar"; break;
+//		case 8: type = "reactiveEnergy"; unit = "kVarh"; break;
+		case 7:
+			if (cmd.scaledMeterValue < 2) {
+				type = "reactivePower"; unit = "kVar";
+				}
+			else {
+				type = "reactiveEnergy"; unit = "kVarh";
+				}
+			break
 	}
-	logging("${device.displayName} - MeterReport received, ep: ${((ep) ? ep:0)} value: ${cmd.scaledMeterValue} ${unit}", "info")
+	logging("${device.displayName} - MeterReport received, ep: ${((ep) ? ep:0)} value: ${cmd.scaledMeterValue} ${unit}", "info") // *** need to update and multiply by 1000 for reative power
 	if (ep == null) {
 		def event = [name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true]
+		if (type == "reactivePower") event.value *= 1000
 		if (settings.isStateChange) event << [isStateChange: true]
 //		sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])
 		sendEvent(event)
 
-		if (type == "reactivePower") {
+		if (type == "reactivePower") { // ***could call newDate() once to a variable - more efficient??
 			logging("${device.displayName} - Combined Power Report: V=${device.currentValue("voltage")}(${device.statesSince("voltage", new Date() - 1, [max: 2])[1].value}), A=${device.currentValue("current")}(${device.statesSince("current", new Date() - 1, [max: 2])[1].value}), W=${device.currentValue("power")}(${device.statesSince("power", new Date() - 1, [max: 2])[1].value}), kVar=${device.currentValue("reactivePower")}(${device.statesSince("reactivePower", new Date() - 1, [max: 2])[1].value})", "info")
 		}
 
@@ -548,9 +557,9 @@ private optionMap() {[
 	[key: "clamp1A", name: "Report Current (Amperes) of Clamp 1.", value: 524288, def: null],
 	[key: "clamp2A", name: "Report Current (Amperes) of Clamp 2.", value: 1048576, def: null],
 	[key: "clamp3A", name: "Report Current (Amperes) of Clamp 3.", value: 2097152, def: null],
-	[key: "clamp1KVarh", name: "Report KVah of Clamp 1.", value: 16777216, def: null],
-	[key: "clamp2KVarh", name: "Report KVah of Clamp 2.", value: 33554432, def: null],
-	[key: "clamp3KVarh", name: "Report KVah of Clamp 3.", value: 67108864, def: null],
+	[key: "clamp1KVah", name: "Report kVAh of Clamp 1.", value: 16777216, def: null],
+	[key: "clamp2KVah", name: "Report kVAh of Clamp 2.", value: 33554432, def: null],
+	[key: "clamp3KVah", name: "Report kVAh of Clamp 3.", value: 67108864, def: null],
 	[key: "clamp1KVar", name: "Report kVar of Clamp 1.", value: 134217728, def: null],
 	[key: "clamp2KVar", name: "Report kVar of Clamp 2.", value: 268435456, def: null],
 	[key: "clamp3KVar", name: "Report kVar of Clamp 3.", value: 536870912, def: null]

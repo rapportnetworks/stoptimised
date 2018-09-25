@@ -323,28 +323,38 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
-	def paramNum = cmd.parameterNumber // check type on Smartthings Zwave ref
-	def paramValue = "${cmd.scaledConfigurationValue}"
-	log.debug "Processing Configuration Report: (Parameter: $paramNum, Value: $paramValue)"
-/*
-	def entries = [:]
-	entries = state.configuredParameters
-	entries.put("${paramNum}", "${paramValue}")
-	def report = entries.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-	def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-	report = toKeyValue(report.sort())
-	updateDataValue("configuredParameters", report)
-	state.configuredParameters = entries
+	log.debug "ConfigurationReport: $cmd"
+/*	def param = cmd.parameterNumber.toString().padLeft(3, '0')
+	def paramValue = cmd.scaledConfigurationValue
+	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
+	def report = [:]
+	report = state.configurationParameters
+	report << ["$param": paramValue]
+	log.debug "configurationParameters report: ${report}"
+	log.debug "Size of report is ${report.size()}"
+	if (report.size() == getConfigurationParameters().size()) {
+		log.debug "All Configuration Parameters Reported"
+		updateDataValue("configurationParameters", report.sort().collect { /$it.key=$it.value/ }.join(','))
+//		state.configurationParameters = report
+	}
+	state.configurationParameters = report
 */
 
-	state.configuredParameters.put(paramNum, paramValue)
-	log.debug "Size of state.configuredParameters is ${state.configuredParameters.size()}"
-	if (state.configuredParameters.size() == getConfigurationParameters().size()) {
-		log.debug "All Configuration Parameters Reported"
-//		updateDataValue("configuration", 'true')
-		def report = state.configuredParameters.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-		updateDataValue("configuredParameters", report.sort().collect { /$it.key=$it.value/ }.join(','))
-	}
+// *** added processing of configuration report to update data value
+	def nparam = "${cmd.parameterNumber}"
+	def nvalue = "${cmd.scaledConfigurationValue}"
+	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+	def cP = [:]
+	cP = state.configuredParameters
+	cP.put("${nparam}", "${nvalue}")
+	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+    cPReport = cPReport.sort()
+    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+    cPReport = toKeyValue(cPReport)
+	updateDataValue("configuredParameters", cPReport)
+	state.configuredParameters = cP
+// *** end of processing configuration report
+
 
 	def result = []
 	def value
@@ -372,13 +382,15 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 	def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
 	def ccVersion = cmd.commandClassVersion
 	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
-	state.commandClassVersions.put(ccValue, ccVersion)
+	state.commandClassVersions << ["$ccValue": ccVersion]
+	log.debug "commandClassVersions: ${state.commandClassVersions}"
 	if (state.commandClassVersions.size() == getCommandClasses().size()) {
 		log.debug "All Command Class Versions Reported"
 //		updateDataValue("versions", 'complete')
 		updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { /$it.key=$it.value/ }.join(','))
+		state.commandClassVersions = [:]
 	}
-	return state.commandClassVersions
+//	return state.commandClassVersions
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -451,14 +463,15 @@ def configure() {
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x1B) //ultravioletIndex
 
 	log.debug "Requesting Configuration Report"
-	state.configuredParameters = [:]
-	updateDataValue("configuredParameters", '')
+//	state.configurationParameters = [:]
+	updateDataValue("configurationParameters", '')
 	getConfigurationParameters().each { request << zwave.configurationV1.configurationGet(parameterNumber: it) }
 
 	setConfigured("true")
 
 	log.debug "Requesting Command Class Report"
-	state.commandClassVersions = [:]
+//	state.commandClassVersions = [:]
+	updateDataValue("commandClassVersions", '')
 	getCommandClasses().each { request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it) }
 
 	// set the check interval based on the report interval preference. (default 122 minutes)

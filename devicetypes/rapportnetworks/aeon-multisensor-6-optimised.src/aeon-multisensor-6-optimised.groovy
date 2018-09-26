@@ -14,7 +14,7 @@
  */
 
 metadata {
-	definition (name: "Aeon Multisensor 6 Optimised", namespace: "rapportnetworks", author: "SmartThings") {
+	definition (name: "Aeon Multisensor 6 Optimised Reporting", namespace: "rapportnetworks", author: "SmartThings") {
 		capability "Motion Sensor"
 		capability "Temperature Measurement"
 		capability "Relative Humidity Measurement"
@@ -147,8 +147,6 @@ def installed(){
 def updated() {
 	log.debug "Updated with settings: ${settings}"
 	log.debug "${device.displayName} is now ${device.latestValue("powerSource")}"
-
-	state.configuredParameters = [:] // *** define state variable (map) to store configuration reports received from sensor
 
 	def powerSource = device.latestValue("powerSource") ?: 'battery' // Check to see if we have updated to new powerSource attr, if not default to 'battery'
 
@@ -327,20 +325,15 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
 	log.debug "ConfigurationReport: $cmd"
 
-// *** added processing of configuration report to update data value
-	def nparam = "${cmd.parameterNumber}"
-	def nvalue = "${cmd.scaledConfigurationValue}"
-	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-	def cP = [:]
-	cP = state.configuredParameters
-	cP.put("${nparam}", "${nvalue}")
-	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-    cPReport = cPReport.sort()
-    def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-    cPReport = toKeyValue(cPReport)
-	updateDataValue("configuredParameters", cPReport)
-	state.configuredParameters = cP
-// *** end of processing configuration report
+	def param = cmd.parameterNumber.toString().padLeft(3,"0")
+	def paramValue = cmd.scaledConfigurationValue.toString()
+	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
+	def untransformed = state.configurationReport << [(param): paramValue]
+	if (untransformed.size() == getConfigurationParameters().size()) {
+		log.debug "All Configuration Values Reported"
+		updateDataValue("configurationReport", state.configurationReport.collect { it }.join(","))
+	}
+	state.configurationReport = untransformed
 
 	def result = []
 	def value
@@ -362,6 +355,20 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	}
 */
 	result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+	log.debug "Command Class Versions Report: $cmd"
+	def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
+	def ccVersion = cmd.commandClassVersion
+	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
+	def untransformed = state.commandClassVersions << [(ccValue): ccVersion]
+	if (untransformed.size() == getCommandClasses().size()) {
+		log.debug "All Command Class Versions Reported"
+		updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
+	}
+	state.commandClassVersions = untransformed
+	return state.commandClassVersions
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -432,16 +439,18 @@ def configure() {
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x03) //illuminance
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x05) //humidity
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x1B) //ultravioletIndex
-	request << zwave.configurationV1.configurationGet(parameterNumber: 9)
-
 
 	log.debug "Requesting Configuration Report"
-	def params = [3, 4, 8, 40, 81, 101, 102, 111, 112]
-	params.each { n ->
-		request << zwave.configurationV1.configurationGet(parameterNumber: n)
-	}
+	updateDataValue("configurationReport", "updating")
+	state.configurationReport = [:]
+	getConfigurationParameters().each { request << zwave.configurationV1.configurationGet(parameterNumber: it) }
 
 	setConfigured("true")
+
+	log.debug "Requesting Command Class Report"
+	updateDataValue("commandClassVersions", "updating")
+	state.commandClassVersions = [:]
+	getCommandClasses().each { request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it) }
 
 	// set the check interval based on the report interval preference. (default 122 minutes)
 	// we do this here in case the device is in wakeup mode
@@ -453,6 +462,15 @@ def configure() {
 
 	commands(request) + ["delay 30000", zwave.wakeUpV1.wakeUpNoMoreInformation().format()] // *** increased to ensure all reports come back
 }
+
+private getConfigurationParameters() { [
+	3, 4, 8, 9, 40, 81, 101, 102, 111, 112
+] }
+
+private getCommandClasses() { [
+	0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+] }
+
 
 private def getTimeOptionValueMap() { [
 		"10 seconds" : 10, // *** added "10 seconds" option

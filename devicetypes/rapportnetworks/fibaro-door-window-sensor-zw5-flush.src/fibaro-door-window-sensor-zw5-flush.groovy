@@ -15,7 +15,7 @@
  *	Modified 2018 Alasdair Thin, Rapport Networks CIC
  */
 metadata {
-	definition (name: "Fibaro Door/Window Sensor ZW5 Flush", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.contact") {
+	definition (name: "Fibaro Door/Window Sensor ZW5 Flush Reporting", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.contact") {
 		capability "Battery"
 		capability "Contact Sensor"
 		capability "Sensor"
@@ -57,6 +57,8 @@ def installed() {
 }
 
 def updated() {
+	setConfigured("false")
+
 	def tamperValue = device.latestValue("tamper")
 
     if (tamperValue == "active") {
@@ -158,21 +160,33 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
-	def map = [:]
-	map.name = "battery"
-	map.value = cmd.batteryLevel == 255 ? 1 : cmd.batteryLevel.toString()
-	map.unit = "%"
-	map.displayed = true
+	def map = [name: "battery", unit: "%"]
+	if (cmd.batteryLevel == 0xFF) {
+		map.value = 1
+		map.descriptionText = "${device.displayName} has a low battery"
+		map.isStateChange = true
+	} else {
+		map.value = cmd.batteryLevel
+		map.isStateChange = true
+	}
+	state.lastbat = new Date().time
 	createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
-    def event = createEvent(descriptionText: "${device.displayName} woke up", displayed: false)
-    def cmds = []
-    cmds << encap(zwave.batteryV1.batteryGet())
-    cmds << "delay 1200"
-    cmds << encap(zwave.wakeUpV1.wakeUpNoMoreInformation())
-    [event, response(cmds)]
+	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+	if (!isConfigured()) {
+		log.debug("late configure")
+		result << response(configure())
+	} else if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
+		result << response(zwave.batteryV1.batteryGet().format())
+		result << response("delay 1200")
+		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
+	} else {
+		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
+		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
+	}
+	result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
@@ -200,6 +214,20 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
     }
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
+	log.debug "ConfigurationReport: $cmd"
+
+	def param = cmd.parameterNumber.toString().padLeft(3,"0")
+	def paramValue = cmd.scaledConfigurationValue.toString()
+	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
+	def untransformed = state.configurationReport << [(param): paramValue]
+	if (untransformed.size() == getConfigurationParameters().size()) {
+		log.debug "All Configuration Values Reported"
+		updateDataValue("configurationReport", state.configurationReport.collect { it }.join(","))
+	}
+	state.configurationReport = untransformed
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
     updateDataValue("version", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
     log.debug "applicationVersion:      ${cmd.applicationVersion}"
@@ -207,6 +235,20 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
     log.debug "zWaveLibraryType:        ${cmd.zWaveLibraryType}"
     log.debug "zWaveProtocolVersion:    ${cmd.zWaveProtocolVersion}"
     log.debug "zWaveProtocolSubVersion: ${cmd.zWaveProtocolSubVersion}"
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+	log.debug "Command Class Versions Report: $cmd"
+	def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
+	def ccVersion = cmd.commandClassVersion
+	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
+	def untransformed = state.commandClassVersions << [(ccValue): ccVersion]
+	if (untransformed.size() == getCommandClasses().size()) {
+		log.debug "All Command Class Versions Reported"
+		updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
+	}
+	state.commandClassVersions = untransformed
+	return state.commandClassVersions
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
@@ -235,16 +277,45 @@ def configure() {
 	// Device wakes up every 4 hours, this interval allows us to miss one wakeup notification before marking offline
 	sendEvent(name: "checkInterval", value: 8 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 
-    def cmds = []
+    def request = []
 
-    cmds += zwave.wakeUpV2.wakeUpIntervalSet(seconds:21600, nodeid: zwaveHubNodeId)//FGK's default wake up interval
-    cmds += zwave.manufacturerSpecificV2.deviceSpecificGet()
-    cmds += zwave.batteryV1.batteryGet()
-    cmds += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
-    cmds += zwave.sensorBinaryV2.sensorBinaryGet()
-	cmds += zwave.wakeUpV2.wakeUpNoMoreInformation()
+    request += zwave.wakeUpV2.wakeUpIntervalSet(seconds:21600, nodeid: zwaveHubNodeId)//FGK's default wake up interval
+    request += zwave.manufacturerSpecificV2.deviceSpecificGet()
+    request += zwave.batteryV1.batteryGet()
+    request += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
+    request += zwave.sensorBinaryV2.sensorBinaryGet()
 
-    encapSequence(cmds, 500)
+	log.debug "Requesting Configuration Report"
+	updateDataValue("configurationReport", "updating")
+	state.configurationReport = [:]
+	getConfigurationParameters().each { request << zwave.configurationV1.configurationGet(parameterNumber: it) }
+
+	setConfigured("true")
+
+	log.debug "Requesting Command Class Report"
+	updateDataValue("commandClassVersions", "updating")
+	state.commandClassVersions = [:]
+	getCommandClasses().each { request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it) }
+
+	request += zwave.wakeUpV2.wakeUpNoMoreInformation()
+
+    encapSequence(request, 1200)
+}
+
+private getConfigurationParameters() { [
+	1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
+] }
+
+private getCommandClasses() { [
+	0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+] }
+
+private setConfigured(configure) {
+	updateDataValue("configured", configure)
+}
+
+private isConfigured() {
+	getDataValue("configured") == "true"
 }
 
 private secure(physicalgraph.zwave.Command cmd) {
@@ -256,7 +327,7 @@ private crc16(physicalgraph.zwave.Command cmd) {
     "5601${cmd.format()}0000"
 }
 
-private encapSequence(commands, delay=200) {
+private encapSequence(commands, delay=1200) {
 	delayBetween(commands.collect{ encap(it) }, delay)
 }
 

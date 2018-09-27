@@ -334,12 +334,15 @@ def zwaveEvent(physicalgraph.zwave.commands.meterv3.MeterReport cmd, ep=null) {
 		if (type == "reactivePower") event.value *= 1000
 		if (settings.isStateChange) event << [isStateChange: true]
 //		sendEvent([name: type, value: cmd.scaledMeterValue, unit: unit, displayed: true])
-		sendEvent(event)
 
 		if (type == "reactivePower") { // ***could call newDate() once to a variable - more efficient??
-			logging("${device.displayName} - Combined Power Report: V=${device.currentValue("voltage")}(${device.statesSince("voltage", new Date() - 1, [max: 2])[1].value}), A=${device.currentValue("current")}(${device.statesSince("current", new Date() - 1, [max: 2])[1].value}), W=${device.currentValue("power")}(${device.statesSince("power", new Date() - 1, [max: 2])[1].value}), kVar=${device.currentValue("reactivePower")}(${device.statesSince("reactivePower", new Date() - 1, [max: 2])[1].value})", "info")
+			def since = new Date() - 1
+			def max = [max: 2]
+			def data = [V:device.currentValue("voltage"), V1:device.statesSince("voltage", since, max)[1].numberValue, A:device.currentValue("current"), A1:device.statesSince("current", since, max)[1].numberValue, W:device.currentValue("power"), W1:device.statesSince("power", since, max)[1].numberValue, kVar:cmd.scaledMeterValue, kVar1:device.currentValue("reactivePower")]
+			logging("${device.displayName} - Reactive Power Report: (${data})", "info")
+			event << [data: data]
 		}
-
+		sendEvent(event)
 		if (!device.currentValue("combinedMeter")?.contains("SYNC") || device.currentValue("combinedMeter") == "SYNC OK." || device.currentValue("combinedMeter") == null ) {
 			sendEvent([name: "combinedMeter", value: "${device.currentValue("voltage")} V | ${device.currentValue("current")} A | ${device.currentValue("energy")} kWh", displayed: false]) // sent evey time there is an event - ? would be better to send less frequently ?
 		}

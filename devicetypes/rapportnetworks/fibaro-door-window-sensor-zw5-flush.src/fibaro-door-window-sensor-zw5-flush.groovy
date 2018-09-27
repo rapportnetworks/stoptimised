@@ -228,6 +228,13 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	state.configurationReport = untransformed
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+	log.debug "Powerlevel Report: $cmd"
+	def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
+	log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
+	updateDataValue("powerLevelReport", "powerLevel=${powerLevel}")
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
     updateDataValue("version", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
     log.debug "applicationVersion:      ${cmd.applicationVersion}"
@@ -284,6 +291,7 @@ def configure() {
     request += zwave.batteryV1.batteryGet()
     request += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
     request += zwave.sensorBinaryV2.sensorBinaryGet()
+    request += zwave.powerlevelV1.powerlevelGet()
 
 	log.debug "Requesting Configuration Report"
 	updateDataValue("configurationReport", "updating")

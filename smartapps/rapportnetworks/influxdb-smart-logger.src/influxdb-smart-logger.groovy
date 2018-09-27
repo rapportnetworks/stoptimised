@@ -458,6 +458,97 @@ def handleNumberEvent(evt) {
 }
 
 
+def handleReactivePowerEvent(evt) {
+    def eventType = 'reactivePower'
+
+    logger("handleReactivePowerEvent(): $evt.displayName ($evt.name) $evt.value","info")
+
+    def tags = new StringBuilder() // Create InfluxDB line protocol
+    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    def deviceGroup = 'unassigned'
+    def deviceGroupId = 'unassigned'
+    if (evt.device.device?.groupId) {
+        deviceGroupId = evt.device.device.groupId
+        deviceGroup = state?.groupNames?."${deviceGroupId}"
+    }
+    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
+
+    tags.append(state.hubLocationDetails) // Add hub tags
+    tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
+    tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
+    tags.append(",event=${evt.name}")
+    tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
+    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}") // global identifier
+    tags.append(",identifierLocal=${identifier}")
+    tags.append(",isChange=${evt?.isStateChange}")
+    tags.append(",source=${evt.source}")
+    def unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit // set here, but included in tag set
+    if (evt.name == 'temperature') unit = unit.replaceAll('\u00B0', '') // remove circle from C unit
+    if (unit) tags.append(",unit=${unit}") // Add unit tag
+
+    def fields = new StringBuilder() // populate initial fields set
+    def eventTime = evt.date.time // get event time
+    def midnight = evt.date.clone().clearTime().time
+    def writeTime = new Date() // time of processing event
+    def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5]) // get list of previous events (5 most recent)
+    def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
+    def pEvent = pEvents.find { it.date.time < evt.date.time }
+    def pEventTime = pEvent.date.time
+
+    def timeElapsed = (eventTime - pEventTime)
+    def timeElapsedText = timeElapsedText(timeElapsed)
+
+    def description = "${evt?.descriptionText}"
+    if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ') // remove circle from C unit
+    fields.append("eventDescription=\"${description}\"")
+    fields.append(",eventId=\"${evt.id}\"")
+
+    def nValue
+    def pValue
+    def decimalPlaces = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
+    def trimLength
+    try {
+        nValue = evt.numberValue.toBigDecimal()
+        pValue = pEvent.numberValue.toBigDecimal()
+    } catch (e) {
+        trimLength = removeUnit(evt.value)
+        def nLength = evt.value.length()
+        def pLength = pEvent.value.length()
+        nValue = evt.value.substring(0, nLength - trimLength).toBigDecimal()
+        pValue = pEvent.value.substring(0, pLength - trimLength).toBigDecimal()
+    }
+
+    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in the ${deviceGroup.replaceAll('\\\\', '')}.\"") // append current (now:n) event value
+    fields.append(",nValue=${nValue}")
+    fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
+    def change = (nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) // calculate change from previous value
+    def changeText = 'unchanged' // text description of change
+    if (change > 0) changeText = 'increased'
+    else if (change < 0) changeText = 'decreased'
+    fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
+    if (changeText != 'unchanged') fields.append(" by ${change.abs()} ${unit}")
+    fields.append(" compared to ${timeElapsedText}.\"")
+    fields.append(",pValue=${pValue}")
+    fields.append(",rChange=${change},rChangeText=\"${changeText}\"") // append change compared to previous(p) event value
+    fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
+    fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"") // append time of previous event value
+    fields.append(",timestamp=${eventTime}i")
+    fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
+    fields.append(",wValue=${pValue * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
+
+    fields.append(",xA=${evt.data.A},xA1=${evt.data.A1},xkVar=${evt.data.kVar},xkVar1=${evt.data.kVar1},xV=${evt.data.V},xV1=${evt.data.V1},xW=${evt.data.W},xW1=${evt.data.W1}")
+
+    tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
+    tags.insert(0, 'reactivePower')
+    def rp = 'autogen' // set retention policy
+    if (!(timeElapsed < 500 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 0.5 s)
+        postToInfluxDB(tags.toString(), rp)
+    } else {
+        logger("handleNumberEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value","warn")
+    }
+}
+
+
 def handleVector3Event(evt) {
     def eventType = 'threeAxis'
 
@@ -920,6 +1011,10 @@ private manageSubscriptions() { // Configures subscriptions
                         logger("manageSubscriptions(): Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}","info")
                     //    subscribe(dev, attr, handleJson_objectEvent) *** TO DO - write handler (if needed)
                     }
+                    else if (type == 'reactivePower') {
+                        logger("manageSubscriptions(): Subscribing 'handleReactivePowerEvent' listener to attribute: ${attr}, for device: ${dev}","info")
+                        subscribe(dev, attr, handleReactivePowerEvent) // special handler for reactivePower events
+                    }
                 }
             }
         }
@@ -1141,7 +1236,7 @@ private getAttributeDetail() { [
     presence: [type: 'enum', levels: ['not present': -1, present: 1]],
     pressure: [type: 'number', decimalPlaces: 1, unit: 'mbar'],
     reactiveEnergy: [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
-    reactivePower: [type: 'number', decimalPlaces: 3, unit: 'kVar'],
+    reactivePower: [type: 'reactivePower', decimalPlaces: 3, unit: 'kVar'],
     rssi: [type: 'number', decimalPlaces: 2, unit: 'dB'],
     saturation: [type: 'number', decimalPlaces: 0, unit: '%'],
     shock: [type: 'enum', levels: [clear: -1, detected: 1]],

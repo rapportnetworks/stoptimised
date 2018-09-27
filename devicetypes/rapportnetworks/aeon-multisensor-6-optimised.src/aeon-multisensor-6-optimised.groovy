@@ -371,6 +371,22 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 	return state.commandClassVersions
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
+	def result = []
+	def wakeupInterval = cmd.seconds
+	log.debug "wakeupInterval: $wakeupInterval"
+	updateDataValue("wakeupInterval", "$wakeupInterval")
+	result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
+	result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+	log.debug "Powerlevel Report: $cmd"
+	def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
+	log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
+	updateDataValue("powerLevel", powerLevel)
+}
+
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	log.debug "General zwaveEvent cmd: ${cmd}"
 	createEvent(descriptionText: cmd.toString(), isStateChange: false)
@@ -439,6 +455,12 @@ def configure() {
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x03) //illuminance
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x05) //humidity
 	request << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x1B) //ultravioletIndex
+
+	log.debug "Requesting Wake Up Interval Report"
+	request << zwave.wakeUpV1.wakeUpIntervalGet()
+
+	log.debug "Requesting Powerlevel Report"
+	request << zwave.powerlevelV1.powerlevelGet()
 
 	log.debug "Requesting Configuration Report"
 	updateDataValue("configurationReport", "updating")

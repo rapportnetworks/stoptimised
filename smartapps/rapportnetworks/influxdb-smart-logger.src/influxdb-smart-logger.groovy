@@ -536,7 +536,8 @@ def handleReactivePowerEvent(evt) {
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
     fields.append(",wValue=${pValue * timeElapsed}") // append time (seconds) weighted value - to facilate calculating mean value
 
-    fields.append(",xA=${evt.data.A},xA1=${evt.data.A1},xkVar=${evt.data.kVar},xkVar1=${evt.data.kVar1},xV=${evt.data.V},xV1=${evt.data.V1},xW=${evt.data.W},xW1=${evt.data.W1}")
+    def data = parseJson(evt.data)
+    fields.append(",xA=${data.A},xA1=${data.A1},xkVar=${data.kVar},xkVar1=${data.kVar1},xV=${data.V},xV1=${data.V1},xW=${data.W},xW1=${data.W1}")
 
     tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
     tags.insert(0, 'reactivePower')

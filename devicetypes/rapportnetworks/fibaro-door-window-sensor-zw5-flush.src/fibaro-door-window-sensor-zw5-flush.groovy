@@ -68,7 +68,37 @@ def updated() {
     }
 }
 
-// parse events into attributes
+def configure() {
+	log.debug "Executing 'configure'"
+	// Device wakes up every 4 hours, this interval allows us to miss one wakeup notification before marking offline
+	sendEvent(name: "checkInterval", value: 8 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+
+    def request = []
+
+    request += zwave.wakeUpV2.wakeUpIntervalSet(seconds:21600, nodeid: zwaveHubNodeId)//FGK's default wake up interval
+    request += zwave.manufacturerSpecificV2.deviceSpecificGet()
+    request += zwave.batteryV1.batteryGet()
+    request += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
+    request += zwave.sensorBinaryV2.sensorBinaryGet()
+    request += zwave.powerlevelV1.powerlevelGet()
+
+	log.debug "Requesting Configuration Report"
+	updateDataValue("configurationReport", "updating")
+	state.configurationReport = [:]
+	getConfigurationParameters().each { request << zwave.configurationV1.configurationGet(parameterNumber: it) }
+
+	setConfigured("true")
+
+	log.debug "Requesting Command Class Report"
+	updateDataValue("commandClassVersions", "updating")
+	state.commandClassVersions = [:]
+	getCommandClasses().each { request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it) }
+
+	request += zwave.wakeUpV2.wakeUpNoMoreInformation()
+
+    encapSequence(request, 1200)
+}
+
 def parse(String description) {
 	log.debug "Parsing '${description}'"
     def result = []
@@ -97,29 +127,19 @@ def parse(String description) {
     }
 }
 
-//security
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-	def encapsulatedCommand = cmd.encapsulatedCommand([0x71: 3, 0x84: 2, 0x85: 2, 0x98: 1])
-	if (encapsulatedCommand) {
-		return zwaveEvent(encapsulatedCommand)
-	} else {
-		log.warn "Unable to extract encapsulated cmd from $cmd"
-		createEvent(descriptionText: cmd.toString())
-	}
-}
 
-//crc16
-def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd)
-{
-    def versions = [0x72: 2, 0x80: 1, 0x86: 1]
-	def version = versions[cmd.commandClass as Integer]
-	def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
-	def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
-	if (!encapsulatedCommand) {
-		log.debug "Could not extract command from $cmd"
-	} else {
-		zwaveEvent(encapsulatedCommand)
+// Application Events
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
+	def map = [:]
+	map.value = cmd.sensorValue ? "full" : "flushing"
+	map.name = "contact"
+	if (map.value == "full") {
+		map.descriptionText = "${device.displayName} is full"
 	}
+	else {
+		map.descriptionText = "${device.displayName} is flushing"
+	}
+	createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
@@ -159,20 +179,21 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
-	def map = [name: "battery", unit: "%"]
-	if (cmd.batteryLevel == 0xFF) {
-		map.value = 1
-		map.descriptionText = "${device.displayName} has a low battery"
-		map.isStateChange = true
-	} else {
-		map.value = cmd.batteryLevel
-		map.isStateChange = true
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
+	log.debug "ConfigurationReport: $cmd"
+
+	def param = cmd.parameterNumber.toString().padLeft(3,"0")
+	def paramValue = cmd.scaledConfigurationValue.toString()
+	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
+	def untransformed = state.configurationReport << [(param): paramValue]
+	if (untransformed.size() == getConfigurationParameters().size()) {
+		log.debug "All Configuration Values Reported"
+		updateDataValue("configurationReport", state.configurationReport.collect { it }.join(","))
 	}
-	state.lastbat = new Date().time
-	createEvent(map)
+	state.configurationReport = untransformed
 }
 
+// Management Events
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
 	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
 	if (!isConfigured()) {
@@ -187,6 +208,20 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
 		result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
 	}
 	result
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
+	def map = [name: "battery", unit: "%"]
+	if (cmd.batteryLevel == 0xFF) {
+		map.value = 1
+		map.descriptionText = "${device.displayName} has a low battery"
+		map.isStateChange = true
+	} else {
+		map.value = cmd.batteryLevel
+		map.isStateChange = true
+	}
+	state.lastbat = new Date().time
+	createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
@@ -214,27 +249,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
     }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
-	log.debug "ConfigurationReport: $cmd"
-
-	def param = cmd.parameterNumber.toString().padLeft(3,"0")
-	def paramValue = cmd.scaledConfigurationValue.toString()
-	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
-	def untransformed = state.configurationReport << [(param): paramValue]
-	if (untransformed.size() == getConfigurationParameters().size()) {
-		log.debug "All Configuration Values Reported"
-		updateDataValue("configurationReport", state.configurationReport.collect { it }.join(","))
-	}
-	state.configurationReport = untransformed
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
-	log.debug "Powerlevel Report: $cmd"
-	def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
-	log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
-	updateDataValue("powerLevelReport", "powerLevel=${powerLevel}")
-}
-
+// Management Events
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
     updateDataValue("version", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
     log.debug "applicationVersion:      ${cmd.applicationVersion}"
@@ -262,70 +277,43 @@ def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLoca
 	log.info "${device.displayName}: received command: $cmd - device has reset itself"
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
-	def map = [:]
-	map.value = cmd.sensorValue ? "full" : "flushing"
-	map.name = "contact"
-	if (map.value == "full") {
-		map.descriptionText = "${device.displayName} is full"
-	}
-	else {
-		map.descriptionText = "${device.displayName} is flushing"
-	}
-	createEvent(map)
+// Network Protocol Events
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+	log.debug "Powerlevel Report: $cmd"
+	def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
+	log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
+	updateDataValue("powerLevelReport", "powerLevel=${powerLevel}")
 }
 
+// Transport Encapsulation Events
+def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
+    def versions = [0x72: 2, 0x80: 1, 0x86: 1]
+	def version = versions[cmd.commandClass as Integer]
+	def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
+	def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
+	if (!encapsulatedCommand) {
+		log.debug "Could not extract command from $cmd"
+	} else {
+		zwaveEvent(encapsulatedCommand)
+	}
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+	def encapsulatedCommand = cmd.encapsulatedCommand([0x71: 3, 0x84: 2, 0x85: 2, 0x98: 1])
+	if (encapsulatedCommand) {
+		return zwaveEvent(encapsulatedCommand)
+	} else {
+		log.warn "Unable to extract encapsulated cmd from $cmd"
+		createEvent(descriptionText: cmd.toString())
+	}
+}
+
+// Catch Event
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	log.debug "Catchall reached for cmd: $cmd"
 }
 
-def configure() {
-	log.debug "Executing 'configure'"
-	// Device wakes up every 4 hours, this interval allows us to miss one wakeup notification before marking offline
-	sendEvent(name: "checkInterval", value: 8 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-    def request = []
-
-    request += zwave.wakeUpV2.wakeUpIntervalSet(seconds:21600, nodeid: zwaveHubNodeId)//FGK's default wake up interval
-    request += zwave.manufacturerSpecificV2.deviceSpecificGet()
-    request += zwave.batteryV1.batteryGet()
-    request += zwave.associationV2.associationSet(groupingIdentifier:1, nodeId: [zwaveHubNodeId])
-    request += zwave.sensorBinaryV2.sensorBinaryGet()
-    request += zwave.powerlevelV1.powerlevelGet()
-
-	log.debug "Requesting Configuration Report"
-	updateDataValue("configurationReport", "updating")
-	state.configurationReport = [:]
-	getConfigurationParameters().each { request << zwave.configurationV1.configurationGet(parameterNumber: it) }
-
-	setConfigured("true")
-
-	log.debug "Requesting Command Class Report"
-	updateDataValue("commandClassVersions", "updating")
-	state.commandClassVersions = [:]
-	getCommandClasses().each { request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it) }
-
-	request += zwave.wakeUpV2.wakeUpNoMoreInformation()
-
-    encapSequence(request, 1200)
-}
-
-private getConfigurationParameters() { [
-	1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
-] }
-
-private getCommandClasses() { [
-	0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
-] }
-
-private setConfigured(configure) {
-	updateDataValue("configured", configure)
-}
-
-private isConfigured() {
-	getDataValue("configured") == "true"
-}
-
+// Send Commands
 private secure(physicalgraph.zwave.Command cmd) {
 	zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
@@ -349,4 +337,21 @@ private encap(physicalgraph.zwave.Command cmd) {
     } else {
     	crc16(cmd)
     }
+}
+
+// Helper Functions
+private getConfigurationParameters() { [
+	1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
+] }
+
+private getCommandClasses() { [
+	0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+] }
+
+private setConfigured(configure) {
+	updateDataValue("configured", configure)
+}
+
+private isConfigured() {
+	getDataValue("configured") == "true"
 }

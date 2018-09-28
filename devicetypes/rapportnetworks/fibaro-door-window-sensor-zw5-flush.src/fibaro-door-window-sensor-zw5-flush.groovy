@@ -16,12 +16,12 @@
  */
 metadata {
     definition(name: "Fibaro Door/Window Sensor ZW5 Flush Reporting", namespace: "rapportnetworks", author: "Alasdair Thin", ocfDeviceType: "x.com.st.d.sensor.contact") {
-        capability "Battery"
-        capability "Contact Sensor"
         capability "Sensor"
+        capability "Battery"
         capability "Configuration"
-        capability "Tamper Alert"
+        capability "Contact Sensor"
         capability "Health Check"
+        capability "Tamper Alert"
 
         fingerprint deviceId: "0x0701", inClusters: "0x5E, 0x85, 0x59, 0x22, 0x20, 0x80, 0x70, 0x56, 0x5A, 0x7A, 0x72, 0x8E, 0x71, 0x73, 0x98, 0x2B, 0x9C, 0x30, 0x86, 0x84", outClusters: ""
     }
@@ -52,8 +52,12 @@ metadata {
     }
 }
 
+// create debug option tile
+
 def installed() {
     sendEvent(name: "tamper", value: "clear", displayed: false)
+    createEvent checkInterval // initial value twice default Wake Up Interval
+    setConfigured("false")
 }
 
 def updated() {
@@ -69,37 +73,56 @@ def updated() {
 }
 
 def configure() {
-    log.debug "Executing 'configure'"
-    // Device wakes up every 4 hours, this interval allows us to miss one wakeup notification before marking offline
-    sendEvent(name: "checkInterval", value: 8 * 60 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
+    log.debug "Executing configure"
     def request = []
 
-    request += zwave.wakeUpV2.wakeUpIntervalSet(seconds: 21600, nodeid: zwaveHubNodeId) //FGK's default wake up interval
-    request += zwave.manufacturerSpecificV2.deviceSpecificGet()
-    request += zwave.batteryV1.batteryGet()
-    request += zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
-    request += zwave.sensorBinaryV2.sensorBinaryGet()
-    request += zwave.powerlevelV1.powerlevelGet()
+    log.debug "Setting 1st Association Group"  // create anonymous event - no point in logging
+    request << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+
+    log.debug "Setting Configuration Parameters"
+    request << zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: 0)
+    request << zwave.configurationV1.configurationSet(parameterNumber: 50, size: 2, scaledConfigurationValue: 0)
+
+    log.debug "Setting Wake Up Interval"
+    request << zwave.wakeUpV2.wakeUpIntervalSet(seconds: 18 * 60 * 60, nodeid: zwaveHubNodeId)
+    sendEvent(name: "checkInterval", value: 2 * 18 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+
+    if (!getDataValue("commandClassVersions")) {
+        log.debug "Requesting Command Class Report"
+        state.commandClassVersions = [:]
+        getCommandClasses().each {
+            request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+        }
+    }
 
     log.debug "Requesting Configuration Report"
-    updateDataValue("configurationReport", "updating")
-    state.configurationReport = [: ]
+    state.configurationReport = [:]
     getConfigurationParameters().each {
         request << zwave.configurationV1.configurationGet(parameterNumber: it)
     }
 
-    setConfigured("true")
-
-    log.debug "Requesting Command Class Report"
-    updateDataValue("commandClassVersions", "updating")
-    state.commandClassVersions = [: ]
-    getCommandClasses().each {
-        request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
+        log.debug "Requesting Powerlevel Report"
+        request << zwave.powerlevelV1.powerlevelGet()
     }
 
-    request += zwave.wakeUpV2.wakeUpNoMoreInformation()
+    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
+        log.debug "Requesting Battery Report"
+        request << zwave.batteryV1.batteryGet()
+    }
 
+    request << zwave.manufacturerSpecificV2.manufacturerSpecificGet()
+    request << zwave.manufacturerSpecificV2.deviceSpecificGet()
+
+    log.debug "Request Binary Sensor Report"
+    request << zwave.sensorBinaryV2.sensorBinaryGet()
+
+    // zwave.associationGrpInfoV1.associationGroupInfoGet
+    // zwave.securityV1.securityCommandsSupportedGet
+    // zwavePlusInfo ?
+
+    request << zwave.wakeUpV2.wakeUpNoMoreInformation()
+    setConfigured("true")
     encapSequence(request, 1200)
 }
 
@@ -134,9 +157,10 @@ def parse(String description) {
 
 // Application Events
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
-    def map = [: ]
-    map.value = cmd.sensorValue ? "full" : "flushing"
+    log.debug "Sensor Binary Report: $cmd"
+    def map = [:]
     map.name = "contact"
+    map.value = cmd.sensorValue ? "full" : "flushing"
     if (map.value == "full") {
         map.descriptionText = "${device.displayName} is full"
     } else {
@@ -146,9 +170,9 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
-    //it is assumed that default notification events are used
-    //(parameter 20 was not changed before device's re-inclusion)
-    def map = [: ]
+    log.debug "Notification Report: $cmd"
+    // assumed that default notification events are used (i.e. parameter 20 = 0)
+    def map = [:]
     if (cmd.notificationType == 6) {
         switch (cmd.event) {
             case 22:
@@ -156,7 +180,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 map.value = "full"
                 map.descriptionText = "${device.displayName} is full"
                 break
-
             case 23:
                 map.name = "contact"
                 map.value = "flushing"
@@ -170,7 +193,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 map.value = "clear"
                 map.descriptionText = "Tamper alert cleared"
                 break
-
             case 3:
                 map.name = "tamper"
                 map.value = "detected"
@@ -178,13 +200,12 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 break
         }
     }
-
     createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
-    log.debug "ConfigurationReport: $cmd"
-
+    def result = [createEvent(descriptionText: "${device.displayName} Configuration Report Received", isStateChange: false, data: cmd)]
+    log.debug "Configuration Report: $cmd" // create anonymous event ? set data: cmd
     def param = cmd.parameterNumber.toString().padLeft(3, "0")
     def paramValue = cmd.scaledConfigurationValue.toString()
     log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
@@ -195,28 +216,37 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
             it
         }.join(","))
     }
+/*
+    Could I do this? NEW
+    def report = String new state.configurationReport.collect { it }.join(","))
+*/
     state.configurationReport = untransformed
+    result
 }
 
 // Management Events
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) {
     def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
     if (!isConfigured()) {
-        log.debug("late configure")
+        log.debug "late configure"
         result << response(configure())
-    } else if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
+    } else if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
         result << response(zwave.batteryV1.batteryGet().format())
         result << response("delay 1200")
         result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
     } else {
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
         result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
+        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
     }
     result
 }
 
+// physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy
+// physicalgraph.zwave.commands.applicationstatusv1.ApplicationRejectedRequest
+
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
-    def map = [name: "battery", unit: "%"]
+    log.debug "Battery Report: $cmd" // create anonymous event
+    def map = [name: 'battery', unit: '%']
     if (cmd.batteryLevel == 0xFF) {
         map.value = 1
         map.descriptionText = "${device.displayName} has a low battery"
@@ -225,11 +255,17 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
         map.value = cmd.batteryLevel
         map.isStateChange = true
     }
-    state.lastbat = new Date().time
+    state.timeLastBatteryReport = new Date().time
     createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
+// No point in logging - because will only appear when device wakes up!
+// Integer	manufacturerId
+// Integer	productId
+// Integer	productTypeId
+// List<Short>	payload
+    log.debug "Manufacturer Specific Report: $cmd"
     log.debug "manufacturerId:   ${cmd.manufacturerId}"
     log.debug "manufacturerName: ${cmd.manufacturerName}"
     log.debug "productId:        ${cmd.productId}"
@@ -237,6 +273,19 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
+// create anonymouse event
+
+//    List<Short>	deviceIdData
+//    Short	deviceIdDataFormat
+//    Short	deviceIdDataLengthIndicator
+//    Short	deviceIdType
+//    List<Short>	payload
+
+//    Short	DEVICE_ID_DATA_FORMAT_RESERVED0	= 0
+//    Short	DEVICE_ID_TYPE_RESERVED0	= 0
+//    Short	DEVICE_ID_TYPE_SERIAL_NUMBER	= 1
+//    Short	DEVICE_ID_DATA_FORMAT_BINARY	= 1
+    log.debug "Device Specific Report: $cmd"
     log.debug "deviceIdData:                ${cmd.deviceIdData}"
     log.debug "deviceIdDataFormat:          ${cmd.deviceIdDataFormat}"
     log.debug "deviceIdDataLengthIndicator: ${cmd.deviceIdDataLengthIndicator}"
@@ -257,6 +306,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
 
 // Management Events
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
+// not sure this is needed - ST Hub already has this
     updateDataValue("version", "${cmd.applicationVersion}.${cmd.applicationSubVersion}")
     log.debug "applicationVersion:      ${cmd.applicationVersion}"
     log.debug "applicationSubVersion:   ${cmd.applicationSubVersion}"
@@ -266,7 +316,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
-    log.debug "Command Class Versions Report: $cmd"
+    log.debug "Command Class Versions Report: $cmd" // create anonymous event
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
     log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
@@ -284,13 +334,13 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) {
-    log.info "${device.displayName}: received command: $cmd - device has reset itself"
+    log.debug "${device.displayName}: received command: $cmd - device has reset itself"
 }
 
 // Network Protocol Events
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     log.debug "Powerlevel Report: $cmd"
-    def powerLevel = -1 * cmd.powerLevel //    def timeout = cmd.timeout (1-255 s) - omit
+    def powerLevel = -1 * cmd.powerLevel // omitted cmd.timeout (1-255 s)
     log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
     updateDataValue("powerLevelReport", "powerLevel=${powerLevel}")
 }
@@ -354,15 +404,15 @@ private encap(physicalgraph.zwave.Command cmd) {
 }
 
 // Helper Functions
-private getConfigurationParameters() {
-    [
-        1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
-    ]
-}
-
 private getCommandClasses() {
     [
         0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+    ]
+}
+
+private getConfigurationParameters() {
+    [
+        1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
     ]
 }
 

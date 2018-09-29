@@ -358,7 +358,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
-	log.debug "Command Class Versions Report: $cmd"
 	def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
 	def ccVersion = cmd.commandClassVersion
 	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
@@ -368,7 +367,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 		updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
 	}
 	state.commandClassVersions = untransformed
-	return state.commandClassVersions
+    createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {

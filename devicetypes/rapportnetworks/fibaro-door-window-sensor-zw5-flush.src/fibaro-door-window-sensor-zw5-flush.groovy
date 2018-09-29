@@ -80,8 +80,9 @@ def configure() {
 
     log.debug "Setting Configuration Parameters"  // trace
     request << createEvent(descriptionText: "Setting Configuration Parameters", isStateChange: true)
-    request << zwave.configurationV1.configurationSet(parameterNumber: 3, size: 1, scaledConfigurationValue: 0)
-    request << zwave.configurationV1.configurationSet(parameterNumber: 50, size: 2, scaledConfigurationValue: 0)
+    getConfigurationParameterValues().each {
+        request << zwave.configurationV1.configurationSet(it)
+    }
 
     log.debug "Setting Wake Up Interval" // trace
     request << createEvent(descriptionText: "Setting Wake Up Interval", isStateChange: true)
@@ -134,6 +135,12 @@ def configure() {
     encapSequence(request, 1200)
 }
 
+/*
+    if (description.startsWith("Err 106") && !state.sec) {
+        state.sec = 0
+    }
+*/
+
 def parse(String description) {
     log.debug "Parsing '${description}'"
     def result = []
@@ -146,7 +153,7 @@ def parse(String description) {
                 eventType: "ALERT",
                 name: "secureInclusion",
                 value: "failed",
-                displayed: true,
+                displayed: true
             )
         }
     } else if (description == "updated") {
@@ -326,6 +333,7 @@ def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) { // 0x
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98: 1
+    state.sec = 1
     def encapsulatedCommand = cmd.encapsulatedCommand(CommandClassVersions)
     if (encapsulatedCommand) {
         return zwaveEvent(encapsulatedCommand)
@@ -342,60 +350,51 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 }
 
 // *** Send Commands ***
-private secure(physicalgraph.zwave.Command cmd) {
-    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-}
-
-private crc16(physicalgraph.zwave.Command cmd) {
-    //zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format() - is this right?
-
-    zwave.crc16EncapV1.crc16Encap
-
-    "5601${cmd.format()}0000"
-}
-
 private encapSequence(commands, delay = 1200) {
     delayBetween(commands.collect {
         encap(it)
     }, delay)
 }
 
-private encap(physicalgraph.zwave.Command cmd) {
-    //todo: check if secure inclusion was successful
-    //if not do not send security-encapsulated command
-    if (SecureClasses.find {
-            it == cmd.commandClassId
-        }) {
-        secure(cmd)
+private command(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo.zw.contains("s")) { //if (deviceIsSecure) { }
+        secureEncap(cmd)
+    } else if (zwaveInfo.cc.contains("56")){
+        crc16Encap(cmd)
     } else {
-        crc16(cmd)
+        cmd.format()
     }
 }
 
+private secureEncap(physicalgraph.zwave.Command cmd) {
+    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+}
+
+private crc16Encap(physicalgraph.zwave.Command cmd) {
+    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
+}
+
 // *** Helper Methods ***
-private getCommandClassVersions() {
-    [
-        0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1
-    ]
-}
+private getCommandClassVersions() { [
+    0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1
+] }
 
-private getSecureClasses() {
-    [
+private getSecureClasses() { [
     0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
-    ]
-}
+] }
 
-private getCommandClasses() {
-    [
-        0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
-    ]
-}
+private getCommandClasses() { [
+    0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+] }
 
-private getConfigurationParameters() {
-    [
-        1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
-    ]
-}
+private getConfigurationParameters() { [
+    1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
+] }
+
+private getConfigurationParameterValues() { [
+    [parameterNumber: 3, size: 1, scaledConfigurationValue: 0],
+    [parameterNumber: 50, size: 2, scaledConfigurationValue: 0]
+] }
 
 private setConfigured(configure) {
     updateDataValue("configured", configure)
@@ -404,3 +403,13 @@ private setConfigured(configure) {
 private isConfigured() {
     getDataValue("configured") == "true"
 }
+
+/*
+private getDeviceIsSecure() {
+    if (zwaveInfo && zwaveInfo.zw) {
+        return zwaveInfo.zw.endsWith("s")
+    } else {
+        return state.sec ? true : false
+    }
+}
+*/

@@ -356,8 +356,9 @@ private encapSequence(commands, delay = 1200) {
     }, delay)
 }
 
-private command(physicalgraph.zwave.Command cmd) {
-    if (zwaveInfo.zw.contains("s")) { //if (deviceIsSecure) { }
+// *** need to check if command can be sent securely *** getSecureClasses()
+private encap(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo.zw.contains("s") && ***secure class - check original code) { //if (deviceIsSecure) { }
         secureEncap(cmd)
     } else if (zwaveInfo.cc.contains("56")){
         crc16Encap(cmd)

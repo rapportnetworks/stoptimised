@@ -72,67 +72,22 @@ def updated() {
 
 def configure() {
     log.debug "Executing configure" // trace
+    setConfigured("false")
     def request = []
-
-    log.debug "Setting 1st Association Group"  // trace
-    request << createEvent(descriptionText: "Setting 1st Association Group", isStateChange: true)
-    request << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
-
-    log.debug "Setting Configuration Parameters"  // trace
-    request << createEvent(descriptionText: "Setting Configuration Parameters", isStateChange: true)
-    getConfigurationParameterValues().each {
-        request << zwave.configurationV1.configurationSet(it)
-    }
-
-    log.debug "Setting Wake Up Interval" // trace
-    request << createEvent(descriptionText: "Setting Wake Up Interval", isStateChange: true)
-    request << zwave.wakeUpV2.wakeUpIntervalSet(seconds: 18 * 60 * 60, nodeid: zwaveHubNodeId)
-    sendEvent(name: "checkInterval", value: 2 * 18 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-
-    if (!getDataValue("commandClassVersions")) {
-        log.debug "Requesting Command Class Report" // trace
-        request << createEvent(descriptionText: "Requesting Command Class Report", isStateChange: true)
-        state.commandClassVersions = [:]
-        getCommandClasses().each {
-            request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
-        }
-    }
-
-    log.debug "Requesting Configuration Report" // trace
-    request << createEvent(descriptionText: "Requesting Configuration Report", isStateChange: true)
-    state.configurationReport = [:]
-    getConfigurationParameters().each {
-        request << zwave.configurationV1.configurationGet(parameterNumber: it)
-    }
-
-    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
-        log.debug "Requesting Powerlevel Report"
-        request << createEvent(descriptionText: "Requesting Powerlevel Report", isStateChange: true)
-        request << zwave.powerlevelV1.powerlevelGet()
-    }
-
-    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
-        log.debug "Requesting Battery Report"
-        request << createEvent(descriptionText: "Requesting Battery Report", isStateChange: true)
-        request << zwave.batteryV1.batteryGet()
-    }
-
-    // if (!getDataValue("serialNumber")) {
-    log.debug "Requesting Device Specific Report"
-    request << createEvent(descriptionText: "Requesting Device Specific Report", isStateChange: true)
-    request << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
-
-    log.debug "Requesting Binary Sensor Report"
-    request << createEvent(descriptionText: "Requesting Binary Sensor Report", isStateChange: true)
-    request << zwave.sensorBinaryV2.sensorBinaryGet()
-
+    association(request)
+    wakeup(request)
+    configuration(request)
+    powerlevel(request)
+    manufacturerSpecific(request)
+    version(request)
+    battery(request)
+    sensorBinary(request)
     // zwave.associationGrpInfoV1.associationGroupInfoGet
     // zwave.securityV1.securityCommandsSupportedGet
     // zwavePlusInfo ?
-
-    request << zwave.wakeUpV2.wakeUpNoMoreInformation()
-    setConfigured("true")
-    encapSequence(request, 1200)
+    wakeUpNoMoreInformation(request)
+    runIn(120, syncCheck)
+    assembleCommands(request, 1200)
 }
 
 /*
@@ -229,6 +184,8 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
         }.join(","))
     }
     state.configurationReport = untransformed
+    def parameter = getConfigurationParameterValues.find{ it.parameterNumber == cmd.parameterNumber }
+    if (parameter) { state."$parameter.parameterNumber".state = (parameter.scaledConfigurationValue == cmd.scaledConfigurationValue) ? "synced" : "notSynced" }
     createEvent(descriptionText: "${device.displayName} Configuration Report", isStateChange: true)
 }
 
@@ -306,6 +263,11 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     createEvent(descriptionText: "${device.displayName} Version Command Class Report", isStateChange: true)
 }
 
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpIntervalReport cmd) {
+    updateDataValue("wakeupInterval", cmd.seconds)
+    createEvent(descriptionText: "${device.displayName} Wake Up Interval Report", isStateChange: true)
+}
+
 def zwaveEvent(physicalgraph.zwave.commands.deviceresetlocallyv1.DeviceResetLocallyNotification cmd) { // 0x5A: 1
     log.debug "${device.displayName}: received command: $cmd - device has reset itself" // trace
     createEvent(descriptionText: "${device.displayName} Device Reset Locally Notification", isStateChange: true)
@@ -350,7 +312,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 }
 
 // *** Send Commands ***
-private encapSequence(commands, delay = 1200) {
+private assembleCommands(commands, delay = 1200) {
     delayBetween(commands.collect {
         encap(it)
     }, delay)
@@ -358,7 +320,7 @@ private encapSequence(commands, delay = 1200) {
 
 // *** need to check if command can be sent securely *** getSecureClasses()
 private encap(physicalgraph.zwave.Command cmd) {
-    if (zwaveInfo.zw.contains("s") && ***secure class - check original code) { //if (deviceIsSecure) { }
+    if (zwaveInfo.zw.contains("s") && secureClasses.find{ it == cmd.commandClassId }) { //if (deviceIsSecure) { }
         secureEncap(cmd)
     } else if (zwaveInfo.cc.contains("56")){
         crc16Encap(cmd)
@@ -405,6 +367,21 @@ private isConfigured() {
     getDataValue("configured") == "true"
 }
 
+def syncCheck() {
+    createEvent(descriptionText: "${device.displayName} Executing Sync Check", isStateChange: true)
+
+    def statesCheck = [:]
+    statesCheck << getConfigurationParameterValues.each { it.parameterNumber }
+    def count = 0
+    statesCheck.each {
+        if  (state."$statesCheck".state == "synced") count += 1
+    }
+    if (count == statesCheck.size() && getDataValue("")) setConfigured("true")
+    getDataValue("powerLevelReport")
+    getDataValue("serialNumber")
+    getDataValue("")
+}
+
 /*
 private getDeviceIsSecure() {
     if (zwaveInfo && zwaveInfo.zw) {
@@ -414,3 +391,91 @@ private getDeviceIsSecure() {
     }
 }
 */
+
+
+// Configuration Submethods
+private association(request) {
+    log.debug "Setting 1st Association Group"  // trace
+    request << createEvent(descriptionText: "Setting 1st Association Group", isStateChange: true)
+    request << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+    request
+}
+
+private battery(request) {
+    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
+        log.debug "Requesting Battery Report"
+        request << createEvent(descriptionText: "Requesting Battery Report", isStateChange: true)
+        request << zwave.batteryV1.batteryGet()
+    }
+    request
+}
+
+private configuration(request) {
+    log.debug "Setting Configuration Parameters"  // trace
+    request << createEvent(descriptionText: "Setting Configuration Parameters", isStateChange: true)
+    getConfigurationParameterValues().each {
+        state."$it.parameterNumber".state = "notSynced"
+        request << zwave.configurationV1.configurationSet(it)
+    }
+    log.debug "Requesting Configuration Report" // trace
+    request << createEvent(descriptionText: "Requesting Configuration Report", isStateChange: true)
+    state.configurationReport = [:]
+    getConfigurationParameters().each {
+        request << zwave.configurationV1.configurationGet(parameterNumber: it)
+    }
+    request
+}
+
+private manufacturerSpecific(request) {
+    // if (!getDataValue("serialNumber")) { // leave for now so as to reset format of serialNumber
+        log.debug "Requesting Device Specific Report"
+        request << createEvent(descriptionText: "Requesting Device Specific Report", isStateChange: true)
+        request << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+    // }
+    request
+}
+
+private powerlevel(request) {
+    if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
+        log.debug "Requesting Powerlevel Report"
+        request << createEvent(descriptionText: "Requesting Powerlevel Report", isStateChange: true)
+        request << zwave.powerlevelV1.powerlevelGet()
+    }
+    request
+}
+
+private sensorBinary(request) {
+    log.debug "Requesting Binary Sensor Report"
+    request << createEvent(descriptionText: "Requesting Binary Sensor Report", isStateChange: true)
+    request << zwave.sensorBinaryV2.sensorBinaryGet()
+    request
+}
+
+private version(request) {
+    if (!getDataValue("commandClassVersions")) {
+        log.debug "Requesting Command Class Report" // trace
+        request << createEvent(descriptionText: "Requesting Command Class Report", isStateChange: true)
+        state.commandClassVersions = [:]
+        getCommandClasses().each {
+            request << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+        }
+    }
+    request
+}
+
+private wakeup(request) {
+    log.debug "Setting Wake Up Interval" // trace
+    request << createEvent(descriptionText: "Setting Wake Up Interval", isStateChange: true)
+    request << zwave.wakeUpV2.wakeUpIntervalSet(seconds: 18 * 60 * 60, nodeid: zwaveHubNodeId)
+    sendEvent(name: "checkInterval", value: 2 * 18 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+
+    log.debug "Requesting Wake Up Interval Report"
+    request << createEvent(descriptionText: "Requesting Wake Up Interval Report", isStateChange: true)
+    request << zwave.wakeupV2.wakeUpIntervalGet()
+    request
+}
+
+private wakeUpNoMoreInformation(request) {
+    request << zwave.wakeUpV2.wakeUpNoMoreInformation()
+    request
+}

@@ -53,10 +53,20 @@ metadata {
 }
 
 // create debug option tile
+/*
+    If you’re returning zwave commands from the “update” or “parse” methods you have to use the response method.
+        return response(zwave.basicV1.basicGet().format())
+    You can also use response like:
+        def cmds = []
+        cmds << zwave.basicV1.basicGet().format()
+        return response(cmds)
+*/
+
+    // sendCommand ?? vs respons()
 
 def installed() {
     setConfigured("false")
-    sendEvent(name: "tamper", value: "clear", displayed: false)
+    sendEvent(name: "tamper", value: "clear", displayed: false) // should be createEvent?
     sendEvent(name: "checkInterval", value: 2 * 4 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) // initial value twice default Wake Up Interval
 }
 
@@ -64,7 +74,7 @@ def updated() {
     setConfigured("false")
     def tamperValue = device.latestValue("tamper") // is this needed
     if (tamperValue == "active") {
-        sendEvent(name: "tamper", value: "detected", displayed: false)
+        sendEvent(name: "tamper", value: "detected", displayed: false) // should be createEvent?
     } else if (tamperValue == "inactive") {
         sendEvent(name: "tamper", value: "clear", displayed: false)
     }
@@ -191,18 +201,19 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
 // *** Management Events ***
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) { // 0x84: 2
-    def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+    def events = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+    def cmds = []
     if (!isConfigured()) {
-        result << response(configure())
+        cmds << configure()
     } else if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
-        result << response(zwave.batteryV1.batteryGet().format()) // battery(result)
-        result << response("delay 1200")
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
+        cmds << zwave.batteryV1.batteryGet().format() // battery(result)
+        cmds << "delay 1200"
+        cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format() // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
     } else {
-        result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
+        events << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
+        cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format() // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
     }
-    result // need to streamline above commands - but using "response", so encapsulation might be handled automatically ??? assembleCommands(request, 1200)
+    [events, response(cmds)] // need to streamline above commands - but using "response", so encapsulation might be handled automatically ??? assembleCommands(request, 1200)
 }
 
 // physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy // 0x22: 1
@@ -314,26 +325,26 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 // *** Send Commands ***
 private assembleCommands(commands, delay = 1200) {
     delayBetween(commands.collect {
-        encap(it)
+        encapsulate(it)
     }, delay)
 }
 
 // *** need to check if command can be sent securely *** getSecureClasses()
-private encap(physicalgraph.zwave.Command cmd) {
-    if (zwaveInfo.zw.contains("s") && secureClasses.find{ it == cmd.commandClassId }) { //if (deviceIsSecure) { }
-        secureEncap(cmd)
+private encapsulate(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo.zw.endsWith("s") && getSecureClasses.find{ it == cmd.commandClassId }) {
+        secureEncapsulate(cmd)
     } else if (zwaveInfo.cc.contains("56")){
-        crc16Encap(cmd)
+        crc16Encapsulate(cmd)
     } else {
         cmd.format()
     }
 }
 
-private secureEncap(physicalgraph.zwave.Command cmd) {
+private secureEncapsulate(physicalgraph.zwave.Command cmd) {
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
-private crc16Encap(physicalgraph.zwave.Command cmd) {
+private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
@@ -381,17 +392,6 @@ def syncCheck() {
     getDataValue("serialNumber")
     getDataValue("")
 }
-
-/*
-private getDeviceIsSecure() {
-    if (zwaveInfo && zwaveInfo.zw) {
-        return zwaveInfo.zw.endsWith("s")
-    } else {
-        return state.sec ? true : false
-    }
-}
-*/
-
 
 // Configuration Submethods
 private association(request) {

@@ -195,14 +195,14 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv2.WakeUpNotification cmd) { /
     if (!isConfigured()) {
         result << response(configure())
     } else if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 7 * 24 * 60 * 60 * 1000) {
-        result << response(zwave.batteryV1.batteryGet().format())
+        result << response(zwave.batteryV1.batteryGet().format()) // battery(result)
         result << response("delay 1200")
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
+        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
     } else {
         result << createEvent(name: 'battery', value: device.latestValue("battery"), unit: '%', isStateChange: true, displayed: false)
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())
+        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // wakeUpNoMoreInformation(result) ??? assembleCommands(request, 1200)
     }
-    result
+    result // need to streamline above commands - but using "response", so encapsulation might be handled automatically ??? assembleCommands(request, 1200)
 }
 
 // physicalgraph.zwave.commands.applicationstatusv1.ApplicationBusy // 0x22: 1

@@ -328,12 +328,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	def param = cmd.parameterNumber.toString().padLeft(3,"0")
 	def paramValue = cmd.scaledConfigurationValue.toString()
 	log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
-	def untransformed = state.configurationReport << [(param): paramValue]
-	if (untransformed.size() == getConfigurationParameters().size()) {
+    state.configurationReport << [(param): paramValue]
+	if (state.configurationReport.size() == getConfigurationParameters().size()) {
 		log.debug "All Configuration Values Reported"
 		updateDataValue("configurationReport", state.configurationReport.collect { it }.join(","))
 	}
-	state.configurationReport = untransformed
 
 	def result = []
 	def value
@@ -361,12 +360,11 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 	def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
 	def ccVersion = cmd.commandClassVersion
 	log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
-	def untransformed = state.commandClassVersions << [(ccValue): ccVersion]
-	if (untransformed.size() == getCommandClasses().size()) {
+	state.commandClassVersions << [(ccValue): ccVersion]
+	if (state.commandClassVersions.size() == getCommandClasses().size()) {
 		log.debug "All Command Class Versions Reported"
 		updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
 	}
-	state.commandClassVersions = untransformed
     createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 

@@ -311,7 +311,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 				unschedule(clearTamper, [forceForLocallyExecuting: true])
 				runIn(10, clearTamper, [forceForLocallyExecuting: true])
 				break
-			case 7:
+			case 7: // ? shouldn't it be case 8: ?
 				result << motionEvent(1)
 				break
 		}

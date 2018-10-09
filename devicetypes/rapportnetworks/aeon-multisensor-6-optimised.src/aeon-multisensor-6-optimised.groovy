@@ -290,7 +290,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
-	motionEvent(cmd.value)
+	motionEvent(cmd.value) // responding to BasicSet - 2001 value FF
 }
 
 def clearTamper() {

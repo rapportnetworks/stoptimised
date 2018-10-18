@@ -949,7 +949,7 @@ def configure() {
 
     // resets any user selected configurations
     getParametersMetadata().findAll( { !it.readonly } ).each {
-        def specifiedValue = configurationParameterValues().find { spec -> spec.id == "$it.id"}?.specifiedValue
+        def specifiedValue = configurationParameterValues().find { sv -> sv.id == it.id }?.specifiedValue
         if (specifiedValue) {
             device?.updateSetting("configParam${it.id}", specifiedValue) // might not be set by user
             state."paramTarget${it.id}" = specifiedValue.toInteger()

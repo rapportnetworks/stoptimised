@@ -947,6 +947,20 @@ def configure() {
         }
     }
 
+    // resets any user selected configurations
+    getParametersMetadata().findAll( { !it.readonly } ).each {
+        def specifiedValue = configurationParameterValues().find { spec -> spec.id == "$it.id"}?.specifiedValue
+        if (specifiedValue) {
+            device?.updateSetting("configParam${it.id}", specifiedValue) // might not be set by user
+            state."paramTarget${it.id}" = specifiedValue.toInteger()
+        }
+        else if (settings."configParam${it.id}") { // not null therefore reset value to default
+            def defaultValue = it.defaultValue
+            device?.updateSetting("configParam${it.id}", defaultValue)
+            state."paramTarget${it.id}" = defaultValue.toInteger()
+        }
+    }
+
     getAssociationGroupsMetadata().findAll( { it.id != 3} ).each {
         state."assocGroupTarget${it.id}" = parseAssocGroupInput(settings."configAssocGroup${it.id}", it.maxNodes)
     }
@@ -957,6 +971,11 @@ def configure() {
     state.syncAll = 'true'
     updated()
 }
+
+private configurationParameterValues() { [
+    [id: 3, size: 1, scaledConfigurationValue: 0],
+    [id: 50, size: 2, scaledConfigurationValue: 0]
+] }
 
 private specifiedValues() { [
     param1target: 1,
@@ -1465,7 +1484,7 @@ private getParametersMetadata() {
          description : "",
          options: ["0" : "0: ALARM WATER command",
                    "255" : "255: BASIC_SET command"] ],
-        [id: 7, size: 1, type: "number", range: "1..255", defaultValue : 255, required: false, readonly: false,
+        [id: 7, size: 1, type: "number", range: "1..255", defaultValue: 255, required: false, readonly: false,
          isSigned: false,
          name: "Level sent to Association Group 1",
          description : "Determines the level sent (BASIC_SET) to Association Group 1 on alarm.\n" +
@@ -1476,13 +1495,13 @@ private getParametersMetadata() {
          description : "",
          options: ["0" : "0: Alarm cancellation INACTIVE",
                    "1" : "1: Alarm cancellation ACTIVE"] ],
-        [id: 10, size: 2, type: "number", range: "1..65535", defaultValue : 300, required: false, readonly: false,
+        [id: 10, size: 2, type: "number", range: "1..65535", defaultValue: 300, required: false, readonly: false,
          isSigned: false,
          name: "Temperature Measurement Interval",
          description : "Time between consecutive temperature measurements. New temperature value is reported to " +
          "the main controller only if it differs from the previously measured by hysteresis (parameter #12).\n" +
          "Values: 1-65535 = Time (s)"],
-        [id: 12, size: 2, type: "number", range: "1..1000", defaultValue : 50, required: false, readonly: false,
+        [id: 12, size: 2, type: "number", range: "1..1000", defaultValue: 50, required: false, readonly: false,
          isSigned: true,
          name: "Temperature Measurement Hysteresis",
          description : "Determines the minimum temperature change resulting in a temperature report being " +

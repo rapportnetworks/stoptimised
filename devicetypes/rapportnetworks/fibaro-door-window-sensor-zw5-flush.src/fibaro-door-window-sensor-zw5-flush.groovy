@@ -23,9 +23,12 @@ metadata {
         capability "Health Check"
         capability "Tamper Alert"
 
-        // Standard (Capability) Attributes
+        // Standard (Capability) Attributes - do these need to be specified?
 
         // Custom Attributes
+
+        // Capability commands
+        // command "configure"
 
         // Custom Commands
         command "resetTamper"
@@ -66,59 +69,8 @@ metadata {
     }
 }
 
-def installed() {
-    setConfigured("false")
-    sendEvent(name: "tamper", value: "clear", displayed: false) // should be createEvent?
-    sendEvent(name: "checkInterval", value: 2 * 4 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) // initial value twice default Wake Up Interval
-}
 
-def updated() {
 
-    if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
-        state.updatedLastRanAt = now()
-
-        setConfigured("false")
-        def tamperValue = device.latestValue("tamper") // is this needed
-        if (tamperValue == "active") {
-            sendEvent(name: "tamper", value: "detected", displayed: false) // should be createEvent?
-        }
-        else if (tamperValue == "inactive") {
-            sendEvent(name: "tamper", value: "clear", displayed: false)
-        }
-
-        // for Sleepy devices (on battery)
-        setConfigured("false") // will call parseConfigure()
-        // for Listening devices - call "configuration"
-        // commandConfigure()
-
-        // move methods to configuration() - then get wrapped in response() when called from WakeUpNotification
-        log.debug "Executing configure" // trace
-        setConfigured("false")
-
-        def commands = []
-        association(commands) // set 1st Association Group
-        wakeup(commands) // set & get Wake Up Interval
-        configuration(commands) // set & get Configuration Values
-        powerlevel(commands) // get Powerlevel Report
-        manufacturerSpecific(commands) // get Device Specific Report
-        battery(commands) // get Battery Report
-        sensorBinary(commands) // get Sensor Binary Report
-        // zwave.associationGrpInfoV1.associationGroupInfoGet
-        // zwave.securityV1.securityCommandsSupportedGet
-        wakeUpNoMoreInformation(commands) // send Wake Up No More Information
-
-        // runIn(120, syncCheck)
-        response(assembleCommands(commands))
-    }
-    else {
-        logger("updated(): Ran within last 2 seconds so aborting.","debug")
-    }
-}
-
-def configure() { // just send to updated() - only value here is that tile press or smartapp can send configuration command to device to trigger it - it doesn't get called if a device is replaced
-    sendEvent(descriptionText: "Configuration Command Received", displayed: false)
-    updated()
-}
 
 /*
     if (description.startsWith("Err 106") && !state.sec) {
@@ -126,6 +78,9 @@ def configure() { // just send to updated() - only value here is that tile press
     }
 */
 
+/*****************************************************************************************************************
+ *  Parse
+ *****************************************************************************************************************/
 def parse(String description) {
     log.debug "Parsing '${description}'"
     def result = []
@@ -365,8 +320,62 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
+
 /*****************************************************************************************************************
- *  Custom Commands:
+ *  Capability Commands
+ *****************************************************************************************************************/
+def configure() { // just send to updated() - only value here is that tile press or smartapp can send configuration command to device to trigger it - it doesn't get called if a device is replaced
+    sendEvent(descriptionText: "Configuration Command Received", displayed: false)
+
+    // get all configuration Parameters
+    getParamsMd().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
+        state."paramTarget${it.id}" = settings."configParam${it.id}"?.toInteger()
+    }
+
+    getParamsMd().findAll( {!it.readonly} ).each {
+        state."paramTarget${it.id}" = settings."configParam${it.id}"?.toInteger() // assigns value from settings ?uses default if not set by user
+    }
+
+    if (forceAll || state.syncAll) { // Clear all cached values.
+        state.wakeUpIntervalCache = null
+        getParamsMd().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
+        getAssocGroupsMd().each { state."assocGroupCache${it.id}" = null }
+        state.syncAll = false
+    }
+
+    getParamsMd().findAll( {!it.readonly} ).each {
+        if ( (state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."paramTarget${it.id}") ) {
+            // configurationSet will detect if scaledConfigurationValue is SIGNEd or UNSIGNED and convert accordingly:
+            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}","info")
+            syncPending++
+        }
+    }
+
+However, if the setting is currently not set (i.e. settings.inputName == null) then you cannot give it a value using device.updateSetting(inputName, value)
+-> reset to manufacturer default values
+unless specifically specified
+
+// resets any user selected configurations
+    getParamMd().findAll( { !it.readonly } ).each {
+        if (configurationParameterValues."$it.id") {
+            def specified = configurationParameterValues."$it.id".toInteger()
+            device?.updateSetting("${it.id}", specified) // might not be set by user
+            state."paramTarget${it.id}" = specified
+        }
+        else if (settings."configParam${it.id}") { // not null therefore reset value to default
+            def default = it.defaultValue.toInteger()
+            device?.updateSetting("${it.id}", default)
+            state."paramTarget${it.id}" = default
+        }
+    }
+}
+
+
+
+/*****************************************************************************************************************
+ *  Custom Commands
  *****************************************************************************************************************/
 def resetTamper() {
     logger("resetTamper(): Resetting tamper alarm.","info")
@@ -397,6 +406,124 @@ private sendSequence(commands, delay = 200) {
     sendHubCommand(commands.collect{ response(it) }, delay)
 }
 */
+
+
+/*****************************************************************************************************************
+ *  SmartThings System Methods
+ *****************************************************************************************************************/
+def installed() {
+    log.trace "installed()"
+
+    state.installedAt = now()
+    state.loggingLevelIDE     = 5
+    state.loggingLevelDevice  = 2
+
+    // Initial settings:
+    logger("Performing initial setup","info")
+    sendEvent(name: "tamper", value: "clear", displayed: false)
+    sendEvent(name: "checkInterval", value: 2 * 4 * 60 * 60 + 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID]) // initial value twice default Wake Up Interval
+
+    if (getZwaveInfo()?.zw?.startsWith("L")) {
+        logger("Device is in listening mode (powered).","info")
+        sendEvent(name: "powerSource", value: "dc", descriptionText: "Device is connected to DC power supply.")
+        sendEvent(name: "batteryStatus", value: "DC-power", displayed: false)
+    }
+    else {
+        logger("Device is in sleepy mode (battery).","info")
+        sendEvent(name: "powerSource", value: "battery", descriptionText: "Device is using battery.")
+        state.wakeUpIntervalTarget = 300
+    }
+
+
+    state.paramTarget74 = 3 // enable movement and tmp alerts at start to help sync.
+    state.assocGroupTarget3 = [ zwaveHubNodeId ]
+    sync()
+
+     // Request extra info (same as wakeup):
+     def cmds = []
+    cmds << zwave.batteryV1.batteryGet()
+    cmds << zwave.firmwareUpdateMdV2.firmwareMdGet()
+    cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet()
+    cmds << zwave.versionV1.versionGet()
+    sendSequence(cmds, 400)
+}
+
+
+
+def updated() {
+    logger("updated()","trace")
+
+
+         // Update internal state:
+        state.loggingLevelIDE       = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
+        state.loggingLevelDevice    = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice.toInteger(): 2
+        state.syncAll               = ("true" == settings.configSyncAll)
+        state.autoResetTamperDelay  = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 0
+
+         // Update Wake Up Interval target:
+        state.wakeUpIntervalTarget = (settings.configWakeUpInterval) ? settings.configWakeUpInterval.toInteger() : 3600
+
+         // Update Parameter target values:
+        getParamsMd().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
+            state."paramTarget${it.id}" = settings."configParam${it.id}"?.toInteger()
+        }
+
+        // Update Assoc Group target values:
+        getAssocGroupsMd().findAll( { it.id != 3} ).each {
+            state."assocGroupTarget${it.id}" = parseAssocGroupInput(settings."configAssocGroup${it.id}", it.maxNodes)
+        }
+        // Assoc Group #3 will contain controller only:
+        state.assocGroupTarget3 = [ zwaveHubNodeId ]
+
+        (device.latestValue("powerSource") == "dc") ? sync() : updateSyncPending()
+
+//************************************************************
+
+    if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
+         state.updatedLastRanAt = now()
+
+         setConfigured("false")
+         def tamperValue = device.latestValue("tamper") // is this needed
+         if (tamperValue == "active") {
+             sendEvent(name: "tamper", value: "detected", displayed: false) // should be createEvent?
+         }
+         else if (tamperValue == "inactive") {
+             sendEvent(name: "tamper", value: "clear", displayed: false)
+         }
+
+         // for Sleepy devices (on battery)
+         setConfigured("false") // will call parseConfigure()
+         // for Listening devices - call "configuration"
+         // commandConfigure()
+
+         // move methods to configuration() - then get wrapped in response() when called from WakeUpNotification
+         log.debug "Executing configure" // trace
+         setConfigured("false")
+
+         def commands = []
+         association(commands) // set 1st Association Group
+         wakeup(commands) // set & get Wake Up Interval
+         configuration(commands) // set & get Configuration Values
+         powerlevel(commands) // get Powerlevel Report
+         manufacturerSpecific(commands) // get Device Specific Report
+         battery(commands) // get Battery Report
+         sensorBinary(commands) // get Sensor Binary Report
+         // zwave.associationGrpInfoV1.associationGroupInfoGet
+         // zwave.securityV1.securityCommandsSupportedGet
+         wakeUpNoMoreInformation(commands) // send Wake Up No More Information
+
+         // runIn(120, syncCheck)
+         response(assembleCommands(commands))
+    }
+    else {
+        logger("updated(): Ran within last 2 seconds so aborting.","debug")
+    }
+}
+
+
+
+
+
 /*****************************************************************************************************************
 * Helper Methods
 *****************************************************************************************************************/

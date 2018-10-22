@@ -105,16 +105,14 @@ metadata {
     }
 
     preferences {
-
-        section { // GENERAL:
-            input (
+        section {
+            input(
                 type: "paragraph",
                 element: "paragraph",
                 title: "GENERAL:",
                 description: "General device handler settings."
             )
-
-            input (
+            input(
                 name: "configLoggingLevelIDE",
                 title: "IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.",
                 type: "enum",
@@ -126,11 +124,10 @@ metadata {
                     "4" : "Debug",
                     "5" : "Trace"
                 ],
-//                defaultValue: "3", // iPhone users can uncomment these lines!
+                defaultValue: "3",
                 required: true
             )
-
-            input (
+            input(
                 name: "configLoggingLevelDevice",
                 title: "Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.",
                 type: "enum",
@@ -139,11 +136,10 @@ metadata {
                     "1" : "Error",
                     "2" : "Warning"
                 ],
-//                defaultValue: "2", // iPhone users can uncomment these lines!
+                defaultValue: "2",
                 required: true
             )
-
-            input (
+            input(
                 name: "configAutoResetTamperDelay",
                 title: "Auto-Reset Tamper Alarm:\n" +
                 "Automatically reset tamper alarms after this time delay.\n" +
@@ -151,15 +147,12 @@ metadata {
                 "1-86400 = Delay (s)\n" +
                 "Default Value: 30s",
                 type: "number",
-                ,
-//                defaultValue: "30", // iPhone users can uncomment these lines!
+                defaultValue: "30",
                 required: false
             )
-
         }
-
-        section { // WAKE UP INTERVAL:
-            input (
+        section {
+            input(
                 name: "configWakeUpInterval",
                 title: "WAKE UP INTERVAL:\n" +
                 "The device will wake up after each defined time interval to sync configuration parameters, " +
@@ -167,70 +160,41 @@ metadata {
                 "Values: 5-86399 = Interval (s)\n" +
                 "Default Value: 4000 (every 66 minutes)",
                 type: "number",
-                ,
-//                defaultValue: "4000", // iPhone users can uncomment these lines!
+                defaultValue: "4000",
                 required: false
             )
         }
-
-        // deviceUse
-        // required: true
-        // displayDuringSetup: true
         section {
-            input("deviceUse", "enum", title: "What type of sensor do you want to use this device for?", description: "Tap to set", options: ["Bed", "Chair", "Toilet", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
+            input(
+                name: "deviceUse",
+                title: "What type of sensor do you want to use this device for?",
+                description: "Tap to set",
+                type: "enum",
+                options: ["Bed", "Chair", "Toilet", "Water"],
+                defaultValue: "Water",
+                required: true,
+                displayDuringSetup: true
+            )
         }
-
         generatePrefsParams()
-
         generatePrefsAssocGroups()
-
     }
-
 }
 
-/**
- *  parse()
- **/
-def parse(description) {
+def parse(description) { // *** to sort
     logger("parse(): Parsing raw message: ${description}","trace")
-
     def result = []
-
     if (description.startsWith("Err")) {
         logger("parse(): Unknown Error. Raw message: ${description}","error")
     }
     else {
-
-        // Run testRun() if there is a test pending:
-        if (state.testPending) {
-            testRun()
-        }
-
         def cmd = zwave.parse(description, getCommandClassVersions())
         if (cmd) {
             result += zwaveEvent(cmd)
-
-            // Attempt sync(), but only if the received message is an unsolicited command:
-            if (
-                (cmd.commandClassId == 0x20 )  // Basic
-                || (cmd.commandClassId == 0x30 )  // Sensor Binary
-                || (cmd.commandClassId == 0x31 )  // Sensor Multilevel
-                || (cmd.commandClassId == 0x60 )  // Multichannel (SensorMultilevelReport arrive in Multichannel)
-                || (cmd.commandClassId == 0x71 )  // Alarm
-                || (cmd.commandClassId == 0x84 & cmd.commandId == 0x07) // WakeUpNotification
-                || (cmd.commandClassId == 0x9C )  // Sensor Alarm
-            ) { sync() }
-
         } else {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
     }
-
-    // Send wakeUpNoMoreInformation command, but only if there is nothing more to sync:
-    if ( (device.latestValue("powerSource") == "battery") & (device.latestValue("syncPending").toInteger() == 0) ) {
-        result << response(zwave.wakeUpV1.wakeUpNoMoreInformation())
-    }
-
     return result
 }
 
@@ -987,11 +951,17 @@ private specifiedWakeUpInterval() {
 }
 
 
-// ping()
+def ping() {
 
-// refresh()
+}
 
-// poll()
+def refresh() {
+
+}
+
+def poll() { // depreciated
+
+}
 
 /*****************************************************************************************************************
  *  Custom Commands:
@@ -1002,11 +972,51 @@ def resetTamper() {
 }
 
 def syncAll() {
-    state.syncAll = 'true'
+    state.syncAll = true
     updated()
 }
 
-// test()
+private test() {
+    logger("test()","trace")
+    state.testPending = true
+    // immediate test actions:
+    // def cmds = []
+    // cmds << ...
+    // if (cmds) sendSequence(cmds,200)
+}
+
+//  testRun() - Async Testing method. Called when device wakes up and state.testPending = true.
+private testRun(commands) {
+    logger("testRun()","trace")
+    state.testPending = false
+    version(commands) // get Command Class Versions Report
+    commands
+}
+
+
+
+
+/*****************************************************************************************************************
+* Send Commands
+*****************************************************************************************************************/
+private sendCommandSequence(commands, delay = 1200) {
+    // delayBetween(commands.collect { encapsulate(it) }, delay)
+    sendHubCommand(commands.collect { encapsulate(response(it)) }, delay) // not sure of this code
+}
+
+private encapsulate(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo.zw.endsWith("s") && getSecureClasses.find{ it == cmd.commandClassId }) { secureEncapsulate(cmd) }
+    else if (zwaveInfo.cc.contains("56")){ crc16Encapsulate(cmd) }
+    else { cmd.format() }
+}
+
+private secureEncapsulate(physicalgraph.zwave.Command cmd) {
+    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+}
+
+private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
+    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
+}
 
 /*****************************************************************************************************************
  *  SmartThings System Commands:
@@ -1088,41 +1098,28 @@ private updateDeviceUseStates() {
     updateDataValue("activeState", activeState)
 }
 
-/**
- *  logger()
- *  Wrapper function for all logging:
- *    Logs messages to the IDE (Live Logging), and also keeps a historical log of critical error and warning
- *    messages by sending events for the device's logMessage attribute.
- *    Configured using configLoggingLevelIDE and configLoggingLevelDevice preferences.
- **/
 private logger(msg, level = "debug") {
-
     switch(level) {
         case "error":
             if (state.loggingLevelIDE >= 1) log.error msg
             if (state.loggingLevelDevice >= 1) sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-            break
-
+        break
         case "warn":
             if (state.loggingLevelIDE >= 2) log.warn msg
             if (state.loggingLevelDevice >= 2) sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
-            break
-
+        break
         case "info":
             if (state.loggingLevelIDE >= 3) log.info msg
-            break
-
+        break
         case "debug":
             if (state.loggingLevelIDE >= 4) log.debug msg
-            break
-
+        break
         case "trace":
             if (state.loggingLevelIDE >= 5) log.trace msg
-            break
-
+        break
         default:
             log.debug msg
-            break
+        break
     }
 }
 
@@ -1232,7 +1229,7 @@ private sync() { // manages synchronisation of parameters, association groups, a
         syncPending++
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
-    sendSequence(cmds, 800) // 800ms seems a reasonable balance.
+    sendCommandSequence(cmds) // 800ms seems a reasonable balance.
 }
 
 
@@ -1266,128 +1263,69 @@ private updateSyncPending() { // updates syncPending attribute, which advertises
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
 }
 
-/**
- *  refreshConfig()
- *  Request configuration reports from the physical device: [ Configuration, Association,
- *  Manufacturer-Specific, Firmware Metadata, Version, etc. ]
- *  Really only needed at installation or when debugging, as sync will request the necessary reports when the
- *  configuration is changed.
- */
-private refreshConfig() {
-    logger("refreshConfig()","trace")
-
-    if (getZwaveInfo()?.zw?.startsWith("L")) {
-        logger("Device is in listening mode (powered).","info")
-        sendEvent(name: "powerSource", value: "dc", descriptionText: "Device is connected to DC power supply.")
-    }
-    else {
-        logger("Device is in sleepy mode (battery).","info")
-        sendEvent(name: "powerSource", value: "battery", descriptionText: "Device is using battery.")
-    }
-
-    def cmds = []
-
-    cmds << zwave.wakeUpV1.wakeUpIntervalGet()
-    cmds << zwave.firmwareUpdateMdV2.firmwareMdGet()
-    cmds << zwave.manufacturerSpecificV2.manufacturerSpecificGet()
-    cmds << zwave.versionV1.versionGet()
-
-    getParametersMetadata().each { cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id) }
-    getAssociationGroupsMetadata().findAll( { it.id != 3 } ).each { cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: it.id) }
-    cmds << zwave.associationV2.associationGet(groupingIdentifier:3)
-
-    sendSequence(cmds, 500) // Delay must be at least 1000 to reliabilty get all results processed.
-}
-
-/**
- *  sendSequence()
- *  Send an array of commands using sendHubCommand.
- **/
-private sendSequence(commands, delay = 200) {
-    sendHubCommand(commands.collect{ response(it) }, delay)
-}
-
-/**
- *  generatePrefsParams()
- *  Generates preferences (settings) for device parameters.
- **/
 private generatePrefsParams() {
-        section {
-            input (
-                type: "paragraph",
-                element: "paragraph",
-                title: "DEVICE PARAMETERS:",
-                description: "Device parameters are used to customise the physical device. " +
-                             "Refer to the product documentation for a full description of each parameter."
-            )
-
-    getParametersMetadata().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
-
-        def lb = (it.description.length() > 0) ? "\n" : ""
-
-        switch(it.type) {
-            case "number":
-            input (
-                name: "configParam${it.id}",
-                title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
-                type: it.type,
-                range: it.range,
-//                defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
-                required: it.required
-            )
-            break
-
-            case "enum":
-            input (
-                name: "configParam${it.id}",
-                title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                type: it.type,
-                options: it.options,
-//                defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
-                required: it.required
-            )
-            break
+    section {
+        input (
+            type: "paragraph",
+            element: "paragraph",
+            title: "DEVICE PARAMETERS:",
+            description: "Device parameters are used to customise the physical device. " +
+                         "Refer to the product documentation for a full description of each parameter."
+        )
+        getParametersMetadata().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
+            def lb = (it.description.length() > 0) ? "\n" : ""
+            switch(it.type) {
+                case "number":
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                        type: it.type,
+                        range: it.range,
+                        // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
+                        required: it.required
+                    )
+                break
+                case "enum":
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        type: it.type,
+                        options: it.options,
+                        // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
+                        required: it.required
+                    )
+                break
+            }
         }
     }
-        } // section
 }
 
-/**
- *  generatePrefsAssocGroups()
- *  Generates preferences (settings) for Association Groups.
- **/
 private generatePrefsAssocGroups() {
-        section {
-            input (
-                type: "paragraph",
-                element: "paragraph",
-                title: "ASSOCIATION GROUPS:",
-                description: "Association groups enable this device to control other Z-Wave devices directly, " +
-                             "without participation of the main controller.\n" +
-                             "Enter a comma-delimited list of destinations (node IDs and/or endpoint IDs) for " +
-                             "each association group. All IDs must be in hexadecimal format. E.g.:\n" +
-                             "Node destinations: '11, 0F'\n" +
-                             "Endpoint destinations: '1C:1, 1C:2'"
-            )
-
-    getAssociationGroupsMetadata().findAll( { it.id != 3} ).each { // Don't show AssocGroup3 (Lifeline).
+    section {
+        input (
+            type: "paragraph",
+            element: "paragraph",
+            title: "ASSOCIATION GROUPS:",
+            description: "Association groups enable this device to control other Z-Wave devices directly, " +
+                         "without participation of the main controller.\n" +
+                         "Enter a comma-delimited list of destinations (node IDs and/or endpoint IDs) for " +
+                         "each association group. All IDs must be in hexadecimal format. E.g.:\n" +
+                         "Node destinations: '11, 0F'\n" +
+                         "Endpoint destinations: '1C:1, 1C:2'"
+        )
+        getAssociationGroupsMetadata().findAll( { it.id != 3} ).each { // Don't show AssocGroup3 (Lifeline).
             input (
                 name: "configAssocGroup${it.id}",
                 title: "Association Group #${it.id}: ${it.name}: \n" + it.description + " \n[MAX NODES: ${it.maxNodes}]",
                 type: "text",
-//                defaultValue: "", // iPhone users can uncomment these lines!
+                defaultValue: "",
                 required: false
             )
         }
     }
 }
 
-/**
- *  byteArrayToUInt(byteArray)
- *  Converts a byte array to an UNSIGNED int.
- **/
 private byteArrayToUInt(byteArray) {
-    // return java.nio.ByteBuffer.wrap(byteArray as byte[]).getInt()
     def i = 0
     byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
     return i
@@ -1404,7 +1342,7 @@ private test() {
     // immediate test actions:
     def cmds = []
     //cmds << ...
-    if (cmds) sendSequence(cmds,200)
+    if (cmds) sendCommandSequence(cmds)
 }
 
 /**
@@ -1419,175 +1357,148 @@ private testRun() {
     //cmds << zwave.wakeUpV2.wakeUpIntervalCapabilitiesGet()
     //cmds << zwave.batteryV1.batteryGet()
 
-    if (cmds) sendSequence(cmds,500)
+    if (cmds) sendCommandSequence(cmds)
 
     state.testPending = false
 }
 
 /*****************************************************************************************************************
- *  Static Matadata Functions:
- *  These functions encapsulate metadata about the device. Mostly obtained from:
- *   Z-wave Alliance Reference: http://products.z-wavealliance.org/products/1036
+ *  Static Matadata Functions
  *****************************************************************************************************************/
+private getCommandClassVersions() { [
+    0x20: 1, // Basic V1
+    0x30: 1, // Sensor Binary V1 (not even v2).
+    0x31: 2, // Sensor Multilevel V?
+    0x60: 3, // Multi Channel V?
+    0x70: 1, // Configuration V1
+    0x71: 1, // Alarm (Notification) V1
+    0x72: 2, // Manufacturer Specific V2
+    0x7A: 2, // Firmware Update MD V2
+    0x80: 1, // Battery V1
+    0x84: 1, // Wake Up V1
+    0x85: 2, // Association V2
+    0x86: 1, // Version V1
+    0x8E: 2, // Multi Channel Association V2
+    0x9C: 1  // Sensor Alarm V1
+] }
 
-/**
- *  getCommandClassVersions()
- *  Returns a map of the command class versions supported by the device. Used by parse() and zwaveEvent() to
- *  extract encapsulated commands from MultiChannelCmdEncap, MultiInstanceCmdEncap, SecurityMessageEncapsulation,
- *  and Crc16Encap messages.
- **/
-private getCommandClassVersions() {
-    return [0x20: 1, // Basic V1
-            0x30: 1, // Sensor Binary V1 (not even v2).
-            0x31: 2, // Sensor Multilevel V?
-            0x60: 3, // Multi Channel V?
-            0x70: 1, // Configuration V1
-            0x71: 1, // Alarm (Notification) V1
-            0x72: 2, // Manufacturer Specific V2
-            0x7A: 2, // Firmware Update MD V2
-            0x80: 1, // Battery V1
-            0x84: 1, // Wake Up V1
-            0x85: 2, // Association V2
-            0x86: 1, // Version V1
-            0x8E: 2, // Multi Channel Association V2
-            0x9C: 1 // Sensor Alarm V1
-           ]
-}
+private getParametersMetadata() { [
+    [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
+        isSigned: true,
+        name: "Alarm Cancellation Delay",
+        description: "The time for which the device will retain the flood state after flooding has ceased.\n" +
+        "Values: 0-3600 = Time Delay (s)"],
+    [id: 2, size: 1, type: "enum", defaultValue: "3", required: false, readonly: false,
+        isSigned: true,
+        name: "Acoustic and Visual Alarms",
+        description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
+        options: ["0" : "0: Acoustic alarm INACTIVE. Visual alarm INACVTIVE",
+                    "1" : "1: Acoustic alarm INACTIVE. Visual alarm ACTIVE",
+                    "2" : "2: Acoustic alarm ACTIVE. Visual alarm INACTIVE",
+                    "3" : "3: Acoustic alarm ACTIVE. Visual alarm ACTIVE"] ],
+    [id: 5, size: 1, type: "enum", defaultValue: "255", required: false, readonly: false,
+        isSigned: false,
+        name: "Type of Alarm sent to Association Group 1",
+        description : "",
+        options: ["0" : "0: ALARM WATER command",
+                    "255" : "255: BASIC_SET command"] ],
+    [id: 7, size: 1, type: "number", range: "1..255", defaultValue: 255, required: false, readonly: false,
+        isSigned: false,
+        name: "Level sent to Association Group 1",
+        description : "Determines the level sent (BASIC_SET) to Association Group 1 on alarm.\n" +
+        "Values: 1-99 = Level\n255 = Last memorised state"],
+    [id: 9, size: 1, type: "enum", defaultValue: "1", required: false, readonly: false,
+        isSigned: true,
+        name: "Alarm Cancelling",
+        description : "",
+        options: ["0" : "0: Alarm cancellation INACTIVE",
+                    "1" : "1: Alarm cancellation ACTIVE"] ],
+    [id: 10, size: 2, type: "number", range: "1..65535", defaultValue: 300, required: false, readonly: false,
+        isSigned: false,
+        name: "Temperature Measurement Interval",
+        description : "Time between consecutive temperature measurements. New temperature value is reported to " +
+        "the main controller only if it differs from the previously measured by hysteresis (parameter #12).\n" +
+        "Values: 1-65535 = Time (s)"],
+    [id: 12, size: 2, type: "number", range: "1..1000", defaultValue: 50, required: false, readonly: false,
+        isSigned: true,
+        name: "Temperature Measurement Hysteresis",
+        description : "Determines the minimum temperature change resulting in a temperature report being " +
+        "sent to the main controller.\n" +
+        "Values: 1-1000 = Temp change (in 0.01C steps)"],
+    [id: 13, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
+        isSigned: true,
+        name: "Alarm Broadcasts",
+        description : "Determines if flood and tamper alarms are broadcast to all devices.",
+        options: ["0" : "0: Flood alarm broadcast INACTIVE. Tamper alarm broadcast INACTIVE",
+                    "1" : "1: Flood alarm broadcast ACTIVE. Tamper alarm broadcast INACTIVE",
+                    "2" : "2: Flood alarm broadcast INACTIVE. Tamper alarm broadcast ACTIVE",
+                    "3" : "3: Flood alarm broadcast ACTIVE. Tamper alarm broadcast ACTIVE"] ],
+    [id: 50, size: 2, type: "number", range: "-10000..10000", defaultValue : 1500, required: false, readonly: false,
+        isSigned: true,
+        name: "Low Temperature Alarm Threshold",
+        description : "Temperature below which LED indicator blinks (with a colour determined by Parameter #61).\n" +
+        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
+    [id: 51, size: 2, type: "number", range: "-10000..10000", defaultValue : 3500, required: false, readonly: false,
+        isSigned: true,
+        name: "High Temperature Alarm Threshold",
+        description : "Temperature above which LED indicator blinks (with a colour determined by Parameter #62).\n" +
+        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
+    [id: 61, size: 4, type: "number", range: "0..16777215", defaultValue : 255, required: false, readonly: false,
+        isSigned: false,
+        name: "Low Temperature Alarm indicator Colour",
+        description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
+        "Values: 0-16777215"],
+    [id: 62, size: 4, type: "number", range: "0..16777215", defaultValue : 16711680, required: false, readonly: false,
+        isSigned: false,
+        name: "High Temperature Alarm indicator Colour",
+        description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
+        "Values: 0-16777215"],
+    [id: 63, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
+        isSigned: true,
+        name: "LED Indicator Operation",
+        description : "LED Indicator can be turned off to save battery.",
+        options: ["0" : "0: OFF",
+                    "1" : "1: BLINK (every temperature measurement)",
+                    "2" : "2: CONTINUOUS (constant power only)"] ],
+    [id: 73, size: 2, type: "number", range: "-10000..10000", defaultValue : 0, required: false, readonly: false,
+        isSigned: true,
+        name: "Temperature Measurement Compensation",
+        description : "Temperature value to be added to or deducted to compensate for the difference between air " +
+        "temperature and temperature at the floor level.\n" +
+        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
+    [id: 74, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
+        isSigned: true,
+        name: "Alarm Frame Sent to Association Group #2",
+        description : "Turn on alarms resulting from movement and/or the TMP button released.",
+        options: ["0" : "0: TMP Button INACTIVE. Movement INACTIVE",
+                    "1" : "1: TMP Button ACTIVE. Movement INACTIVE",
+                    "2" : "2: TMP Button INACTIVE. Movement ACTIVE",
+                    "3" : "3: TMP Button ACTIVE. Movement ACTIVE"] ],
+    [id: 75, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
+        isSigned: false,
+        name: "Visual and Audible Alarms Duration",
+        description : "Time period after which the LED and audible alarm the will become quiet. ignored when parameter #2 is 0.\n" +
+        "Values: 0 = Active indefinitely\n" +
+        "1-65535 = Time (s)"],
+    [id: 76, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
+        isSigned: false,
+        name: "Alarm Retransmission Time",
+        description : "Time period after which an alarm frame will be retransmitted.\n" +
+        "Values: 0 = No retransmission\n" +
+        "1-65535 = Time (s)"],
+    [id: 77, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
+        isSigned: true,
+        name: "Flood Sensor Functionality",
+        description : "Allows for turning off the internal flood sensor. Tamper and temperature sensor will remain active.",
+        options: ["0" : "0: Flood sensor ACTIVE",
+                    "1" : "1: Flood sensor INACTIVE"] ]
+] }
 
-/**
- *  getParametersMetadata()
- *  Returns device parameters metadata. Used by sync(), updateSyncPending(), and generatePrefsParams().
- *  Note: The Fibaro documentation treats *some* parameter values as SIGNED and others as UNSIGNED,
- *   e.g.: 1-bit parameters with values 0-255 = UNSIGNED.
- *   The treatment of each parameter is identified in getParamMd() by attribute isSigned.
- *   Unsigned parameter values are converted from signed to unsigned when receiving config reports.
- *  Reference: http://manuals.fibaro.com/flood-sensor/
- **/
-private getParametersMetadata() {
-    return [
-        [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
-         isSigned: true,
-         name: "Alarm Cancellation Delay",
-         description: "The time for which the device will retain the flood state after flooding has ceased.\n" +
-         "Values: 0-3600 = Time Delay (s)"],
-        [id: 2, size: 1, type: "enum", defaultValue: "3", required: false, readonly: false,
-         isSigned: true,
-         name: "Acoustic and Visual Alarms",
-         description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
-         options: ["0" : "0: Acoustic alarm INACTIVE. Visual alarm INACVTIVE",
-                   "1" : "1: Acoustic alarm INACTIVE. Visual alarm ACTIVE",
-                   "2" : "2: Acoustic alarm ACTIVE. Visual alarm INACTIVE",
-                   "3" : "3: Acoustic alarm ACTIVE. Visual alarm ACTIVE"] ],
-        [id: 5, size: 1, type: "enum", defaultValue: "255", required: false, readonly: false,
-         isSigned: false,
-         name: "Type of Alarm sent to Association Group 1",
-         description : "",
-         options: ["0" : "0: ALARM WATER command",
-                   "255" : "255: BASIC_SET command"] ],
-        [id: 7, size: 1, type: "number", range: "1..255", defaultValue: 255, required: false, readonly: false,
-         isSigned: false,
-         name: "Level sent to Association Group 1",
-         description : "Determines the level sent (BASIC_SET) to Association Group 1 on alarm.\n" +
-         "Values: 1-99 = Level\n255 = Last memorised state"],
-        [id: 9, size: 1, type: "enum", defaultValue: "1", required: false, readonly: false,
-         isSigned: true,
-         name: "Alarm Cancelling",
-         description : "",
-         options: ["0" : "0: Alarm cancellation INACTIVE",
-                   "1" : "1: Alarm cancellation ACTIVE"] ],
-        [id: 10, size: 2, type: "number", range: "1..65535", defaultValue: 300, required: false, readonly: false,
-         isSigned: false,
-         name: "Temperature Measurement Interval",
-         description : "Time between consecutive temperature measurements. New temperature value is reported to " +
-         "the main controller only if it differs from the previously measured by hysteresis (parameter #12).\n" +
-         "Values: 1-65535 = Time (s)"],
-        [id: 12, size: 2, type: "number", range: "1..1000", defaultValue: 50, required: false, readonly: false,
-         isSigned: true,
-         name: "Temperature Measurement Hysteresis",
-         description : "Determines the minimum temperature change resulting in a temperature report being " +
-         "sent to the main controller.\n" +
-         "Values: 1-1000 = Temp change (in 0.01C steps)"],
-        [id: 13, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
-         isSigned: true,
-         name: "Alarm Broadcasts",
-         description : "Determines if flood and tamper alarms are broadcast to all devices.",
-         options: ["0" : "0: Flood alarm broadcast INACTIVE. Tamper alarm broadcast INACTIVE",
-                   "1" : "1: Flood alarm broadcast ACTIVE. Tamper alarm broadcast INACTIVE",
-                   "2" : "2: Flood alarm broadcast INACTIVE. Tamper alarm broadcast ACTIVE",
-                   "3" : "3: Flood alarm broadcast ACTIVE. Tamper alarm broadcast ACTIVE"] ],
-        [id: 50, size: 2, type: "number", range: "-10000..10000", defaultValue : 1500, required: false, readonly: false,
-         isSigned: true,
-         name: "Low Temperature Alarm Threshold",
-         description : "Temperature below which LED indicator blinks (with a colour determined by Parameter #61).\n" +
-         "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-        [id: 51, size: 2, type: "number", range: "-10000..10000", defaultValue : 3500, required: false, readonly: false,
-         isSigned: true,
-         name: "High Temperature Alarm Threshold",
-         description : "Temperature above which LED indicator blinks (with a colour determined by Parameter #62).\n" +
-         "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-        [id: 61, size: 4, type: "number", range: "0..16777215", defaultValue : 255, required: false, readonly: false,
-         isSigned: false,
-         name: "Low Temperature Alarm indicator Colour",
-         description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
-         "Values: 0-16777215"],
-        [id: 62, size: 4, type: "number", range: "0..16777215", defaultValue : 16711680, required: false, readonly: false,
-         isSigned: false,
-         name: "High Temperature Alarm indicator Colour",
-         description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
-         "Values: 0-16777215"],
-        [id: 63, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
-         isSigned: true,
-         name: "LED Indicator Operation",
-         description : "LED Indicator can be turned off to save battery.",
-         options: ["0" : "0: OFF",
-                   "1" : "1: BLINK (every temperature measurement)",
-                   "2" : "2: CONTINUOUS (constant power only)"] ],
-        [id: 73, size: 2, type: "number", range: "-10000..10000", defaultValue : 0, required: false, readonly: false,
-         isSigned: true,
-         name: "Temperature Measurement Compensation",
-         description : "Temperature value to be added to or deducted to compensate for the difference between air " +
-         "temperature and temperature at the floor level.\n" +
-         "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-        [id: 74, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
-         isSigned: true,
-         name: "Alarm Frame Sent to Association Group #2",
-         description : "Turn on alarms resulting from movement and/or the TMP button released.",
-         options: ["0" : "0: TMP Button INACTIVE. Movement INACTIVE",
-                   "1" : "1: TMP Button ACTIVE. Movement INACTIVE",
-                   "2" : "2: TMP Button INACTIVE. Movement ACTIVE",
-                   "3" : "3: TMP Button ACTIVE. Movement ACTIVE"] ],
-        [id: 75, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
-         isSigned: false,
-         name: "Visual and Audible Alarms Duration",
-         description : "Time period after which the LED and audible alarm the will become quiet. ignored when parameter #2 is 0.\n" +
-         "Values: 0 = Active indefinitely\n" +
-         "1-65535 = Time (s)"],
-        [id: 76, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
-         isSigned: false,
-         name: "Alarm Retransmission Time",
-         description : "Time period after which an alarm frame will be retransmitted.\n" +
-         "Values: 0 = No retransmission\n" +
-         "1-65535 = Time (s)"],
-        [id: 77, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
-         isSigned: true,
-         name: "Flood Sensor Functionality",
-         description : "Allows for turning off the internal flood sensor. Tamper and temperature sensor will remain active.",
-         options: ["0" : "0: Flood sensor ACTIVE",
-                   "1" : "1: Flood sensor INACTIVE"] ]
-    ]
-}
-
-/**
- *  getAssociationGroupsMetadata()
- *  Returns association groups metadata. Used by sync(), updateSyncPending(), and generatePrefsAssocGroups().
- **/
-private getAssociationGroupsMetadata() {
-    return [
-        [id:  1, maxNodes: 5, name: "Device Status", // Water state?
-         description : "Reports device state, sending BASIC SET or ALARM commands."],
-        [id:  2, maxNodes: 5, name: "TMP Button and Tilt Sensor",
-         description : "Sends ALARM commands to associated devices when TMP button is released or a tilt is triggered (depending on parameter 74)."],
-        [id:  3, maxNodes: 0, name: "Device Status",
-         description : "Reports device state. Main Z-Wave controller should be added to this group."]
-    ]
-}
+private getAssociationGroupsMetadata() { [
+    [id:  1, maxNodes: 5, name: "Device Status", // Water state?
+        description : "Reports device state, sending BASIC SET or ALARM commands."],
+    [id:  2, maxNodes: 5, name: "TMP Button and Tilt Sensor",
+        description : "Sends ALARM commands to associated devices when TMP button is released or a tilt is triggered (depending on parameter 74)."],
+    [id:  3, maxNodes: 0, name: "Device Status",
+        description : "Reports device state. Main Z-Wave controller should be added to this group."]
+] }

@@ -19,13 +19,17 @@
  *   for the specific language governing permissions and limitations under the License.
  *****************************************************************************************************************/
 metadata {
-    definition (name: "Fibaro Flood Sensor Advanced", namespace: "codersaur", author: "David Lomas") {
-        capability "Sensor"
-        capability "Water Sensor"
-        capability "Tamper Alert"
-        capability "Temperature Measurement"
+    definition (name: "Aeon Water Sensor 6", namespace: "robertvandervoort", author: "Robert Vandervoort", ocfDeviceType: "x.com.st.d.sensor.moisture") {
         capability "Battery"
         capability "Power Source"
+        capability "Configuration"
+        capability "Notification"
+        capability "Sensor"
+        capability "Switch"
+        capability "Shock Sensor"
+        capability "Temperature Measurement"
+        capability "Water Sensor"
+        capability "Zw Multichannel"
 
         /* Standard (Capability) Attributes:
         attribute "battery", "number"
@@ -39,16 +43,27 @@ metadata {
         attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
         attribute "logMessage", "string"        // Important log messages.
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
+        attribute "switch1", "enum", ["on", "off"]
+        attribute "switch2", "enum", ["on", "off"]
 
         // Custom Commands:
         command "resetTamper"
         command "sync"
         command "test"
 
+        command "configure"
+        command "getTemp"
+        command "getPosition"
+        command "getBattery"
+        command "clearShock"
+
         // Fingerprints:
-        fingerprint mfr: "010F", prod: "0B00", model: "1001"
-        fingerprint mfr: "010F", prod: "0B00", model: "2001"
-        fingerprint deviceId: "0xA102", inClusters: "0x30,0x9C,0x60,0x85,0x8E,0x72,0x70,0x86,0x80,0x84"
+        fingerprint mfr: "0086", prod: "0102", model: "007A"
+    }
+
+    simulator {
+      status "dry": "command: 3003, payload: 00"
+      status "wet": "command: 3003, payload: FF"
     }
 
     tiles(scale: 2) {
@@ -82,7 +97,7 @@ metadata {
             state "batteryStatus", label:'${currentValue}', unit:""
         }
         standardTile("syncPending", "device.syncPending", decoration: "flat", width: 2, height: 2) {
-            state "default", label:'Sync Pending', backgroundColor:"#FF6600", action:"sync" // remove sync? - or replace with syncAll?
+            state "default", label:'Sync Pending', backgroundColor:"#FF6600", action:"syncAll"
             state "0", label:'Synced', action:"", backgroundColor:"#79b821"
         }
         standardTile("test", "device.test", decoration: "flat", width: 2, height: 2) {
@@ -177,9 +192,15 @@ metadata {
             )
         }
         generatePrefsParams()
-        generatePrefsAssocGroups()
+        // generatePrefsAssocGroups()
     }
 }
+
+
+    if (isListening() & Notsynced & commandClasses.unsolicited.find {} ) {
+        sync()
+    }
+
 
 def parse(description) { // *** to sort
     logger("parse(): Parsing raw message: ${description}","trace")
@@ -228,8 +249,6 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
  *  The Sensor Binary Report command is used to advertise a sensor value.
  *   THIS COMMAND CLASS IS DEPRECIATED!
  *  Action: Do nothing, as we don't event know which sensor the value is from.
- *  cmd attributes:
- *    Short  sensorValue  Sensor Value.
  **/
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) {
     logger("zwaveEvent(): Sensor Binary Report received: ${cmd}","trace")
@@ -241,139 +260,26 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cm
  *  Action: Raise appropriate type of event (and disp event) and log an info message.
  *  Note: SmartThings does not yet have capabilities corresponding to all possible sensor types, therefore
  *  some of the event types raised below are non-standard.
- *  cmd attributes:
- *    Short         precision           Indicates the number of decimals.
- *                                      E.g. The decimal value 1025 with precision 2 is therefore equal to 10.25.
- *    Short         scale               Indicates what unit the sensor uses.
- *    BigDecimal    scaledSensorValue   Sensor value as a double.
- *    Short         sensorType          Sensor Type (8 bits).
- *    List<Short>   sensorValue         Sensor value as an array of bytes.
- *    Short         size                Indicates the number of bytes used for the sensor value.
- *  Example: SensorMultilevelReport(precision: 2, scale: 0, scaledSensorValue: 20.67, sensorType: 1, sensorValue: [0, 0, 8, 19], size: 4)
  **/
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv2.SensorMultilevelReport cmd) {
     logger("zwaveEvent(): SensorMultilevelReport received: ${cmd}","trace")
-
     def result = []
     def map = [ displayed: true, value: cmd.scaledSensorValue.toString() ]
     def dispMap = [ displayed: false ]
-
-    // Sensor Types up to V4 only, there are further sensor types up to V10 defined.
     switch (cmd.sensorType) {
-        case 1:  // Air Temperature (V1)
+        case 1:
             map.name = "temperature"
             map.unit = (cmd.scale == 1) ? "F" : "C"
             break
-
-        case 2:  // General Purpose (V1)
-            map.name = "value"
-            map.unit = (cmd.scale == 1) ? "" : "%"
-            break
-
-        case 3:  // Luninance (V1)
-            map.name = "illuminance"
-            map.unit = (cmd.scale == 1) ? "lux" : "%"
-            break
-
-        case 4:  // Power (V2)
-            map.name = "power"
-            map.unit = (cmd.scale == 1) ? "Btu/h" : "W"
-            dispMap.name = "dispPower"
-            dispMap.value = String.format("%.1f",cmd.scaledSensorValue as BigDecimal) + " ${map.unit}"
-            break
-
-        case 5:  // Humidity (V2)
-            map.name = "humidity"
-            map.unit = (cmd.scale == 1) ? "g/m^3" : "%"
-            break
-
-        case 6:  // Velocity (V2)
-            map.name = "velocity"
-            map.unit = (cmd.scale == 1) ? "mph" : "m/s"
-            break
-
-        case 7:  // Direction (V2)
-            map.name = "direction"
-            map.unit = ""
-            break
-
-        case 8:  // Atmospheric Pressure (V2)
-        case 9:  // Barometric Pressure (V2)
-            map.name = "pressure"
-            map.unit = (cmd.scale == 1) ? "inHg" : "kPa"
-            break
-
-        case 0xA:  // Solar Radiation (V2)
-            map.name = "radiation"
-            map.unit = "W/m^3"
-            break
-
-        case 0xB:  // Dew Point (V2)
-            map.name = "dewPoint"
-            map.unit = (cmd.scale == 1) ? "F" : "C"
-            break
-
-        case 0xC:  // Rain Rate (V2)
-            map.name = "rainRate"
-            map.unit = (cmd.scale == 1) ? "in/h" : "mm/h"
-            break
-
-        case 0xD:  // Tide Level (V2)
-            map.name = "tideLevel"
-            map.unit = (cmd.scale == 1) ? "ft" : "m"
-            break
-
-        case 0xE:  // Weight (V3)
-            map.name = "weight"
-            map.unit = (cmd.scale == 1) ? "lbs" : "kg"
-            break
-
-        case 0xF:  // Voltage (V3)
-            map.name = "voltage"
-            map.unit = (cmd.scale == 1) ? "mV" : "V"
-            dispMap.name = "dispVoltage"
-            dispMap.value = String.format("%.1f",cmd.scaledSensorValue as BigDecimal) + " ${map.unit}"
-            break
-
-        case 0x10:  // Current (V3)
-            map.name = "current"
-            map.unit = (cmd.scale == 1) ? "mA" : "A"
-            dispMap.name = "dispCurrent"
-            dispMap.value = String.format("%.1f",cmd.scaledSensorValue as BigDecimal) + " ${map.unit}"
-            break
-
-        case 0x11:  // Carbon Dioxide Level (V3)
-            map.name = "carbonDioxide"
-            map.unit = "ppm"
-            break
-
-        case 0x12:  // Air Flow (V3)
-            map.name = "fluidFlow"
-            map.unit = (cmd.scale == 1) ? "cfm" : "m^3/h"
-            break
-
-        case 0x13:  // Tank Capacity (V3)
-            map.name = "fluidVolume"
-            map.unit = (cmd.scale == 0) ? "ltr" : (cmd.scale == 1) ? "m^3" : "gal"
-            break
-
-        case 0x14:  // Distance (V3)
-            map.name = "distance"
-            map.unit = (cmd.scale == 0) ? "m" : (cmd.scale == 1) ? "cm" : "ft"
-            break
-
         default:
             logger("zwaveEvent(): SensorMultilevelReport with unhandled sensorType: ${cmd}","warn")
             map.name = "unknown"
             map.unit = "unknown"
             break
     }
-
     logger("New sensor reading: Name: ${map.name}, Value: ${map.value}, Unit: ${map.unit}","info")
-
     result << createEvent(map)
     if (dispMap.name) { result << createEvent(dispMap) }
-
     return result
 }
 
@@ -460,10 +366,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     def result = []
 
     switch (cmd.notificationType) {
-        //case 1:  // Smoke Alarm: // Not Implemented yet. Should raise smoke/carbonMonoxide/consumableStatus events etc...
-        //case 2:  // CO Alarm:
-        //case 3:  // CO2 Alarm:
-
         case 4:  // Heat Alarm:
             switch (cmd.event) {
                 case 0:  // Previous Events cleared:
@@ -496,53 +398,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
             break
 
         //case 5:  // Water Alarm: // Not Implemented yet. Should raise water/consumableStatus events etc...
-
-        case 8:  // Power Management:
-            switch (cmd.event) {
-                case 0:  // Previous Events cleared:
-                    // Do not send a fault clear event automatically.
-                    logger("Previous Events cleared","info")
-                    break
-
-                //case 1:  // Mains Connected:
-                //case 2:  // AC Mains Disconnected:
-                //case 3:  // AC Mains Re-connected:
-
-                case 4:  // Surge:
-                    result << createEvent(name: "fault", value: "surge", descriptionText: "Power surge detected!", displayed: true)
-                    logger("Power surge detected!","warn")
-                    break
-
-                case 5:  // Voltage Drop:
-                    result << createEvent(name: "fault", value: "voltage", descriptionText: "Voltage drop detected!", displayed: true)
-                    logger("Voltage drop detected!","warn")
-                    break
-
-                case 6:  // Over-current:
-                    result << createEvent(name: "fault", value: "current", descriptionText: "Over-current detected!", displayed: true)
-                    logger("Over-current detected!","warn")
-                    break
-
-                 case 7:  // Over-Voltage:
-                    result << createEvent(name: "fault", value: "voltage", descriptionText: "Over-voltage detected!", displayed: true)
-                    logger("Over-voltage detected!","warn")
-                    break
-
-                 case 8:  // Overload:
-                    result << createEvent(name: "fault", value: "load", descriptionText: "Overload detected!", displayed: true)
-                    logger("Overload detected!","warn")
-                    break
-
-                 case 9:  // Load Error:
-                    result << createEvent(name: "fault", value: "load", descriptionText: "Load Error detected!", displayed: true)
-                    logger("Load Error detected!","warn")
-                    break
-
-                default:
-                    logger("zwaveEvent(): Notification Report recieved with unhandled event: ${cmd}","warn")
-                    break
-            }
-            break
 
         case 9:  // system:
             switch (cmd.event) {
@@ -584,35 +439,6 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 /**
- *  zwaveEvent( COMMAND_CLASS_MANUFACTURER_SPECIFIC V2 (0x72) : MANUFACTURER_SPECIFIC_REPORT (0x05) )
- *  Manufacturer-Specific Reports are used to advertise manufacturer-specific information, such as product number
- *  and serial number.
- *  Action: Publish values as device 'data'. Log a warn message if manufacturerId and/or productId do not
- *  correspond to Fibaro Flood Sensor V1.
- *  Example: ManufacturerSpecificReport(manufacturerId: 271, manufacturerName: Fibargroup, productId: 4097,
- *   productTypeId: 2816)
- **/
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
-    logger("zwaveEvent(): Manufacturer-Specific Report received: ${cmd}","trace")
-
-    // Display as hex strings:
-    def manufacturerIdDisp = String.format("%04X",cmd.manufacturerId)
-    def productIdDisp = String.format("%04X",cmd.productId)
-    def productTypeIdDisp = String.format("%04X",cmd.productTypeId)
-
-    logger("Manufacturer-Specific Report: Manufacturer ID: ${manufacturerIdDisp}, Manufacturer Name: ${cmd.manufacturerName}" +
-    ", Product Type ID: ${productTypeIdDisp}, Product ID: ${productIdDisp}","info")
-
-    if ( 271 != cmd.manufacturerId) logger("Device Manufacturer is not Fibaro. Using this device handler with a different device may damage your device!","warn")
-    if ( 4097 != cmd.productId) logger("Product ID does not match Fibaro Flood Sensor. Using this device handler with a different device may damage you device!","warn")
-
-    updateDataValue("manufacturerName",cmd.manufacturerName)
-    updateDataValue("manufacturerId",manufacturerIdDisp)
-    updateDataValue("productId",productIdDisp)
-    updateDataValue("productTypeId",productTypeIdDisp)
-}
-
-/**
  *  zwaveEvent( COMMAND_CLASS_FIRMWARE_UPDATE_MD V2 (0x7A) : FIRMWARE_MD_REPORT (0x02) )
  *  The Firmware Meta Data Report Command is used to advertise the status of the current firmware in the device.
  *  Action: Publish values as device 'data' and log an info message. No check is performed.
@@ -636,14 +462,6 @@ def zwaveEvent(physicalgraph.zwave.commands.firmwareupdatemdv2.FirmwareMdReport 
     updateDataValue("firmwareChecksum","${checksumDisp}")
 }
 
-/**
- *  zwaveEvent( COMMAND_CLASS_BATTERY V1 (0x80) : BATTERY_REPORT (0x03) )
- *  The Battery Report command is used to report the battery level of a battery operated device.
- *  Action: Raise battery event and log an info message.
- *  cmd attributes:
- *    Integer  batteryLevel  Battery level (%).
- *  Example: BatteryReport(batteryLevel: 52)
- **/
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
     logger("zwaveEvent(): Battery Report received: ${cmd}","trace")
     logger("Battery Level: ${cmd.batteryLevel}%","info")
@@ -656,16 +474,6 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
     return result
 }
 
-/**
- *  zwaveEvent( COMMAND_CLASS_WAKE_UP V1 (0x84) : WAKE_UP_INTERVAL_REPORT (0x06) )
- *  The Wake Up Interval Report command is used to report the wake up interval of a device and the NodeID of the
- *  device receiving the Wake Up Notification Command.
- *  Action: cache value, update syncPending, and log info message.
- *  cmd attributes:
- *    nodeid
- *    seconds
- *  Example: WakeUpIntervalReport(nodeid: 1, seconds: 300)
- **/
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     logger("zwaveEvent(): Wakeup Interval Report received: ${cmd}","trace")
 
@@ -674,16 +482,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     updateSyncPending()
 }
 
-/**
- *  zwaveEvent( COMMAND_CLASS_WAKE_UP V1 (0x84) : WAKE_UP_NOTIFICATION (0x07) )
- *  The Wake Up Notificaiton command allows a battery-powered device to notify another device that it is awake and
- *  ready to receive any queued commands.
- *  Action: Request BatteryReport, FirmwareMdReport, ManufacturerSpecificReport, and VersionReport.
- *  cmd attributes:
- *    None
- *  Example: WakeUpNotification()
- **/
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { *** need to redo
     logger("zwaveEvent(): Wakeup Notification received: ${cmd}","trace")
 
     logger("Device Woke Up","info")
@@ -699,130 +498,6 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     if (device.latestValue("syncPending").toInteger() == 0) result << response(zwave.wakeUpV1.wakeUpNoMoreInformation())
 
     return result
-}
-
-/**
- *  zwaveEvent( COMMAND_CLASS_ASSOCIATION V2 (0x85) : ASSOCIATION_REPORT (0x03) )
- *  The Association Report command is used to advertise the current destination nodes of a given association group.
- *  Action: Cache value and log info message only.
- *  Note: Ideally, we want to update the corresponding preference value shown on the Settings GUI, however this
- *  is not possible due to security restrictions in the SmartThings platform.
- *  Example: AssociationReport(groupingIdentifier: 4, maxNodesSupported: 5, nodeId: [1], reportsToFollow: 0)
- **/
-def zwaveEvent(physicalgraph.zwave.commands.associationv2.AssociationReport cmd) {
-    logger("zwaveEvent(): Association Report received: ${cmd}","trace")
-
-    state."assocGroupCache${cmd.groupingIdentifier}" = cmd.nodeId
-
-    // Display to user in hex format (same as IDE):
-    def hexArray  = []
-    cmd.nodeId.sort().each { hexArray.add(String.format("%02X", it)) };
-    logger("Association Group ${cmd.groupingIdentifier} contains nodes: ${hexArray} (hexadecimal format)","info")
-
-    updateSyncPending()
-}
-
-/**
- *  zwaveEvent( COMMAND_CLASS_VERSION V1 (0x86) : VERSION_REPORT (0x12) )
- *  The Version Report Command is used to advertise the library type, protocol version, and application version.
- *  Action: Publish values as device 'data' and log an info message. No check is performed.
- *  Note: Device actually supports V2, but SmartThings only supports V1.
- *  cmd attributes:
- *    Short  applicationSubVersion
- *    Short  applicationVersion
- *    Short  zWaveLibraryType
- *    Short  zWaveProtocolSubVersion
- *    Short  zWaveProtocolVersion
- *  Example: VersionReport(applicationSubVersion: 4, applicationVersion: 3, zWaveLibraryType: 3,
- *   zWaveProtocolSubVersion: 5, zWaveProtocolVersion: 4)
- **/
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionReport cmd) {
-    logger("zwaveEvent(): Version Report received: ${cmd}","trace")
-
-    def zWaveLibraryTypeDisp  = String.format("%02X",cmd.zWaveLibraryType)
-    def zWaveLibraryTypeDesc  = ""
-    switch(cmd.zWaveLibraryType) {
-        case 1:
-            zWaveLibraryTypeDesc = "Static Controller"
-            break
-
-        case 2:
-            zWaveLibraryTypeDesc = "Controller"
-            break
-
-        case 3:
-            zWaveLibraryTypeDesc = "Enhanced Slave"
-            break
-
-        case 4:
-            zWaveLibraryTypeDesc = "Slave"
-            break
-
-        case 5:
-            zWaveLibraryTypeDesc = "Installer"
-            break
-
-        case 6:
-            zWaveLibraryTypeDesc = "Routing Slave"
-            break
-
-        case 7:
-            zWaveLibraryTypeDesc = "Bridge Controller"
-            break
-
-        case 8:
-            zWaveLibraryTypeDesc = "Device Under Test (DUT)"
-            break
-
-        case 0x0A:
-            zWaveLibraryTypeDesc = "AV Remote"
-            break
-
-        case 0x0B:
-            zWaveLibraryTypeDesc = "AV Device"
-            break
-
-        default:
-            zWaveLibraryTypeDesc = "N/A"
-    }
-
-    def applicationVersionDisp = String.format("%d.%02d",cmd.applicationVersion,cmd.applicationSubVersion)
-    def zWaveProtocolVersionDisp = String.format("%d.%02d",cmd.zWaveProtocolVersion,cmd.zWaveProtocolSubVersion)
-
-    logger("Version Report: Application Version: ${applicationVersionDisp}, " +
-           "Z-Wave Protocol Version: ${zWaveProtocolVersionDisp}, " +
-           "Z-Wave Library Type: ${zWaveLibraryTypeDisp} (${zWaveLibraryTypeDesc})","info")
-
-    updateDataValue("applicationVersion","${cmd.applicationVersion}")
-    updateDataValue("applicationSubVersion","${cmd.applicationSubVersion}")
-    updateDataValue("zWaveLibraryType","${zWaveLibraryTypeDisp}")
-    updateDataValue("zWaveProtocolVersion","${cmd.zWaveProtocolVersion}")
-    updateDataValue("zWaveProtocolSubVersion","${cmd.zWaveProtocolSubVersion}")
-}
-
-/**
- *  zwaveEvent( COMMAND_CLASS_MULTI_CHANNEL_ASSOCIATION V2 (0x8E) : ASSOCIATION_REPORT (0x03) )
- *  The Multi-channel Association Report command is used to advertise the current destinations of a given
- *  association group (nodes and endpoints).
- *  Action: Store the destinations in the assocGroup cache, update syncPending, and log an info message.
- *   Also, if maxNodesSupported is reported as zero for Assoc Group #3, then disable future sync of this group.
- *  Note: Ideally, we want to update the corresponding preference value shown on the Settings GUI, however this
- *  is not possible due to security restrictions in the SmartThings platform.
- *  Example: MultiChannelAssociationReport(groupingIdentifier: 2, maxNodesSupported: 8, nodeId: [9,0,1,1,2,3],
- *            reportsToFollow: 0)
- **/
-def zwaveEvent(physicalgraph.zwave.commands.multichannelassociationv2.MultiChannelAssociationReport cmd) {
-    logger("zwaveEvent(): Multi-Channel Association Report received: ${cmd}","trace")
-
-    state."assocGroupCache${cmd.groupingIdentifier}" = cmd.nodeId // Must not sort as order is important.
-
-    def assocGroupName = getAssociationGroupsMetadata().find( { it.id == cmd.groupingIdentifier} ).name
-    // Display to user in hex format (same as IDE):
-    def hexArray  = []
-    cmd.nodeId.each { hexArray.add(String.format("%02X", it)) };
-    logger("Association Group #${cmd.groupingIdentifier} [${assocGroupName}] contains destinations: ${hexArray}","info")
-
-    updateSyncPending()
 }
 
 /**
@@ -887,69 +562,31 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  *  Capability-related Commands: [None]
  *****************************************************************************************************************/
 def configure() {
+    logger('configure()', 'trace')
+    device.updateSetting('configLoggingLevelIDE', value: '3')
+    device.updateSetting('configLoggingLevelDevice', value: '2')
+    device.updateSetting('configLoggingLevelDevice', value: 30)
 
-    state.loggingLevelIDE = 3
-    device.updateSetting(configLoggingLevelIDE, [type: 'enum', value: '3'])
-
-    state.loggingLevelDevice = 2
-    device.updateSetting(configLoggingLevelDevice, [type: 'enum', value: '2'])
-
-    state.autoResetTamperDelay = 30
-    device.updateSetting(configLoggingLevelDevice, [type: 'number', value: 30])
-
-    // only for sleepy devices
-    state.wakeUpIntervalTarget = 3600
-    device.updateSetting(configWakeUpInterval, [type: 'number', value: 360])
+    if (!isListening()) {
+        def interval = (intervals.wakeUpIntervalSpecified) ?: intervals.wakeUpIntervalDefault
+        state.wakeUpIntervalTarget = interval
+        device.updateSetting('configWakeUpInterval', value: interval)
+    }
 
     getParametersMetadata().findAll( { !it.readonly } ).each {
-        if (specifiedParameters().find( { "param${it}Target" } ) {
-            state."param${it.id}target" = specifiedParameters."param${it}target".value.toInteger()
-            device.updateSetting("param${it.id}", specifiedParameters."param${it}target".value)
+        def sv = configurationSpecified().find { sv -> sv.id == it.id }?.specifiedValue
+        if (sv) {
+            state."paramTarget${it.id}" = sv.toInteger()
+            device.updateSetting("configParam${it.id}", sv)
+
         } else {
-            state."param${it.id}target" = "${it}".defaultValue.toInteger()
-            device.updateSetting("param${it.id}", "${it}".defaultValue)
+            device.updateSetting("configParam${it.id}", it.defaultValue)
         }
     }
-
-    // resets any user selected configurations
-    getParametersMetadata().findAll( { !it.readonly } ).each {
-        def specifiedValue = configurationParameterValues().find { sv -> sv.id == it.id }?.specifiedValue
-        if (specifiedValue) {
-            device?.updateSetting("configParam${it.id}", specifiedValue) // might not be set by user
-            state."paramTarget${it.id}" = specifiedValue.toInteger()
-        }
-        else if (settings."configParam${it.id}") { // not null therefore reset value to default
-            def defaultValue = it.defaultValue
-            device?.updateSetting("configParam${it.id}", defaultValue)
-            state."paramTarget${it.id}" = defaultValue.toInteger()
-        }
-    }
-
-    getAssociationGroupsMetadata().findAll( { it.id != 3} ).each {
-        state."assocGroupTarget${it.id}" = parseAssocGroupInput(settings."configAssocGroup${it.id}", it.maxNodes)
-    }
-    state.assocGroupTarget3 = [ zwaveHubNodeId ]
-
-    updateDataValue("serialNumber", null)
-
-    state.syncAll = 'true'
+    updateDataValue('serialNumber', null)
+    state.syncAll = true
     updated()
 }
-
-private configurationParameterValues() { [
-    [id: 3, size: 1, scaledConfigurationValue: 0],
-    [id: 50, size: 2, scaledConfigurationValue: 0]
-] }
-
-private specifiedValues() { [
-    param1target: 1,
-    param2target: 5
-] }
-
-private specifiedWakeUpInterval() {
-    3600
-}
-
 
 def ping() {
 
@@ -978,23 +615,24 @@ def syncAll() {
 
 private test() {
     logger("test()","trace")
-    state.testPending = true
-    // immediate test actions:
-    // def cmds = []
-    // cmds << ...
-    // if (cmds) sendSequence(cmds,200)
+    if (isListening()) {
+        testRun()
+    } else {
+        state.testPending = true
+    }
 }
 
-//  testRun() - Async Testing method. Called when device wakes up and state.testPending = true.
 private testRun(commands) {
     logger("testRun()","trace")
     state.testPending = false
-    version(commands) // get Command Class Versions Report
-    commands
+    def cmds = []
+    sendEvent(descriptionText: "Requesting Command Class Report", displayed: false)
+    state.commandClassVersions = [:]
+    getCommandClasses.supported.each {
+        cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+    }
+    sendCommandSequence(cmds)
 }
-
-
-
 
 /*****************************************************************************************************************
 * Send Commands
@@ -1022,17 +660,12 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() {
-    state.loggingLevelIDE     = 5
-    state.loggingLevelDevice  = 2
-
-    sendEvent(name: 'checkInterval', value: 2 x default wakeup, descriptionText: 'Default checkInterval')
-
-    updateDeviceUseStates()
-
     logger('Performing initial setup', 'info')
-    sendEvent(name: 'water', value: 'dry', displayed: false)
+    state.loggingLevelIDE = 5; state.loggingLevelDevice = 2
+    sendEvent(name: 'checkInterval', value: (2.1 * intervals.wakeUpIntervalDefault).round(), descriptionText: 'Default checkInterval')
+    getDeviceUseStates()
+    sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
-
     if (isListening()) {
         logger('Device is in listening mode (powered).', 'info')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
@@ -1041,10 +674,7 @@ def installed() {
     else {
         logger('Device is in sleepy mode (battery).', 'info')
         sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
-        state.wakeUpIntervalTarget = 300 // leave out?
     }
-
-    state.assocGroupTarget3 = [ zwaveHubNodeId ]
 }
 
 def updated() {
@@ -1052,25 +682,24 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.loggingLevelIDE       = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
-        state.loggingLevelDevice    = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice.toInteger(): 2
-        state.autoResetTamperDelay  = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
-
-        // only for sleepy devices
-        state.wakeUpIntervalTarget = (settings.configWakeUpInterval) ? settings.configWakeUpInterval.toInteger() : 3600
+        state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
+        state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice.toInteger(): 2
+        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
 
         getParametersMetadata().findAll( {!it.readonly} ).each {
-            state."param${it.id}target" = settings."configParam${it.id}"?.toInteger()
+            if (settings?."configParam${it.id}") {
+                state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+            }
         }
-
-        getAssociationGroupsMetadata().findAll( { it.id != 3} ).each {
-            state."assocGroup${it.id}target" = parseAssocGroupInput(settings."configAssocGroup${it.id}", it.maxNodes)
+        if (!isListening()) {
+            if (settings.configWakeUpInterval) {
+                state.wakeUpIntervalTarget = settings.configWakeUpInterval
+            }
+            updateSyncPending()
+        } else {
+            sync()
         }
-        state.assocGroupTarget3 = [ zwaveHubNodeId ]
-
-        (isListening()) ? sync() : updateSyncPending()
-    }
-    else {
+    } else {
         logger('updated(): Ran within last 2 seconds so aborting.', 'debug')
     }
 }
@@ -1078,24 +707,53 @@ def updated() {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-private isListening() {
+def commandClasses = [
+    supported: [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C],
+    secure: [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C],
+    unsolicited: [],
+    versions: [0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1]
+]
+
+private configurationSpecified() { [
+    [id: 3, size: 1, specifiedValue: 0],
+    [id: 50, size: 2, specifiedValue: 0]
+] }
+
+def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
+
+def intervals = [
+    wakeUpIntervalDefault: 4_000,
+    wakeUpIntervalSpecified: 64_800,
+    checkInterval: 132_000,
+    batteryRefresh:
+]
+
+private listening() {
     getZwaveInfo()?.zw?.startsWith("L")
 }
 
-private updateDeviceUseStates() {
-    def deviceUseStates = [
+private deviceUseStates() {
+    def useStates = [
         Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
         Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
         Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
         Water: [event: 'water', inactive: 'dry', active: 'wet']
     ]
-    def event = (settings.deviceUse) ? deviceUseStates."${settings.deviceUse}".event : 'water'
-    def inactiveState = (settings.deviceUse) ? deviceUseStates."${settings.deviceUse}".inactive : 'dry'
-    def activeState = (settings.deviceUse) ? deviceUseStates."${settings.deviceUse}".active : 'wet'
-    updateDataValue("deviceUse", settings.deviceUse)
-    updateDataValue("event", event)
-    updateDataValue("inactiveState", inactiveState)
-    updateDataValue("activeState", activeState)
+    def event = (settings.deviceUse) ? useStates."${settings.deviceUse}".event : 'water'
+    def inactiveState = (settings.deviceUse) ? useStates."${settings.deviceUse}".inactive : 'dry'
+    def activeState = (settings.deviceUse) ? useStates."${settings.deviceUse}".active : 'wet'
+    updateDataValue('deviceUse', settings.deviceUse)
+    updateDataValue('event', event)
+    updateDataValue('inactiveState', inactiveState)
+    updateDataValue('activeState', activeState)
+}
+
+private sensorValueEvent(Short value) {
+    def eventValue = null
+    if (value == 0x00) {eventValue = "dry"}
+    if (value == 0xFF) {eventValue = "wet"}
+    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
+    return result
 }
 
 private logger(msg, level = "debug") {
@@ -1123,142 +781,70 @@ private logger(msg, level = "debug") {
     }
 }
 
-/**
- *  parseAssocGroupInput(string, maxNodes)
- *  Converts a comma-delimited string of destinations (nodes and endpoints) into an array suitable for passing to
- *  multiChannelAssociationSet(). All numbers are interpreted as hexadecimal. Anything that's not a valid node or
- *  endpoint is discarded (warn). If the list has more than maxNodes, the extras are discarded (warn).
- *  Example input strings:
- *    "9,A1"      = Nodes: 9 & 161 (no multi-channel endpoints)            => Output: [9, 161]
- *    "7,8:1,8:2" = Nodes: 7, Endpoints: Node8:endpoint1 & node8:endpoint2 => Output: [7, 0, 8, 1, 8, 2]
- */
-private parseAssocGroupInput(string, maxNodes) {
-    logger("parseAssocGroupInput(): Parsing Association Group Nodes: ${string}","trace")
-
-    // First split into nodes and endpoints. Count valid entries as we go.
-    if (string) {
-        def nodeList = string.split(',')
-        def nodes = []
-        def endpoints = []
-        def count = 0
-
-        nodeList = nodeList.each { node ->
-            node = node.trim()
-            if ( count >= maxNodes) {
-                logger("parseAssocGroupInput(): Number of nodes and endpoints is greater than ${maxNodes}! The following node was discarded: ${node}","warn")
-            }
-            else if (node.matches("\\p{XDigit}+")) { // There's only hexadecimal digits = nodeId
-                def nodeId = Integer.parseInt(node,16)  // Parse as hex
-                if ( (nodeId > 0) & (nodeId < 256) ) { // It's a valid nodeId
-                    nodes << nodeId
-                    count++
-                }
-                else {
-                    logger("parseAssocGroupInput(): Invalid nodeId: ${node}","warn")
-                }
-            }
-            else if (node.matches("\\p{XDigit}+:\\p{XDigit}+")) { // endpoint e.g. "0A:2"
-                def endpoint = node.split(":")
-                def nodeId = Integer.parseInt(endpoint[0],16) // Parse as hex
-                def endpointId = Integer.parseInt(endpoint[1],16) // Parse as hex
-                if ( (nodeId > 0) & (nodeId < 256) & (endpointId > 0) & (endpointId < 256) ) { // It's a valid endpoint
-                    endpoints.addAll([nodeId,endpointId])
-                    count++
-                }
-                else {
-                    logger("parseAssocGroupInput(): Invalid endpoint: ${node}","warn")
-                }
-            }
-            else {
-                logger("parseAssocGroupInput(): Invalid nodeId: ${node}","warn")
-            }
-        }
-
-        return (endpoints) ? nodes + [0] + endpoints : nodes
-    }
-    else {
-        return []
-    }
-}
-
-private sync() { // manages synchronisation of parameters, association groups, and wake up interval with the physical device
+private sync() {
     logger("sync(): Syncing configuration with the physical device.","info")
     def cmds = []
     def syncPending = 0
-    if (state.syncAll) { // clear all cached values
+    if (state.syncAll) {
         state.wakeUpIntervalCache = null
         getParametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
-        getAssociationGroupsMetadata().each { state."assocGroupCache${it.id}" = null }
-        setDataValue("serialNumber", null)
+        setDataValue('serialNumber', null)
         state.syncAll = false
     }
-    if ( (!isListening()) & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+    if ((!isListening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}","info")
         syncPending++
     }
     getParametersMetadata().findAll( {!it.readonly} ).each {
-        if ( (state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."paramTarget${it.id}") ) {
+        if ((state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}","info")
             syncPending++
         }
     }
-    getAssociationGroupsMetadata().each {
-        if ( state."assocGroupCache${it.id}" != state."assocGroupTarget${it.id}" ) {
-            def targetNodesHex  = []
-            targetNodes.each { targetNodesHex.add(String.format("%02X", it)) }
-            logger("sync(): Syncing Association Group #${it.id}: Destinations: ${targetNodesHex}","info")
-            if (it.id  == 3) { // Assoc Group #3 does not support multi-channel, must use regular associationV2.
-                cmds << zwave.associationV2.associationSet(groupingIdentifier: it.id, nodeId: []) // Remove All
-                cmds << zwave.associationV2.associationSet(groupingIdentifier: it.id, nodeId:[zwaveHubNodeId])
-                cmds << zwave.associationV2.associationGet(groupingIdentifier: it.id)
-            }
-            else {
-                cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: it.id, nodeId: []) // Remove All
-                cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: it.id, nodeId: targetNodes)
-                cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: it.id)
-            }
-            syncPending++
-        }
-    }
     if (getDataValue("serialNumber") = null) {
-        cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1) // ?? why deviceIdType:1 ??
+        cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
-    sendCommandSequence(cmds) // 800ms seems a reasonable balance.
+    sendCommandSequence(cmds)
 }
 
-
-private updateSyncPending() { // updates syncPending attribute, which advertises remaining number of sync operations
+private updateSyncPending() {
     def syncPending = 0
-    if ( (!isListening()) & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache) ) {
-        syncPending++
+    def userConfig = 0
+    if (!isListening() {
+        def target = state.wakeUpIntervalTarget
+        if ((target != null) & (target != state.wakeUpIntervalCache)) {
+            syncPending++
+        }
+        if (target != intervals.wakeUpIntervalSpecified) {
+            userConfig++
+        }
     }
     getParametersMetadata().findAll( {!it.readonly} ).each {
-        if ( (state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."param${it.id}target") ) {
+        def target = state."paramTarget${it.id}"
+        if ((target != null) & (target != state."paramCache${it.id}")) {
             syncPending++
         }
-    }
-    getAssociationGroupsMetadata().each {
-        if ( state."assocGroup${it.id}cache" != state."assocGroup${it.id}target" ) {
-            syncPending++
+        def sv = configurationSpecified().find { sv -> sv.id == it.id }?.specifiedValue
+        if (sv & (target != sv)) {
+            userConfig++
+        } else if (target != it.defaultValue) {
+            userConfig++
         }
     }
-    if (getDataValue("serialNumber") = null) {
+    if (getDataValue('serialNumber') = null) {
         syncPending++
     }
     logger("updateSyncPending(): syncPending: ${syncPending}", "debug")
-    if ((syncPending == 0) & (device.latestValue("syncPending") > 0)) {
+    if ((syncPending == 0) & (device.latestValue('syncPending') > 0)) {
         logger("Sync Complete.", "info")
-        if (check specified configuration) {
-            updateDataValue("configurationType", "specified")
-        } else {
-            updateDataValue("configurationType", "user")
-        }
+        def ct = (userConfig > 0) 'user' : 'specified'
+        updateDataValue('configurationType', ct)
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
 }
@@ -1300,66 +886,11 @@ private generatePrefsParams() {
     }
 }
 
-private generatePrefsAssocGroups() {
-    section {
-        input (
-            type: "paragraph",
-            element: "paragraph",
-            title: "ASSOCIATION GROUPS:",
-            description: "Association groups enable this device to control other Z-Wave devices directly, " +
-                         "without participation of the main controller.\n" +
-                         "Enter a comma-delimited list of destinations (node IDs and/or endpoint IDs) for " +
-                         "each association group. All IDs must be in hexadecimal format. E.g.:\n" +
-                         "Node destinations: '11, 0F'\n" +
-                         "Endpoint destinations: '1C:1, 1C:2'"
-        )
-        getAssociationGroupsMetadata().findAll( { it.id != 3} ).each { // Don't show AssocGroup3 (Lifeline).
-            input (
-                name: "configAssocGroup${it.id}",
-                title: "Association Group #${it.id}: ${it.name}: \n" + it.description + " \n[MAX NODES: ${it.maxNodes}]",
-                type: "text",
-                defaultValue: "",
-                required: false
-            )
-        }
-    }
-}
 
 private byteArrayToUInt(byteArray) {
     def i = 0
     byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
     return i
-}
-
-/**
- *  test()
- *  Called from 'test' tile.
- **/
-private test() {
-    logger("test()","trace")
-    state.testPending = true
-
-    // immediate test actions:
-    def cmds = []
-    //cmds << ...
-    if (cmds) sendCommandSequence(cmds)
-}
-
-/**
- *  testRun()
- *  Async Testing method. Called when device wakes up and state.testPending = true.
- **/
-private testRun() {
-    logger("testRun()","trace")
-
-    def cmds = []
-    //cmds << zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType:1) //sensorType:1
-    //cmds << zwave.wakeUpV2.wakeUpIntervalCapabilitiesGet()
-    //cmds << zwave.batteryV1.batteryGet()
-
-    if (cmds) sendCommandSequence(cmds)
-
-    state.testPending = false
 }
 
 /*****************************************************************************************************************
@@ -1382,7 +913,7 @@ private getCommandClassVersions() { [
     0x9C: 1  // Sensor Alarm V1
 ] }
 
-private getParametersMetadata() { [
+private parametersMetadata() { [
     [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
         isSigned: true,
         name: "Alarm Cancellation Delay",
@@ -1494,6 +1025,7 @@ private getParametersMetadata() { [
                     "1" : "1: Flood sensor INACTIVE"] ]
 ] }
 
+/*
 private getAssociationGroupsMetadata() { [
     [id:  1, maxNodes: 5, name: "Device Status", // Water state?
         description : "Reports device state, sending BASIC SET or ALARM commands."],
@@ -1502,3 +1034,4 @@ private getAssociationGroupsMetadata() { [
     [id:  3, maxNodes: 0, name: "Device Status",
         description : "Reports device state. Main Z-Wave controller should be added to this group."]
 ] }
+*/

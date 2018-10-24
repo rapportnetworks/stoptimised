@@ -208,7 +208,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 	def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
-	if (!state.lastbat || (new Date().time) - state.lastbat > 53 * 60 * 60 * 1000) {
+	if (!state.timeLastBatteryReport || (new Date().time) - state.timeLastBatteryReport > 53 * 60 * 60 * 1000) {
 		result << response(zwave.batteryV1.batteryGet().format()) // *** needs .format() ???
 	} else {
 		result << response(zwave.wakeUpV1.wakeUpNoMoreInformation().format()) // *** needs .format() ???
@@ -227,7 +227,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 		map.value = cmd.batteryLevel
 		map.isStateChange = true // force propogation of event
 	}
-	state.lastbat = new Date().time
+	state.timeLastBatteryReport = new Date().time
 	[createEvent(map), response(zwave.wakeUpV1.wakeUpNoMoreInformation().format())] // *** needs .format() ???
 }
 

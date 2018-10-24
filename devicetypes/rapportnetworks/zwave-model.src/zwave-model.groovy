@@ -121,102 +121,46 @@ metadata {
 
     preferences {
         section {
-            input(
-                type: "paragraph",
-                element: "paragraph",
-                title: "GENERAL:",
-                description: "General device handler settings."
-            )
-            input(
-                name: "configLoggingLevelIDE",
-                title: "IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.",
-                type: "enum",
-                options: [
-                    "0" : "None",
-                    "1" : "Error",
-                    "2" : "Warning",
-                    "3" : "Info",
-                    "4" : "Debug",
-                    "5" : "Trace"
-                ],
-                defaultValue: "3",
-                required: true
-            )
-            input(
-                name: "configLoggingLevelDevice",
-                title: "Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.",
-                type: "enum",
-                options: [
-                    "0" : "None",
-                    "1" : "Error",
-                    "2" : "Warning"
-                ],
-                defaultValue: "2",
-                required: true
-            )
-            input(
-                name: "configAutoResetTamperDelay",
-                title: "Auto-Reset Tamper Alarm:\n" +
-                "Automatically reset tamper alarms after this time delay.\n" +
-                "Values: 0 = Auto-reset Disabled\n" +
-                "1-86400 = Delay (s)\n" +
-                "Default Value: 30s",
-                type: "number",
-                defaultValue: "30",
-                required: false
-            )
+            input(type: "paragraph", element: "paragraph", title: "GENERAL:", description: "General device handler settings.")
+            input(name: "configLoggingLevelIDE", title: "IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace"], defaultValue: "3", required: true)
+            input(name: "configLoggingLevelDevice", title: "Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning"], defaultValue: "2", required: true)
+            input(name: "configAutoResetTamperDelay", title: "Auto-Reset Tamper Alarm:\n" + "Automatically reset tamper alarms after this time delay.\n" + "Values: 0 = Auto-reset Disabled\n" + "1-86400 = Delay (s)\n" + "Default Value: 30s", type: "number", defaultValue: "30", required: false)
         }
         section {
-            input(
-                name: "configWakeUpInterval",
-                title: "WAKE UP INTERVAL:\n" +
-                "The device will wake up after each defined time interval to sync configuration parameters, " +
-                "associations and settings.\n" +
-                "Values: 5-86399 = Interval (s)\n" +
-                "Default Value: 4000 (every 66 minutes)",
-                type: "number",
-                defaultValue: "4000",
-                required: false
-            )
+            input(name: "configWakeUpInterval", title: "WAKE UP INTERVAL:\n" + "The device will wake up after each defined time interval to sync configuration parameters, " + "associations and settings.\n" + "Values: 5-86399 = Interval (s)\n" + "Default Value: 4000 (every 66 minutes)", type: "number", defaultValue: "4000", required: false)
         }
         section {
-            input(
-                name: "deviceUse",
-                title: "What type of sensor do you want to use this device for?",
-                description: "Tap to set",
-                type: "enum",
-                options: ["Bed", "Chair", "Toilet", "Water"],
-                defaultValue: "Water",
-                required: true,
-                displayDuringSetup: true
-            )
+            input(name: "deviceUse", title: "What type of sensor do you want to use this device for?", description: "Tap to set", type: "enum", options: ["Bed", "Chair", "Toilet", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
         }
         generatePrefsParams()
-        // generatePrefsAssocGroups()
     }
 }
 
-
-    if (isListening() & Notsynced & commandClasses.unsolicited.find {} ) {
-        sync()
-    }
-
-
-def parse(description) { // *** to sort
+def parse(description) {
     logger("parse(): Parsing raw message: ${description}","trace")
     def result = []
     if (description.startsWith("Err")) {
-        logger("parse(): Unknown Error. Raw message: ${description}","error")
-    }
-    else {
-        def cmd = zwave.parse(description, getCommandClassVersions())
-        if (cmd) {
-            result += zwaveEvent(cmd)
+        if (description.startsWith("Err 106")) {
+            logger("parse() >> Err 106", "error")
+            result = createEvent( name: "secureInclusion", value: "failed", isStateChange: true,
+                    descriptionText: "This sensor failed to complete the network security key exchange. If you are unable to control it via SmartThings, you must remove it from your network and add it again.")
         } else {
+            logger("parse(): Unknown Error. Raw message: ${description}","error")
+        }
+    }
+    else if (description != "updated") {
+        def cmd = zwave.parse(description, commandClasses.versions)
+        if (cmd) {
+            result << zwaveEvent(cmd)
+            if (isListening() & (device.latestValue('syncPending') > 0) & commandClasses.unsolicited.find { it = cmd.commandClassId } ) {
+                sync()
+            }
+        }
+        else {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
     }
-    return result
+    result
 }
 
 /*****************************************************************************************************************
@@ -487,6 +431,13 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { *
 
     logger("Device Woke Up","info")
 
+    if (device.latestValue('syncPending') > 0) state.queued.plus('sync()')
+
+    state.queued.each {
+        it.call()
+        this.minus(it)
+    }
+
     def result = []
 
     result << response(zwave.batteryV1.batteryGet())
@@ -561,7 +512,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 }
 
 /*****************************************************************************************************************
- *  Capability-related Commands: [None]
+ *  Capability-related Commands
  *****************************************************************************************************************/
 def configure() {
     logger('configure()', 'trace')
@@ -591,19 +542,16 @@ def configure() {
 }
 
 def ping() {
-
 }
 
 def refresh() {
-
 }
 
 def poll() { // depreciated
-
 }
 
 /*****************************************************************************************************************
- *  Custom Commands:
+ *  Custom Commands
  *****************************************************************************************************************/
 def resetTamper() {
     logger("resetTamper(): Resetting tamper alarm.","info")
@@ -612,18 +560,18 @@ def resetTamper() {
 
 def syncAll() {
     state.syncAll = true
-    (isListening()) ? sync() : updateSyncPending()
+    (isListening()) ? sync() : state.queued.plus('sync()')
 }
 
 def test() {
     logger("test()","trace")
-    (isListening()) ? testNow() : state.testPending = true
+    (isListening()) ? testNow() : state.queued.plus('testNow()')
     }
 }
 
 private testNow() {
     logger("testRun()","trace")
-    state.testPending = false
+    state.queued.minus('testNow()')
     def cmds = []
     sendEvent(descriptionText: "Requesting Command Class Report", displayed: false)
     state.commandClassVersions = [:]
@@ -634,29 +582,7 @@ private testNow() {
 }
 
 /*****************************************************************************************************************
-* Send Commands
-*****************************************************************************************************************/
-private sendCommandSequence(commands, delay = 1200) {
-    // delayBetween(commands.collect { encapsulate(it) }, delay)
-    sendHubCommand(commands.collect { encapsulate(response(it)) }, delay) // not sure of this code
-}
-
-private encapsulate(physicalgraph.zwave.Command cmd) {
-    if (zwaveInfo.zw.endsWith("s") && getSecureClasses.find{ it == cmd.commandClassId }) { secureEncapsulate(cmd) }
-    else if (zwaveInfo.cc.contains("56")){ crc16Encapsulate(cmd) }
-    else { cmd.format() }
-}
-
-private secureEncapsulate(physicalgraph.zwave.Command cmd) {
-    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-}
-
-private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
-    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
-}
-
-/*****************************************************************************************************************
- *  SmartThings System Commands:
+ *  SmartThings System Methods
  *****************************************************************************************************************/
 def installed() {
     logger('Performing initial setup', 'info')
@@ -696,7 +622,8 @@ def updated() {
             if (settings.configWakeUpInterval) {
                 state.wakeUpIntervalTarget = settings.configWakeUpInterval
             }
-            updateSyncPending()
+            state.queued = [] as Set
+            state.queued.plus('sync()')
         }
     } else {
         logger('updated(): Ran within last 2 seconds so aborting.', 'debug')
@@ -704,55 +631,10 @@ def updated() {
 }
 
 /*****************************************************************************************************************
- *  Private Helper Functions:
+ *  Generic Helper Methods
  *****************************************************************************************************************/
-def commandClasses = [
-    supported: [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C],
-    secure: [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C],
-    unsolicited: [],
-    versions: [0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1]
-]
-
-private configurationSpecified() { [
-    [id: 3, size: 1, specifiedValue: 0],
-    [id: 50, size: 2, specifiedValue: 0]
-] }
-
-def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
-
-def intervals = [
-    wakeUpIntervalDefault: 4_000,
-    wakeUpIntervalSpecified: 64_800,
-    checkInterval: 132_000,
-    batteryRefresh:
-]
-
 private listening() {
     getZwaveInfo()?.zw?.startsWith("L")
-}
-
-private deviceUseStates() {
-    def useStates = [
-        Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
-        Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-        Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-        Water: [event: 'water', inactive: 'dry', active: 'wet']
-    ]
-    def event = (settings.deviceUse) ? useStates."${settings.deviceUse}".event : 'water'
-    def inactiveState = (settings.deviceUse) ? useStates."${settings.deviceUse}".inactive : 'dry'
-    def activeState = (settings.deviceUse) ? useStates."${settings.deviceUse}".active : 'wet'
-    updateDataValue('deviceUse', settings.deviceUse)
-    updateDataValue('event', event)
-    updateDataValue('inactiveState', inactiveState)
-    updateDataValue('activeState', activeState)
-}
-
-private sensorValueEvent(Short value) {
-    def eventValue = null
-    if (value == 0x00) {eventValue = "dry"}
-    if (value == 0xFF) {eventValue = "wet"}
-    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
-    return result
 }
 
 private logger(msg, level = "debug") {
@@ -891,7 +773,6 @@ private generatePrefsParams() {
     }
 }
 
-
 private byteArrayToUInt(byteArray) {
     def i = 0
     byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
@@ -899,8 +780,78 @@ private byteArrayToUInt(byteArray) {
 }
 
 /*****************************************************************************************************************
- *  Static Matadata Functions
+ * Send Zwave Commands
  *****************************************************************************************************************/
+private sendCommandSequence(commands, delay = 1200) {
+    // delayBetween(commands.collect { encapsulate(it) }, delay)
+    sendHubCommand(commands.collect { encapsulate(response(it)) }, delay) // not sure of this code
+}
+
+private encapsulate(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo.zw.endsWith("s") && getSecureClasses.find{ it == cmd.commandClassId }) { secureEncapsulate(cmd) }
+    else if (zwaveInfo.cc.contains("56")){ crc16Encapsulate(cmd) }
+    else { cmd.format() }
+}
+
+private secureEncapsulate(physicalgraph.zwave.Command cmd) {
+    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+}
+
+private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
+    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
+}
+
+/*****************************************************************************************************************
+ *  Specific Helper Methods
+ *****************************************************************************************************************/
+private deviceUseStates() {
+    def useStates = [
+        Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
+        Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
+        Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
+        Water: [event: 'water', inactive: 'dry', active: 'wet']
+    ]
+    def event = (settings.deviceUse) ? useStates."${settings.deviceUse}".event : 'water'
+    def inactiveState = (settings.deviceUse) ? useStates."${settings.deviceUse}".inactive : 'dry'
+    def activeState = (settings.deviceUse) ? useStates."${settings.deviceUse}".active : 'wet'
+    updateDataValue('deviceUse', settings.deviceUse)
+    updateDataValue('event', event)
+    updateDataValue('inactiveState', inactiveState)
+    updateDataValue('activeState', activeState)
+}
+
+private sensorValueEvent(Short value) {
+    def eventValue = null
+    if (value == 0x00) {eventValue = "dry"}
+    if (value == 0xFF) {eventValue = "wet"}
+    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
+    return result
+}
+
+/*****************************************************************************************************************
+ *  Matadata Functions
+ *****************************************************************************************************************/
+def commandClasses = [
+    supported: [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C],
+    secure: [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C],
+    unsolicited: [0x20, 0x30, 0x31, 0x60, 0x71, 0x9C],
+    versions: [0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1]
+]
+
+private configurationSpecified() { [
+    [id: 3, size: 1, specifiedValue: 0],
+    [id: 50, size: 2, specifiedValue: 0]
+] }
+
+def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
+
+def intervals = [
+    wakeUpIntervalDefault: 4_000,
+    wakeUpIntervalSpecified: 64_800,
+    checkInterval: 132_000,
+    batteryRefresh:
+]
+
 private getCommandClassVersions() { [
     0x20: 1, // Basic V1
     0x30: 1, // Sensor Binary V1 (not even v2).
@@ -1029,14 +980,3 @@ private parametersMetadata() { [
         options: ["0" : "0: Flood sensor ACTIVE",
                     "1" : "1: Flood sensor INACTIVE"] ]
 ] }
-
-/*
-private getAssociationGroupsMetadata() { [
-    [id:  1, maxNodes: 5, name: "Device Status", // Water state?
-        description : "Reports device state, sending BASIC SET or ALARM commands."],
-    [id:  2, maxNodes: 5, name: "TMP Button and Tilt Sensor",
-        description : "Sends ALARM commands to associated devices when TMP button is released or a tilt is triggered (depending on parameter 74)."],
-    [id:  3, maxNodes: 0, name: "Device Status",
-        description : "Reports device state. Main Z-Wave controller should be added to this group."]
-] }
-*/

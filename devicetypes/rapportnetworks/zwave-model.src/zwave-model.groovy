@@ -495,7 +495,9 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { *
     result << response(zwave.versionV1.versionGet())
 
     // Send wakeUpNoMoreInformation command, but only if there is nothing more to sync:
+
     if (device.latestValue("syncPending").toInteger() == 0) result << response(zwave.wakeUpV1.wakeUpNoMoreInformation())
+    if (state.testPending = true) testNow()
 
     return result
 }
@@ -610,19 +612,16 @@ def resetTamper() {
 
 def syncAll() {
     state.syncAll = true
-    updated()
+    (isListening()) ? sync() : updateSyncPending()
 }
 
-private test() {
+def test() {
     logger("test()","trace")
-    if (isListening()) {
-        testRun()
-    } else {
-        state.testPending = true
+    (isListening()) ? testNow() : state.testPending = true
     }
 }
 
-private testRun(commands) {
+private testNow() {
     logger("testRun()","trace")
     state.testPending = false
     def cmds = []
@@ -691,13 +690,13 @@ def updated() {
                 state."param${it.id}target" = settings."configParam${it.id}".toInteger()
             }
         }
-        if (!isListening()) {
+        if (isListening()) {
+            sync()
+        } else {
             if (settings.configWakeUpInterval) {
                 state.wakeUpIntervalTarget = settings.configWakeUpInterval
             }
             updateSyncPending()
-        } else {
-            sync()
         }
     } else {
         logger('updated(): Ran within last 2 seconds so aborting.', 'debug')
@@ -816,6 +815,12 @@ private sync() {
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
+    if (state.syncAll) {
+        state.wakeUpIntervalCache = null
+        getParametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
+        setDataValue('serialNumber', null)
+        state.syncAll = false
+    }
     if (!isListening() {
         def target = state.wakeUpIntervalTarget
         if ((target != null) & (target != state.wakeUpIntervalCache)) {

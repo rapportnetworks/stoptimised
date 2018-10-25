@@ -616,19 +616,24 @@ private generatePrefsParams() {
                         // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
                         required: it.required
                     )
-                    // case "boolean"
-                    /*
+                case "flags"
                     input (
-                        name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                        type: it.type,
-
+                        title: "${param.num}. Reports in group " + (param.num - 100),
+                        description: "Which reports need to send in Report group " + (param.num - 100),
+                        type: "paragraph",
+                        element: "paragraph"
+                        paragraph "${it.id}: ${it.name}: \n" + it.description // check out "paragraph"
+                    )
+                    it.flags.each { flag ->
+                        input (
+                            name: "configParam${it.id}${flag.id}",
+                            title: "${flag.description}"
+                            type: 'bool',
                         need to find a way to have true/false i.e. 1/0 default or alternative values (e.g. 1/2) - copy way done in HEM-Gen5 handler for boolean options - lookup - needs to go in place where settings are transfered to target values
-                        options: it.options,
-
-                        defaultValue: it.defaultValue,
-                        required: it.required
-                    */
+                            defaultValue: flag.default,
+                            required: it.required
+                        )
+                    }
             }
         }
     }
@@ -777,6 +782,16 @@ private getCommandClassVersions() { [
 ] }
 
 private parametersMetadata() { [
+    [id: 2, size: 1, type: "flags", defaultValue: 15, required: false, readonly: false,
+        isSigned: false,
+        name: "Acoustic and Visual Alarms",
+        description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
+        flags: [
+            id: 'a', description: 'temperature', default: true, value: 1,
+            id: 'b', description: 'illuminance', default: true, value: 2,
+            id: 'c', description: 'ultraviolet', default: false, value: 4,
+            id: 'd', description: 'humidity', default: false, value: 8 ] ],
+            
     [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
         isSigned: true,
         name: "Alarm Cancellation Delay",

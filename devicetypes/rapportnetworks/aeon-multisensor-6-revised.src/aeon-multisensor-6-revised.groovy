@@ -591,6 +591,11 @@ private generatePrefsParams() {
                          "Refer to the product documentation for a full description of each parameter."
         )
         getParametersMetadata().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
+
+            // want to only include certain selected paramters
+            // def cu = configurationUser().find { cu -> cu.id == it.id }
+            // if (cv) { all switch code below }
+
             def lb = (it.description.length() > 0) ? "\n" : ""
             switch(it.type) {
                 case "number":
@@ -602,7 +607,6 @@ private generatePrefsParams() {
                         // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
                         required: it.required
                     )
-                break
                 case "enum":
                     input (
                         name: "configParam${it.id}",
@@ -612,7 +616,19 @@ private generatePrefsParams() {
                         // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
                         required: it.required
                     )
-                break
+                    // case "boolean"
+                    /*
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        type: it.type,
+
+                        need to find a way to have true/false i.e. 1/0 default or alternative values (e.g. 1/2) - copy way done in HEM-Gen5 handler for boolean options - lookup - needs to go in place where settings are transfered to target values
+                        options: it.options,
+
+                        defaultValue: it.defaultValue,
+                        required: it.required
+                    */
             }
         }
     }

@@ -491,25 +491,19 @@ private listening() {
 private logger(msg, level = "debug") {
     switch(level) {
         case "error":
-            if (state.loggingLevelIDE >= 1) log.error msg
-            if (state.loggingLevelDevice >= 1) sendEvent(name: "logMessage", value: "ERROR: ${msg}", displayed: false, isStateChange: true)
-        break
+            if (state.loggingLevelIDE >= 1) log.error msg; sendEvent descriptionText: "ERROR: $msg", displayed: false, isStateChange: true
+            if (state.loggingLevelDevice >= 1) sendEvent name: "logMessage", value: "ERROR: $msg", displayed: false, isStateChange: true
         case "warn":
-            if (state.loggingLevelIDE >= 2) log.warn msg
-            if (state.loggingLevelDevice >= 2) sendEvent(name: "logMessage", value: "WARNING: ${msg}", displayed: false, isStateChange: true)
-        break
+            if (state.loggingLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "WARNING: $msg", displayed: false, isStateChange: true
+            if (state.loggingLevelDevice >= 2) sendEvent name: "logMessage", value: "WARNING: $msg", displayed: false, isStateChange: true
         case "info":
-            if (state.loggingLevelIDE >= 3) log.info msg
-        break
+            if (state.loggingLevelIDE >= 3) log.info msg; sendEvent descriptionText: "INFO: $msg", displayed: false, isStateChange: true
         case "debug":
-            if (state.loggingLevelIDE >= 4) log.debug msg
-        break
+            if (state.loggingLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "DEBUG: $msg", displayed: false, isStateChange: true
         case "trace":
-            if (state.loggingLevelIDE >= 5) log.trace msg
-        break
+            if (state.loggingLevelIDE >= 5) log.trace msg; sendEvent descriptionText: "TRACE: $msg", displayed: false, isStateChange: true
         default:
-            log.debug msg
-        break
+            log.debug msg; sendEvent descriptionText: "LOG: $msg", displayed: false, isStateChange: true
     }
 }
 

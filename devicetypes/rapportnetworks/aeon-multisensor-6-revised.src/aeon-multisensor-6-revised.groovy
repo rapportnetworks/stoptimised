@@ -175,7 +175,21 @@ def updated() {
 
         getParametersMetadata().findAll( {!it.readonly} ).each {
             if (settings?."configParam${it.id}") {
-                state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                switch(it.type) {
+                    case "number":
+                        state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                    case "enum":
+                        state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                    case "bool":
+                        state."param${it.id}target" = (settings."configParam${it.id}") ? (it.valueTrue ?: 1) : (it.valueFalse ?: 0)
+                    case "flags":
+                        def target = 0
+                        settings.findAll { set -> "settings.configParams${id.id}[a..z]" } // filter for last character is a letter (and not a number)
+                                .each { flag ->
+                                    if (flag) target += it.flags."$flag".flagValue // this bit is not right it.flags.id
+                                }
+                        state."param${it.id}target" = target
+                }
             }
         }
         if (isListening()) {
@@ -590,52 +604,62 @@ private generatePrefsParams() {
             description: "Device parameters are used to customise the physical device. " +
                          "Refer to the product documentation for a full description of each parameter."
         )
-        getParametersMetadata().findAll( {!it.readonly} ).each { // Exclude readonly parameters.
-
-            // want to only include certain selected paramters
-            // def cu = configurationUser().find { cu -> cu.id == it.id }
-            // if (cv) { all switch code below }
-
-            def lb = (it.description.length() > 0) ? "\n" : ""
-            switch(it.type) {
-                case "number":
-                    input (
-                        name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
-                        type: it.type,
-                        range: it.range,
-                        // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
-                        required: it.required
-                    )
-                case "enum":
-                    input (
-                        name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                        type: it.type,
-                        options: it.options,
-                        // defaultValue: it.defaultValue, // iPhone users can uncomment these lines!
-                        required: it.required
-                    )
-                case "flags"
-                    input (
-                        title: "${param.num}. Reports in group " + (param.num - 100),
-                        description: "Which reports need to send in Report group " + (param.num - 100),
-                        type: "paragraph",
-                        element: "paragraph"
-                        paragraph "${it.id}: ${it.name}: \n" + it.description // check out "paragraph"
-                    )
-                    it.flags.each { flag ->
-                        input (
-                            name: "configParam${it.id}${flag.id}",
-                            title: "${flag.description}"
-                            type: 'bool',
-                        need to find a way to have true/false i.e. 1/0 default or alternative values (e.g. 1/2) - copy way done in HEM-Gen5 handler for boolean options - lookup - needs to go in place where settings are transfered to target values
-                            defaultValue: flag.default,
-                            required: it.required
-                        )
-                    }
+        if (configurationUser) { // Only include specific options (could use a user option in future to expose all)
+            configurationUser.each {
+                getParametersMetadata().find{ it.id }.generatePref(it)
+            }
+        } else {
+            getParametersMetadata().findAll{ !it.readonly }.each{ // Exclude readonly parameters
+                generatePref(it)
             }
         }
+    }
+}
+
+private generatePref(it) {
+    def lb = (it.description.length() > 0) ? "\n" : ""
+    switch(it.type) {
+        case "number":
+            input (
+                name: "configParam${it.id}",
+                title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                type: it.type,
+                range: it.range,
+                defaultValue: it.defaultValue,
+                required: it.required
+            )
+        case "enum":
+            input (
+                name: "configParam${it.id}",
+                title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                type: it.type,
+                options: it.options,
+                defaultValue: it.defaultValue,
+                required: it.required
+            )
+        case "bool":
+            input (
+                name: "configParam${it.id}",
+                title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                type: it.type,
+                defaultValue: it.defaultValue,
+                required: it.required
+            )
+        case "flags"
+            input (
+                title: "${it.id}: ${it.name}: \n" + it.description,
+                // description: "",
+                type: "paragraph", element: "paragraph"
+            )
+            it.flags.each { flag ->
+                input (
+                    name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
+                    title: "${flag.description}"
+                    type: 'bool',
+                    defaultValue: flag.default,
+                    required: it.required
+                )
+            }
     }
 }
 
@@ -744,6 +768,8 @@ def commandClasses = [
     versions: [0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1]
 ]
 
+def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
+
 private configurationSpecified() { [
     [id: 3, size: 2, specifiedValue: 20], // motion delay
     [id: 4, size: 1, specifiedValue: 5], // maximum motion sensitivity
@@ -754,7 +780,7 @@ private configurationSpecified() { [
     [id: 101, size: 4, specifiedValue: 240] // all except battery
 ] }
 
-def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
+def configurationUser = [1, 2, 3]
 
 def intervals = [
     wakeUpIntervalDefault: 4_000,
@@ -787,11 +813,18 @@ private parametersMetadata() { [
         name: "Acoustic and Visual Alarms",
         description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
         flags: [
-            id: 'a', description: 'temperature', default: true, value: 1,
-            id: 'b', description: 'illuminance', default: true, value: 2,
-            id: 'c', description: 'ultraviolet', default: false, value: 4,
-            id: 'd', description: 'humidity', default: false, value: 8 ] ],
-            
+            id: 'a', description: 'enable temperature', defaultValue: true, flagValue: 1,
+            id: 'b', description: 'enable illuminance', defaultValue: true, flagValue: 2,
+            id: 'c', description: 'enable ultraviolet', defaultValue: false, flagValue: 4,
+            id: 'd', description: 'enable humidity', defaultValue: false, flagValue: 8 ] ],
+
+    [id: 3, size: 1, type: "bool", defaultValue: false, required: false, readonly: false,
+        isSigned: false,
+        name: "Acoustic and Visual Alarms",
+        description : "Enable LED indicator and acoustic alarm for flooding detection.",
+        falseValue: 0,
+        trueValue: 1 ],
+
     [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
         isSigned: true,
         name: "Alarm Cancellation Delay",

@@ -184,9 +184,10 @@ def updated() {
                         state."param${it.id}target" = (settings."configParam${it.id}") ? (it.valueTrue ?: 1) : (it.valueFalse ?: 0)
                     case "flags":
                         def target = 0
-                        settings.findAll { set -> "settings.configParams${id.id}[a..z]" } // filter for last character is a letter (and not a number)
-                                .each { flag ->
-                                    if (flag) target += it.flags."$flag".flagValue // this bit is not right it.flags.id
+                        settings.findAll { setting -> setting.key =~ /settings.configParams${it.id}[a..z]/ }.each { key, value ->
+                                    if (value) target += it.flags."$flag".flagValue // this bit is not right it.flags.id
+                                    // need to get letter at end
+                                    key.reverse().take(1)
                                 }
                         state."param${it.id}target" = target
                 }

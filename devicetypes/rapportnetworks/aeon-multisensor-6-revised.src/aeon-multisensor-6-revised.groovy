@@ -184,11 +184,9 @@ def updated() {
                         state."param${it.id}target" = (settings."configParam${it.id}") ? (it.valueTrue ?: 1) : (it.valueFalse ?: 0)
                     case "flags":
                         def target = 0
-                        settings.findAll { setting -> setting.key =~ /settings.configParams${it.id}[a..z]/ }.each { key, value ->
-                                    if (value) target += it.flags."$flag".flagValue // this bit is not right it.flags.id
-                                    // need to get letter at end
-                                    key.reverse().take(1)
-                                }
+                        settings.findAll { setting -> setting.key =~ /settings.configParams${it.id}[a..z]/ }.each { setting ->
+                            target += (setting) it.flags.find { flag -> flag.id == "${setting.reverse().take(1)}" }.flagValue }
+                        }
                         state."param${it.id}target" = target
                 }
             }
@@ -606,8 +604,8 @@ private generatePrefsParams() {
                          "Refer to the product documentation for a full description of each parameter."
         )
         if (configurationUser) { // Only include specific options (could use a user option in future to expose all)
-            configurationUser.each {
-                getParametersMetadata().find{ it.id }.generatePref(it)
+            configurationUser.each { selection ->
+                getParametersMetadata().find{ it.id == selection }.generatePref(it) // selection is a number, id is text?
             }
         } else {
             getParametersMetadata().findAll{ !it.readonly }.each{ // Exclude readonly parameters
@@ -731,11 +729,6 @@ def motionEvent(value) {
     }
     createEvent(map)
 }
-
-
-
-
-
 
 
 private def getTimeOptionValueMap() {

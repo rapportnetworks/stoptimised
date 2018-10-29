@@ -57,18 +57,6 @@ metadata {
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
 
-    preferences {
-        input description: "Please consult AEOTEC MULTISENSOR 6 operating manual for advanced setting options. You can skip this configuration to use default settings", title: "Advanced Configuration", displayDuringSetup: true, type: "paragraph", element: "paragraph"
-
-        input "motionDelayTime", "enum", title: "Motion Sensor Delay Time", options: ["10 seconds", "20 seconds", "40 seconds", "1 minute", "2 minutes", "3 minutes", "4 minutes"], defaultValue: "10 seconds", displayDuringSetup: true
-
-        input "motionSensitivity", "enum", title: "Motion Sensor Sensitivity", options: ["Off", "Minimum", "Normal", "Maximum"], defaultValue: "Maximum", displayDuringSetup: true
-
-        input "reportInterval", "enum", title: "Sensors Report Interval", options: ["8 minutes", "15 minutes", "30 minutes", "1 hour", "6 hours", "12 hours", "18 hours", "24 hours"], defaultValue: "1 hour", displayDuringSetup: true
-
-        input "ledBlinking", "enum", title: "LED Blinking Setting", options: ["Enabled", "Only Motion", "Disabled"], defaultValue: "Disabled", displayDuringSetup: true
-    }
-
     tiles(scale: 2) {
         multiAttributeTile(name: "motion", type: "generic", width: 6, height: 4) {
             tileAttribute("device.motion", key: "PRIMARY_CONTROL") {
@@ -105,7 +93,7 @@ metadata {
         }
         valueTile("powerSource", "device.powerSource", height: 2, width: 2, decoration: "flat") {
             state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff"
-        }
+        } // ?standardTile?
         valueTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
             state "clear", label: 'tamper clear', backgroundColor: "#ffffff"
             state "detected", label: 'tampered', backgroundColor: "#ff0000"
@@ -113,8 +101,23 @@ metadata {
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
         details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper"])
     }
-}
 
+    preferences {
+        section {
+            input(type: "paragraph", element: "paragraph", title: "GENERAL:", description: "General device handler settings.")
+            input(name: "configLoggingLevelIDE", title: "IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace"], defaultValue: "3", required: true)
+            input(name: "configLoggingLevelDevice", title: "Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning"], defaultValue: "2", required: true)
+            input(name: "configAutoResetTamperDelay", title: "Auto-Reset Tamper Alarm:\n" + "Automatically reset tamper alarms after this time delay.\n" + "Values: 0 = Auto-reset Disabled\n" + "1-86400 = Delay (s)\n" + "Default Value: 30s", type: "number", defaultValue: "30", required: false)
+        }
+        section {
+            input(name: "configWakeUpInterval", title: "WAKE UP INTERVAL:\n" + "The device will wake up after each defined time interval to sync configuration parameters, " + "associations and settings.\n" + "Values: 5-86399 = Interval (s)\n" + "Default Value: 4000 (every 66 minutes)", type: "number", defaultValue: "4000", required: false)
+        }
+        section {
+            input(name: "deviceUse", title: "What type of sensor do you want to use this device for?", description: "Tap to set", type: "enum", options: ["Bed", "Chair", "Toilet", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
+        }
+        generatePrefsParams()
+    }
+}
 
 /*****************************************************************************************************************
  *  SmartThings System Methods
@@ -122,9 +125,9 @@ metadata {
 def installed() {
     logger('Performing initial setup', 'info')
     state.loggingLevelIDE = 5; state.loggingLevelDevice = 2
-    sendEvent(name: 'checkInterval', value: intervals.checkIntervalDefault, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+    sendEvent(name: 'checkInterval', value: intervals().checkIntervalDefault, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
-    getDeviceUseStates()
+    deviceUseStates()
     sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     if (isListening()) {
         logger('Device is in listening mode (powered).', 'info')
@@ -144,15 +147,15 @@ def configure() {
     device.updateSetting('configLoggingLevelDevice', value: 30)
 
     if (!isListening()) {
-        def interval = (intervals.wakeUpIntervalSpecified) ?: intervals.wakeUpIntervalDefault
+        def interval = (intervals().wakeUpIntervalSpecified) ?: intervals().wakeUpIntervalDefault
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', value: interval)
     }
 
-    getParametersMetadata().findAll( { !it.readonly } ).each {
-        def sv = configurationSpecified().find { sv -> sv.id == it.id }?.specifiedValue
+    parametersMetadata().findAll( { !it.readonly } ).each {
+        def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
         if (sv) {
-            state."paramTarget${it.id}" = sv.toInteger()
+            state."paramTarget${it.id}" = sv
             device.updateSetting("configParam${it.id}", sv)
 
         } else {
@@ -173,20 +176,18 @@ def updated() {
         state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice.toInteger(): 2
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
 
-        getParametersMetadata().findAll( {!it.readonly} ).each {
-            if (settings?."configParam${it.id}") {
+        parametersMetadata().findAll( {!it.readonly} ).each {
+            if (settings?."configParam${it.id}" || settings?.find { s -> s.key ==~ /configParam${it.id}[a-z]/ }) {
                 switch(it.type) {
                     case "number":
-                        state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                        state."param${it.id}target" = settings."configParam${it.id}"
                     case "enum":
                         state."param${it.id}target" = settings."configParam${it.id}".toInteger()
                     case "bool":
-                        state."param${it.id}target" = (settings."configParam${it.id}") ? (it.valueTrue ?: 1) : (it.valueFalse ?: 0)
+                        state."param${it.id}target" = (settings."configParam${it.id}".toBoolean()) ? (it.trueValue ?: 1) : (it.falseValue ?: 0)
                     case "flags":
                         def target = 0
-                        settings.findAll { setting -> setting.key =~ /settings.configParams${it.id}[a..z]/ }.each { setting ->
-                            target += (setting) it.flags.find { flag -> flag.id == "${setting.reverse().take(1)}" }.flagValue }
-                        }
+                        settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v.toBoolean()) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
                         state."param${it.id}target" = target
                 }
             }
@@ -218,10 +219,10 @@ def parse(description) {
         }
     }
     else if (description != "updated") {
-        def cmd = zwave.parse(description, commandClasses.versions)
+        def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
             result << zwaveEvent(cmd)
-            if (isListening() & (device.latestValue('syncPending') > 0) & commandClasses.unsolicited.find { it = cmd.commandClassId } ) {
+            if (isListening() & (device.latestValue('syncPending') > 0) & commandClassesUnsolicited().find { it = cmd.commandClassId } ) {
                 sync()
             }
         }
@@ -364,7 +365,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     def ccVersion = cmd.commandClassVersion
     log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
     state.commandClassVersions << [(ccValue): ccVersion]
-    if (state.commandClassVersions.size() == getCommandClasses().size()) {
+    if (state.commandClassVersions.size() == commandClassesQuery().size()) {
         log.debug "All Command Class Versions Reported"
         updateDataValue("commandClassVersions", state.commandClassVersions.findAll {
             it.value > 0
@@ -475,7 +476,6 @@ def syncAll() {
 def test() {
     logger("test()","trace")
     (isListening()) ? testNow() : state.queued.plus('testNow()')
-    }
 }
 
 private testNow() {
@@ -488,7 +488,7 @@ private testNow() {
 
     sendEvent(descriptionText: "Requesting Command Class Report", displayed: false)
     state.commandClassVersions = [:]
-    commandClasses.versions.each {
+    commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
     sendCommandSequence(cmds)
@@ -530,13 +530,13 @@ private sync() {
         setDataValue('serialNumber', null)
         state.syncAll = false
     }
-    if ((!isListening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+    if (!isListening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}","info")
         syncPending++
     }
-    getParametersMetadata().findAll( {!it.readonly} ).each {
+    parametersMetadata().findAll( {!it.readonly} ).each {
         if ((state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
@@ -544,7 +544,7 @@ private sync() {
             syncPending++
         }
     }
-    if (getDataValue("serialNumber") = null) {
+    if (getDataValue("serialNumber") == null) {
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
     }
@@ -561,28 +561,28 @@ private updateSyncPending() {
         setDataValue('serialNumber', null)
         state.syncAll = false
     }
-    if (!isListening() {
+    if (!isListening()) {
         def target = state.wakeUpIntervalTarget
         if ((target != null) & (target != state.wakeUpIntervalCache)) {
             syncPending++
         }
-        if (target != intervals.wakeUpIntervalSpecified) {
+        if (target != intervals().wakeUpIntervalSpecified) {
             userConfig++
         }
     }
-    getParametersMetadata().findAll( {!it.readonly} ).each {
+    parametersMetadata().findAll( {!it.readonly} ).each {
         def target = state."paramTarget${it.id}"
         if ((target != null) & (target != state."paramCache${it.id}")) {
             syncPending++
         }
-        def sv = configurationSpecified().find { sv -> sv.id == it.id }?.specifiedValue
+        def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
         if (sv & (target != sv)) {
             userConfig++
         } else if (target != it.defaultValue) {
             userConfig++
         }
     }
-    if (getDataValue('serialNumber') = null) {
+    if (getDataValue('serialNumber') == null) {
         syncPending++
     }
     logger("updateSyncPending(): syncPending: ${syncPending}", "debug")
@@ -603,62 +603,58 @@ private generatePrefsParams() {
             description: "Device parameters are used to customise the physical device. " +
                          "Refer to the product documentation for a full description of each parameter."
         )
-        if (configurationUser) { // Only include specific options (could use a user option in future to expose all)
-            configurationUser.each { selection ->
-                getParametersMetadata().find{ it.id == selection }.generatePref(it) // selection is a number, id is text?
-            }
-        } else {
-            getParametersMetadata().findAll{ !it.readonly }.each{ // Exclude readonly parameters
-                generatePref(it)
+        parametersMetadata().findAll{ !it.readonly }.each{
+            if (!configurationUser() || it.id in configurationUser()) {
+                def lb = (it.description.length() > 0) ? "\n" : ""
+                switch(it.type) {
+                    case "number":
+                        input (
+                            name: "configParam${it.id}",
+                            title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                            type: it.type,
+                            range: it.range,
+                            defaultValue: it.defaultValue,
+                            required: it.required
+                        )
+                        break
+                    case "enum":
+                        input (
+                            name: "configParam${it.id}",
+                            title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                            type: it.type,
+                            options: it.options,
+                            defaultValue: it.defaultValue,
+                            required: it.required
+                        )
+                        break
+                    case "bool":
+                        input (
+                            name: "configParam${it.id}",
+                            title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                            type: it.type,
+                            defaultValue: it.defaultValue,
+                            required: it.required
+                        )
+                        break
+                    case "flags":
+                        input (
+                            title: "${it.id}: ${it.name}: \n" + it.description,
+                            // description: "",
+                            type: "paragraph", element: "paragraph"
+                        )
+                        it.flags.each { flag ->
+                            input (
+                                name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
+                                title: "${flag.description}",
+                                type: 'bool',
+                                defaultValue: flag.default,
+                                required: it.required
+                            )
+                        }
+                        break
+                }
             }
         }
-    }
-}
-
-private generatePref(it) {
-    def lb = (it.description.length() > 0) ? "\n" : ""
-    switch(it.type) {
-        case "number":
-            input (
-                name: "configParam${it.id}",
-                title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
-                type: it.type,
-                range: it.range,
-                defaultValue: it.defaultValue,
-                required: it.required
-            )
-        case "enum":
-            input (
-                name: "configParam${it.id}",
-                title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                type: it.type,
-                options: it.options,
-                defaultValue: it.defaultValue,
-                required: it.required
-            )
-        case "bool":
-            input (
-                name: "configParam${it.id}",
-                title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                type: it.type,
-                defaultValue: it.defaultValue,
-                required: it.required
-            )
-        case "flags"
-            input (
-                title: "${it.id}: ${it.name}: \n" + it.description,
-                // description: "",
-                type: "paragraph", element: "paragraph"
-            )
-            it.flags.each { flag ->
-                input (
-                    name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
-                    title: "${flag.description}"
-                    type: 'bool',
-                    defaultValue: flag.default,
-                    required: it.required
-                )
-            }
     }
 }
 
@@ -755,14 +751,25 @@ private def getTimeOptionValueMap() {
 /*****************************************************************************************************************
  *  Matadata Functions
  *****************************************************************************************************************/
-def commandClasses = [
-    supported: [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C],
-    secure: [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C],
-    unsolicited: [0x20, 0x30, 0x31, 0x60, 0x71, 0x9C],
-    versions: [0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1]
-]
+private commandClassesQuery() { [
+    0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+] }
 
-def configurationParameters = [1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72]
+private commandClassesSecure() { [
+    0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
+] }
+
+private commandClassesUnsolicited() { [
+    0x20, 0x30, 0x31, 0x60, 0x71, 0x9C
+] }
+
+private commandClassesVersions() { [
+    0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1
+] }
+
+private configurationParameters() { [
+    1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
+] }
 
 private configurationSpecified() { [
     [id: 3, size: 2, specifiedValue: 20], // motion delay
@@ -774,15 +781,17 @@ private configurationSpecified() { [
     [id: 101, size: 4, specifiedValue: 240] // all except battery
 ] }
 
-def configurationUser = [1, 2, 3]
+private configurationUser() { [
+    1, 2, 3
+] }
 
-def intervals = [
+private intervals() { [
     wakeUpIntervalDefault: 4_000,
-    checkIntervalDefault: ,
+    checkIntervalDefault: 8_500,
     wakeUpIntervalSpecified: 86_400,
     checkIntervalSpecified: 180_000,
     batteryRefresh: 604_800
-]
+] }
 
 private getCommandClassVersions() { [
     0x20: 1, // Basic V1
@@ -807,11 +816,11 @@ private parametersMetadata() { [
         name: "Acoustic and Visual Alarms",
         description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
         flags: [
-            id: 'a', description: 'enable temperature', defaultValue: true, flagValue: 1,
-            id: 'b', description: 'enable illuminance', defaultValue: true, flagValue: 2,
-            id: 'c', description: 'enable ultraviolet', defaultValue: false, flagValue: 4,
-            id: 'd', description: 'enable humidity', defaultValue: false, flagValue: 8 ] ],
-
+            [id: 'a', description: 'enable temperature', defaultValue: true, flagValue: 1],
+            [id: 'b', description: 'enable illuminance', defaultValue: true, flagValue: 2],
+            [id: 'c', description: 'enable ultraviolet', defaultValue: false, flagValue: 4],
+            [id: 'd', description: 'enable humidity', defaultValue: false, flagValue: 8]
+            ]],
     [id: 3, size: 1, type: "bool", defaultValue: false, required: false, readonly: false,
         isSigned: false,
         name: "Acoustic and Visual Alarms",

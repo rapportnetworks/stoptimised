@@ -638,14 +638,14 @@ private generatePrefsParams() {
                         break
                     case "flags":
                         input (
-                            title: "${it.id}: ${it.name}: \n" + it.description,
-                            // description: "",
+                            title: "${it.id}: ${it.name}",
+                            description: it.description,
                             type: "paragraph", element: "paragraph"
                         )
                         it.flags.each { flag ->
                             input (
                                 name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
-                                title: "${flag.description}",
+                                title: "${flag.id}) ${flag.description}",
                                 type: 'bool',
                                 defaultValue: flag.default,
                                 required: it.required
@@ -811,7 +811,7 @@ private getCommandClassVersions() { [
 ] }
 
 private parametersMetadata() { [
-    [id: 2, size: 1, type: "flags", defaultValue: 15, required: false, readonly: false,
+    [id: 1, size: 1, type: "flags", defaultValue: 15, required: false, readonly: false,
         isSigned: false,
         name: "Acoustic and Visual Alarms",
         description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
@@ -821,19 +821,18 @@ private parametersMetadata() { [
             [id: 'c', description: 'enable ultraviolet', defaultValue: false, flagValue: 4],
             [id: 'd', description: 'enable humidity', defaultValue: false, flagValue: 8]
             ]],
-    [id: 3, size: 1, type: "bool", defaultValue: false, required: false, readonly: false,
+    [id: 2, size: 1, type: "bool", defaultValue: false, required: false, readonly: false,
         isSigned: false,
         name: "Acoustic and Visual Alarms",
         description : "Enable LED indicator and acoustic alarm for flooding detection.",
         falseValue: 0,
         trueValue: 1 ],
-
-    [id:  1, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
+    [id:  3, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
         isSigned: true,
         name: "Alarm Cancellation Delay",
         description: "The time for which the device will retain the flood state after flooding has ceased.\n" +
         "Values: 0-3600 = Time Delay (s)"],
-    [id: 2, size: 1, type: "enum", defaultValue: "3", required: false, readonly: false,
+    [id: 4, size: 1, type: "enum", defaultValue: "3", required: false, readonly: false,
         isSigned: true,
         name: "Acoustic and Visual Alarms",
         description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",

@@ -16,27 +16,18 @@
 metadata {
     definition(name: "Aeon Multisensor 6 Revised", namespace: "rapportnetworks", author: "Alasdair Thin") {
         capability "Sensor"
-        capability "Battery"
-        capability "Configuration"
-        capability "Health Check"
-        capability "Illuminance Measurement"
-        capability "Motion Sensor"
-        capability "Power Source"
-        capability "Relative Humidity Measurement"
-        capability "Tamper Alert"
-        capability "Temperature Measurement"
-        capability "Ultraviolet Index"
-
-        /* Standard (Capability) Attributes
-        attribute "battery", "number"
-        attribute "powerSource", "enum", ["battery", "dc", "mains", "unknown"]
-        attribute "tamper", "enum", ["detected", "clear"]
-        attribute "temperature", "number"
-        attribute "water", "enum", ["dry", "wet"]
-        */
+        capability "Battery" // attribute "battery", "number"
+        capability "Configuration" // command "configure"
+        capability "Health Check" // attribute "checkInterval", "number"; attribute "DeviceWatch-DeviceStatus", "string"; attribute "healthStatus", "?"; command "ping"
+        capability "Illuminance Measurement" // attribute "illuminance", "number"
+        capability "Motion Sensor" // attribute "motion", "enum", ["inactive", "active"]
+        capability "Power Source" // attribute "powerSource", "enum", ["battery", "dc", "mains", "unknown"]
+        capability "Relative Humidity Measurement" // attribute "humidity", "number"
+        capability "Tamper Alert" // attribute "tamper", "enum", ["detected", "clear"]
+        capability "Temperature Measurement" // attribute "temperature", "number"
+        capability "Ultraviolet Index" // attribute "ultravioletIndex", "number"
 
         // Custom Attributes
-        attribute "batteryStatus", "string"
         attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
         attribute "logMessage", "string"        // Important log messages.
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
@@ -47,12 +38,6 @@ metadata {
         command "resetTamper"
         command "sync"
         command "test"
-
-        command "configure"
-        command "getTemp"
-        command "getPosition"
-        command "getBattery"
-        command "clearShock"
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -103,18 +88,22 @@ metadata {
     }
 
     preferences {
-        section {
-            input(type: "paragraph", element: "paragraph", title: "GENERAL:", description: "General device handler settings.")
-            input(name: "configLoggingLevelIDE", title: "IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace"], defaultValue: "3", required: true)
-            input(name: "configLoggingLevelDevice", title: "Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.", type: "enum", options: ["0" : "None", "1" : "Error", "2" : "Warning"], defaultValue: "2", required: true)
-            input(name: "configAutoResetTamperDelay", title: "Auto-Reset Tamper Alarm:\n" + "Automatically reset tamper alarms after this time delay.\n" + "Values: 0 = Auto-reset Disabled\n" + "1-86400 = Delay (s)\n" + "Default Value: 30s", type: "number", defaultValue: "30", required: false)
+        if (configurationHandler()) input(type: 'paragraph', element: 'paragraph', title: 'GENERAL', description: 'Device handler settings.')
+
+        if ('deviceUse' in configurationHandler()) {
+            def uses = configurationUseStates().keySet().sort() as List
+            def defaultUse = configurationUseStates().find { it.value.default }.key
+            input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
         }
-        section {
-            input(name: "configWakeUpInterval", title: "WAKE UP INTERVAL:\n" + "The device will wake up after each defined time interval to sync configuration parameters, " + "associations and settings.\n" + "Values: 5-86399 = Interval (s)\n" + "Default Value: 4000 (every 66 minutes)", type: "number", defaultValue: "4000", required: false)
-        }
-        section {
-            input(name: "deviceUse", title: "What type of sensor do you want to use this device for?", description: "Tap to set", type: "enum", options: ["Bed", "Chair", "Toilet", "Water"], defaultValue: "Water", required: true, displayDuringSetup: true)
-        }
+
+        if ('autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: '30', required: false)
+
+        if ('loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning', '3' : 'Info', '4' : 'Debug', '5' : 'Trace'], defaultValue: '3', required: true)
+
+        if ('loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning'], defaultValue: '2', required: true)
+
+        if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: '4000', required: false)
+
         generatePrefsParams()
     }
 }
@@ -125,7 +114,7 @@ metadata {
 def installed() {
     logger('Performing initial setup', 'info')
     state.loggingLevelIDE = 5; state.loggingLevelDevice = 2
-    sendEvent(name: 'checkInterval', value: intervals().checkIntervalDefault, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+    sendEvent(name: 'checkInterval', value: configurationIntervals().checkIntervalDefault, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
     deviceUseStates()
     sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
@@ -147,7 +136,7 @@ def configure() {
     device.updateSetting('configLoggingLevelDevice', value: 30)
 
     if (!isListening()) {
-        def interval = (intervals().wakeUpIntervalSpecified) ?: intervals().wakeUpIntervalDefault
+        def interval = (configurationIntervals().wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', value: interval)
     }
@@ -206,7 +195,7 @@ def updated() {
     }
 }
 
-def parse(description) {
+def parse(String description) {
     logger("parse(): Parsing raw message: ${description}","trace")
     def result = []
     if (description.startsWith("Err")) {
@@ -221,7 +210,8 @@ def parse(description) {
     else if (description != "updated") {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
-            result << zwaveEvent(cmd)
+            result = zwaveEvent(cmd)
+            logger "After zwaveEvent(cmd) >> Parsed '${description}' to ${result.inspect()}", "trace"
             if (isListening() & (device.latestValue('syncPending') > 0) & commandClassesUnsolicited().find { it = cmd.commandClassId } ) {
                 sync()
             }
@@ -230,23 +220,23 @@ def parse(description) {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
     }
-    result
+    return result
 }
 
 /*****************************************************************************************************************
  *  Zwave Application Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, // Basic
     logger("BasicSet(): Creating Motion event", "info")
     motionEvent(cmd.value) // responding to BasicSet - 2001 value FF
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, // Sensor Binary
     logger("SensorBinaryReport(): Creating Motion event", "info")
     motionEvent(cmd.sensorValue)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, // Notification
     def result = []
     if (cmd.notificationType == 7) {
         switch (cmd.event) {
@@ -269,7 +259,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, // Sensor Multilevel
     def map = [: ]
     switch (cmd.sensorType) {
         case 1:
@@ -298,7 +288,8 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // *** to sort - use cached values?
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70=2, // Configuration
+    // *** to sort - use cached values?
     log.debug "ConfigurationReport: $cmd"
 
     def param = cmd.parameterNumber.toString().padLeft(3, "0")
@@ -336,7 +327,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 /*****************************************************************************************************************
  *  Zwave Management Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x80=1, // Battery
     def map = [name: "battery", unit: "%"]
     if (cmd.batteryLevel == 0xFF) {
         map.value = 1
@@ -350,7 +341,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) { // 0x72=2, // Manufacturer Specific
     log.info "Executing zwaveEvent 72 (ManufacturerSpecificV2) : 05 (ManufacturerSpecificReport) with cmd: $cmd"
     log.debug "manufacturerId:   ${cmd.manufacturerId}"
     log.debug "manufacturerName: ${cmd.manufacturerName}"
@@ -360,7 +351,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     updateDataValue("MSR", msr)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86=2, // Version
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
     log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
@@ -376,7 +367,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84=2, // Wake Up
     def result = []
     def wakeupInterval = cmd.seconds
     log.debug "wakeupInterval: $wakeupInterval"
@@ -386,7 +377,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // // 0x84=2, // Wake Up
     def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
     def cmds = []
     if (!isConfigured()) {
@@ -403,7 +394,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
 /*****************************************************************************************************************
  *  Zwave Network Protocol Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) { // 0x73=1, // Powerlevel
     log.debug "Powerlevel Report: $cmd"
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
     log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
@@ -413,7 +404,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 /*****************************************************************************************************************
  *  Zwave Transport Encapsulation Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
     def encapsulatedCommand = cmd.encapsulatedCommand([0x31: 5, 0x30: 2, 0x84: 1])
     state.sec = 1
     log.debug "encapsulated: ${encapsulatedCommand}"
@@ -425,14 +416,14 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
     }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) { // 0x98=1, Security
     state.sec = 1
     log.info "Executing zwaveEvent 98 (SecurityV1): 07 (NetworkKeyVerify) with cmd: $cmd (node is securely included)"
     def result = [createEvent(name: "secureInclusion", value: "success", descriptionText: "Secure inclusion was successful", isStateChange: true)]
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) { // 0x98=1, Security
     log.info "Executing zwaveEvent 98 (SecurityV1): 03 (SecurityCommandsSupportedReport) with cmd: $cmd"
     state.sec = 1
 }
@@ -506,15 +497,20 @@ private logger(msg, level = "debug") {
         case "error":
             if (state.loggingLevelIDE >= 1) log.error msg; sendEvent descriptionText: "ERROR: $msg", displayed: false, isStateChange: true
             if (state.loggingLevelDevice >= 1) sendEvent name: "logMessage", value: "ERROR: $msg", displayed: false, isStateChange: true
+            break
         case "warn":
             if (state.loggingLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "WARNING: $msg", displayed: false, isStateChange: true
             if (state.loggingLevelDevice >= 2) sendEvent name: "logMessage", value: "WARNING: $msg", displayed: false, isStateChange: true
+            break
         case "info":
             if (state.loggingLevelIDE >= 3) log.info msg; sendEvent descriptionText: "INFO: $msg", displayed: false, isStateChange: true
+            break
         case "debug":
             if (state.loggingLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "DEBUG: $msg", displayed: false, isStateChange: true
+            break
         case "trace":
             if (state.loggingLevelIDE >= 5) log.trace msg; sendEvent descriptionText: "TRACE: $msg", displayed: false, isStateChange: true
+            break
         default:
             log.debug msg; sendEvent descriptionText: "LOG: $msg", displayed: false, isStateChange: true
     }
@@ -566,7 +562,7 @@ private updateSyncPending() {
         if ((target != null) & (target != state.wakeUpIntervalCache)) {
             syncPending++
         }
-        if (target != intervals().wakeUpIntervalSpecified) {
+        if (target != configurationIntervals().wakeUpIntervalSpecified) {
             userConfig++
         }
     }
@@ -595,64 +591,62 @@ private updateSyncPending() {
 }
 
 private generatePrefsParams() {
-    section {
-        input (
-            type: "paragraph",
-            element: "paragraph",
-            title: "DEVICE PARAMETERS:",
-            description: "Device parameters are used to customise the physical device. " +
-                         "Refer to the product documentation for a full description of each parameter."
-        )
-        parametersMetadata().findAll{ !it.readonly }.each{
-            if (!configurationUser() || it.id in configurationUser()) {
-                def lb = (it.description.length() > 0) ? "\n" : ""
-                switch(it.type) {
-                    case "number":
+    input (
+        type: "paragraph",
+        element: "paragraph",
+        title: "DEVICE PARAMETERS:",
+        description: "Device parameters are used to customise the physical device. " +
+                     "Refer to the product documentation for a full description of each parameter."
+    )
+    parametersMetadata().findAll{ !it.readonly }.each{
+        if (!configurationUser() || it.id in configurationUser()) {
+            def lb = (it.description.length() > 0) ? "\n" : ""
+            switch(it.type) {
+                case "number":
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                        type: it.type,
+                        range: it.range,
+                        defaultValue: it.defaultValue,
+                        required: it.required
+                    )
+                    break
+                case "enum":
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        type: it.type,
+                        options: it.options,
+                        defaultValue: it.defaultValue,
+                        required: it.required
+                    )
+                    break
+                case "bool":
+                    input (
+                        name: "configParam${it.id}",
+                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        type: it.type,
+                        defaultValue: it.defaultValue,
+                        required: it.required
+                    )
+                    break
+                case "flags":
+                    input (
+                        title: "${it.id}: ${it.name}",
+                        description: it.description,
+                        type: "paragraph", element: "paragraph"
+                    )
+                    it.flags.each { flag ->
                         input (
-                            name: "configParam${it.id}",
-                            title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
-                            type: it.type,
-                            range: it.range,
-                            defaultValue: it.defaultValue,
+                            name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
+                            title: "${flag.id}) ${flag.description}",
+                            type: 'bool',
+                            defaultValue: flag.default,
                             required: it.required
                         )
-                        break
-                    case "enum":
-                        input (
-                            name: "configParam${it.id}",
-                            title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                            type: it.type,
-                            options: it.options,
-                            defaultValue: it.defaultValue,
-                            required: it.required
-                        )
-                        break
-                    case "bool":
-                        input (
-                            name: "configParam${it.id}",
-                            title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
-                            type: it.type,
-                            defaultValue: it.defaultValue,
-                            required: it.required
-                        )
-                        break
-                    case "flags":
-                        input (
-                            title: "${it.id}: ${it.name}",
-                            description: it.description,
-                            type: "paragraph", element: "paragraph"
-                        )
-                        it.flags.each { flag ->
-                            input (
-                                name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
-                                title: "${flag.id}) ${flag.description}",
-                                type: 'bool',
-                                defaultValue: flag.default,
-                                required: it.required
-                            )
-                        }
-                        break
-                }
+                    }
+                    break
             }
         }
     }
@@ -691,16 +685,12 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
  *  Specific Helper Methods
 *****************************************************************************************************************/
 private deviceUseStates() {
-    def useStates = [
-        Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
-        Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-        Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-        Water: [event: 'water', inactive: 'dry', active: 'wet']
-    ]
-    def event = (settings.deviceUse) ? useStates."${settings.deviceUse}".event : 'water'
-    def inactiveState = (settings.deviceUse) ? useStates."${settings.deviceUse}".inactive : 'dry'
-    def activeState = (settings.deviceUse) ? useStates."${settings.deviceUse}".active : 'wet'
-    updateDataValue('deviceUse', settings.deviceUse)
+    def use = settings?.configDeviceUse
+    def useStates = configurationUseStates()?.find { it.key == use }
+    def event = (use) ? useStates.event : 'water'
+    def inactiveState = (use) ? useStates.inactive : 'dry'
+    def activeState = (use) ? useStates.active : 'wet'
+    updateDataValue('deviceUse', use)
     updateDataValue('event', event)
     updateDataValue('inactiveState', inactiveState)
     updateDataValue('activeState', activeState)
@@ -714,7 +704,7 @@ private sensorValueEvent(Short value) {
     return result
 }
 
-def motionEvent(value) {
+private motionEvent(value) {
     def map = [name: "motion"]
     if (value) {
         map.value = "active"
@@ -726,8 +716,7 @@ def motionEvent(value) {
     createEvent(map)
 }
 
-
-private def getTimeOptionValueMap() {
+private getTimeOptionValueMap() {
     [
         "10 seconds": 10,
         "20 seconds": 20,
@@ -764,8 +753,31 @@ private commandClassesUnsolicited() { [
 ] }
 
 private commandClassesVersions() { [
-    0x20: 1, 0x22: 1, 0x2B: 1, 0x30: 2, 0x56: 1, 0x59: 1, 0x5A: 1, 0x5E: 2, 0x70: 2, 0x71: 3, 0x72: 2, 0x73: 1, 0x7A: 2, 0x80: 1, 0x84: 2, 0x85: 2, 0x86: 1, 0x8E: 2, 0x98: 1, 0x9C: 1
+    0x20: 1, // Basic
+    0x30: 2, // Sensor Binary
+    0x31: 5, // Sensor Multilevel
+    0x59: 1, // Association Grp Info
+    0x5A: 1, // Device Reset Locally
+    0x5E: 2, // Zwave Plus Info (not supported)
+    0x70: 2, // Configuration
+    0x71: 3, // Notification - changed to v3
+    0x72: 2, // Manufacturer Specific
+    0x73: 1, // Powerlevel
+    0x7A: 2, // Firmware Update Md
+    0x80: 1, // Battery
+    0x84: 1, // Wake Up - changed to v1
+    0x85: 2, // Association
+    0x86: 1, // Version - changed to v1
+    0x98: 1 // Security
 ] }
+
+/* Currently Unused
+    0x59=1, // Association Grp Info
+    0x5A=1, // Device Reset Locally
+    0x5E=2, // Zwave Plus Info (not supported)
+    0x7A=2, // Firmware Update Md
+    0x85=2, // Association
+*/
 
 private configurationParameters() { [
     1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
@@ -785,7 +797,11 @@ private configurationUser() { [
     1, 2, 3
 ] }
 
-private intervals() { [
+private configurationHandler() { [
+    'deviceUse', 'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE', 'wakeUpInterval'
+] }
+
+private configurationIntervals() { [
     wakeUpIntervalDefault: 4_000,
     checkIntervalDefault: 8_500,
     wakeUpIntervalSpecified: 86_400,
@@ -793,21 +809,11 @@ private intervals() { [
     batteryRefresh: 604_800
 ] }
 
-private getCommandClassVersions() { [
-    0x20: 1, // Basic V1
-    0x30: 1, // Sensor Binary V1 (not even v2).
-    0x31: 2, // Sensor Multilevel V?
-    0x60: 3, // Multi Channel V?
-    0x70: 1, // Configuration V1
-    0x71: 1, // Alarm (Notification) V1
-    0x72: 2, // Manufacturer Specific V2
-    0x7A: 2, // Firmware Update MD V2
-    0x80: 1, // Battery V1
-    0x84: 1, // Wake Up V1
-    0x85: 2, // Association V2
-    0x86: 1, // Version V1
-    0x8E: 2, // Multi Channel Association V2
-    0x9C: 1  // Sensor Alarm V1
+private configurationUseStates() { [
+    Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
+    Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
+    Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
+    Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 
 private parametersMetadata() { [

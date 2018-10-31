@@ -104,7 +104,7 @@ metadata {
 
         if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: '4000', required: false)
 
-        generatePrefsParams()
+        if (configurationUser()) generatePrefsParams()
     }
 }
 
@@ -599,7 +599,7 @@ private generatePrefsParams() {
                      "Refer to the product documentation for a full description of each parameter."
     )
     parametersMetadata().findAll{ !it.readonly }.each{
-        if (!configurationUser() || it.id in configurationUser()) {
+        if (it.id in configurationUser()) {
             def lb = (it.description.length() > 0) ? "\n" : ""
             switch(it.type) {
                 case "number":
@@ -780,25 +780,27 @@ private commandClassesVersions() { [
 */
 
 private configurationParameters() { [
-    1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 20, 30, 31, 50, 51, 52, 53, 54, 55, 56, 70, 71, 72
+    2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
 ] }
 
 private configurationSpecified() { [
-    [id: 3, size: 2, specifiedValue: 20], // motion delay
-    [id: 4, size: 1, specifiedValue: 5], // maximum motion sensitivity
-    [id: 8, size: 1, specifiedValue: 30], // increase duration of wakeup from 15 to 30 seconds
-    [id: 111, size: 4, specifiedValue: 3600], // report every 1 hour
-    [id: 40, size: 1, specifiedValue: 0], // disable report automatically on threshold change
-    [id: 81, size: 1, specifiedValue: 2], // disable LED
-    [id: 101, size: 4, specifiedValue: 240] // all except battery
+    [id: 101, size: 4, specifiedValue: 240],
+    [id: 102, size: 4, specifiedValue: 0],
+    [id: 103, size: 4, specifiedValue: 0],
+    [id: 111, size: 4, specifiedValue: 3600],
+    [id: 2, size: 1, specifiedValue: 1],
+    [id: 3, size: 2, specifiedValue: 10],
+    [id: 4, size: 1, specifiedValue: 5],
+    [id: 40, size: 1, specifiedValue: 0],
+    [id: 81, size: 1, specifiedValue: 2]
 ] }
 
 private configurationUser() { [
-    1, 2, 3
+    // 2, 3, 4
 ] }
 
 private configurationHandler() { [
-    'deviceUse', 'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE', 'wakeUpInterval'
+    // 'deviceUse', 'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE', 'wakeUpInterval'
 ] }
 
 private configurationIntervals() { [
@@ -846,100 +848,4 @@ private parametersMetadata() { [
                     "1" : "1: Acoustic alarm INACTIVE. Visual alarm ACTIVE",
                     "2" : "2: Acoustic alarm ACTIVE. Visual alarm INACTIVE",
                     "3" : "3: Acoustic alarm ACTIVE. Visual alarm ACTIVE"] ],
-    [id: 5, size: 1, type: "enum", defaultValue: "255", required: false, readonly: false,
-        isSigned: false,
-        name: "Type of Alarm sent to Association Group 1",
-        description : "",
-        options: ["0" : "0: ALARM WATER command",
-                    "255" : "255: BASIC_SET command"] ],
-    [id: 7, size: 1, type: "number", range: "1..255", defaultValue: 255, required: false, readonly: false,
-        isSigned: false,
-        name: "Level sent to Association Group 1",
-        description : "Determines the level sent (BASIC_SET) to Association Group 1 on alarm.\n" +
-        "Values: 1-99 = Level\n255 = Last memorised state"],
-    [id: 9, size: 1, type: "enum", defaultValue: "1", required: false, readonly: false,
-        isSigned: true,
-        name: "Alarm Cancelling",
-        description : "",
-        options: ["0" : "0: Alarm cancellation INACTIVE",
-                    "1" : "1: Alarm cancellation ACTIVE"] ],
-    [id: 10, size: 2, type: "number", range: "1..65535", defaultValue: 300, required: false, readonly: false,
-        isSigned: false,
-        name: "Temperature Measurement Interval",
-        description : "Time between consecutive temperature measurements. New temperature value is reported to " +
-        "the main controller only if it differs from the previously measured by hysteresis (parameter #12).\n" +
-        "Values: 1-65535 = Time (s)"],
-    [id: 12, size: 2, type: "number", range: "1..1000", defaultValue: 50, required: false, readonly: false,
-        isSigned: true,
-        name: "Temperature Measurement Hysteresis",
-        description : "Determines the minimum temperature change resulting in a temperature report being " +
-        "sent to the main controller.\n" +
-        "Values: 1-1000 = Temp change (in 0.01C steps)"],
-    [id: 13, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
-        isSigned: true,
-        name: "Alarm Broadcasts",
-        description : "Determines if flood and tamper alarms are broadcast to all devices.",
-        options: ["0" : "0: Flood alarm broadcast INACTIVE. Tamper alarm broadcast INACTIVE",
-                    "1" : "1: Flood alarm broadcast ACTIVE. Tamper alarm broadcast INACTIVE",
-                    "2" : "2: Flood alarm broadcast INACTIVE. Tamper alarm broadcast ACTIVE",
-                    "3" : "3: Flood alarm broadcast ACTIVE. Tamper alarm broadcast ACTIVE"] ],
-    [id: 50, size: 2, type: "number", range: "-10000..10000", defaultValue : 1500, required: false, readonly: false,
-        isSigned: true,
-        name: "Low Temperature Alarm Threshold",
-        description : "Temperature below which LED indicator blinks (with a colour determined by Parameter #61).\n" +
-        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-    [id: 51, size: 2, type: "number", range: "-10000..10000", defaultValue : 3500, required: false, readonly: false,
-        isSigned: true,
-        name: "High Temperature Alarm Threshold",
-        description : "Temperature above which LED indicator blinks (with a colour determined by Parameter #62).\n" +
-        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-    [id: 61, size: 4, type: "number", range: "0..16777215", defaultValue : 255, required: false, readonly: false,
-        isSigned: false,
-        name: "Low Temperature Alarm indicator Colour",
-        description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
-        "Values: 0-16777215"],
-    [id: 62, size: 4, type: "number", range: "0..16777215", defaultValue : 16711680, required: false, readonly: false,
-        isSigned: false,
-        name: "High Temperature Alarm indicator Colour",
-        description : "Indicated colour = 65536 * RED value + 256 * GREEN value + BLUE value.\n" +
-        "Values: 0-16777215"],
-    [id: 63, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
-        isSigned: true,
-        name: "LED Indicator Operation",
-        description : "LED Indicator can be turned off to save battery.",
-        options: ["0" : "0: OFF",
-                    "1" : "1: BLINK (every temperature measurement)",
-                    "2" : "2: CONTINUOUS (constant power only)"] ],
-    [id: 73, size: 2, type: "number", range: "-10000..10000", defaultValue : 0, required: false, readonly: false,
-        isSigned: true,
-        name: "Temperature Measurement Compensation",
-        description : "Temperature value to be added to or deducted to compensate for the difference between air " +
-        "temperature and temperature at the floor level.\n" +
-        "Values: -10000-10000 = Temp (-100C to +100C in 0.01C steps)"],
-    [id: 74, size: 1, type: "enum", defaultValue: "2", required: false, readonly: false,
-        isSigned: true,
-        name: "Alarm Frame Sent to Association Group #2",
-        description : "Turn on alarms resulting from movement and/or the TMP button released.",
-        options: ["0" : "0: TMP Button INACTIVE. Movement INACTIVE",
-                    "1" : "1: TMP Button ACTIVE. Movement INACTIVE",
-                    "2" : "2: TMP Button INACTIVE. Movement ACTIVE",
-                    "3" : "3: TMP Button ACTIVE. Movement ACTIVE"] ],
-    [id: 75, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
-        isSigned: false,
-        name: "Visual and Audible Alarms Duration",
-        description : "Time period after which the LED and audible alarm the will become quiet. ignored when parameter #2 is 0.\n" +
-        "Values: 0 = Active indefinitely\n" +
-        "1-65535 = Time (s)"],
-    [id: 76, size: 2, type: "number", range: "0..65535", defaultValue : 0, required: false, readonly: false,
-        isSigned: false,
-        name: "Alarm Retransmission Time",
-        description : "Time period after which an alarm frame will be retransmitted.\n" +
-        "Values: 0 = No retransmission\n" +
-        "1-65535 = Time (s)"],
-    [id: 77, size: 1, type: "enum", defaultValue: "0", required: false, readonly: false,
-        isSigned: true,
-        name: "Flood Sensor Functionality",
-        description : "Allows for turning off the internal flood sensor. Tamper and temperature sensor will remain active.",
-        options: ["0" : "0: Flood sensor ACTIVE",
-                    "1" : "1: Flood sensor INACTIVE"] ]
 ] }

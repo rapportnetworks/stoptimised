@@ -118,7 +118,7 @@ def installed() {
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
     deviceUseStates()
     sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
-    if (isListening()) {
+    if (listening()) {
         logger('Device is in listening mode (powered).', 'info')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
         sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
@@ -135,7 +135,7 @@ def configure() {
     device.updateSetting('configLoggingLevelDevice', value: '2')
     device.updateSetting('configLoggingLevelDevice', value: 30)
 
-    if (!isListening()) {
+    if (!listening()) {
         def interval = (configurationIntervals().wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', value: interval)
@@ -181,7 +181,7 @@ def updated() {
                 }
             }
         }
-        if (isListening()) {
+        if (listening()) {
             sync()
         } else {
             if (settings.configWakeUpInterval) {
@@ -201,7 +201,7 @@ def parse(String description) {
     if (description.startsWith("Err")) {
         if (description.startsWith("Err 106")) {
             logger("parse() >> Err 106", "error")
-            result = createEvent( name: "secureInclusion", value: "failed", isStateChange: true,
+            result = createEvent(name: "secureInclusion", value: "failed", isStateChange: true,
                     descriptionText: "This sensor failed to complete the network security key exchange. If you are unable to control it via SmartThings, you must remove it from your network and add it again.")
         } else {
             logger("parse(): Unknown Error. Raw message: ${description}","error")
@@ -212,15 +212,12 @@ def parse(String description) {
         if (cmd) {
             result = zwaveEvent(cmd)
             logger "After zwaveEvent(cmd) >> Parsed '${description}' to ${result.inspect()}", "trace"
-            if (isListening() & (device.latestValue('syncPending') > 0) & commandClassesUnsolicited().find { it = cmd.commandClassId } ) {
-                sync()
-            }
-        }
-        else {
+            if (listening() & (device.latestValue('syncPending') > 0) & (cmd.commandClassId in commandClassesUnsolicited())) sync()
+        } else {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
     }
-    return result
+    result
 }
 
 /*****************************************************************************************************************
@@ -440,7 +437,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  *  Capability-related Commands
 *****************************************************************************************************************/
 def ping() {
-    if (isListening()) {
+    if (listening()) {
         sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
     }
 }
@@ -461,12 +458,12 @@ def resetTamper() {
 
 def syncAll() {
     state.syncAll = true
-    (isListening()) ? sync() : state.queued.plus('sync()')
+    (listening()) ? sync() : state.queued.plus('sync()')
 }
 
 def test() {
     logger("test()","trace")
-    (isListening()) ? testNow() : state.queued.plus('testNow()')
+    (listening()) ? testNow() : state.queued.plus('testNow()')
 }
 
 private testNow() {
@@ -526,7 +523,7 @@ private sync() {
         setDataValue('serialNumber', null)
         state.syncAll = false
     }
-    if (!isListening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+    if (!listening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}","info")
@@ -557,7 +554,7 @@ private updateSyncPending() {
         setDataValue('serialNumber', null)
         state.syncAll = false
     }
-    if (!isListening()) {
+    if (!listening()) {
         def target = state.wakeUpIntervalTarget
         if ((target != null) & (target != state.wakeUpIntervalCache)) {
             syncPending++
@@ -663,7 +660,7 @@ private byteArrayToUInt(byteArray) {
 *****************************************************************************************************************/
 private sendCommandSequence(commands, delay = 1200) {
     // delayBetween(commands.collect { encapsulate(it) }, delay)
-    if (!isListening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
+    if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
     sendHubCommand(commands.collect { encapsulate(response(it)) }, delay) // not sure of this code
 }
 

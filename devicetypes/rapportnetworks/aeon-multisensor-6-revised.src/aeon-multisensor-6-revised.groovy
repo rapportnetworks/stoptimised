@@ -31,60 +31,77 @@ metadata {
         attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
         attribute "logMessage", "string"        // Important log messages.
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
-        attribute "switch1", "enum", ["on", "off"]
-        attribute "switch2", "enum", ["on", "off"]
 
         // Custom Commands:
         command "resetTamper"
-        command "sync"
+        command "syncAll"
         command "test"
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
 
     tiles(scale: 2) {
+        /*
         multiAttributeTile(name: "motion", type: "generic", width: 6, height: 4) {
             tileAttribute("device.motion", key: "PRIMARY_CONTROL") {
                 attributeState "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#00A0DC"
                 attributeState "inactive", label: 'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#cccccc"
             }
         }
+        */
+        standardTile("motion", "device.motion", inactiveLabel: false, width: 2, height: 2) {
+            state "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#00A0DC"
+            state "inactive", label: 'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#cccccc"
+        }
+
         valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
-            state "temperature", label: '${currentValue}°',
+            state "temperature", label: '${currentValue}°C', unit: "°C",
                 backgroundColors: [
-                    [value: 32, color: "#153591"],
-                    [value: 44, color: "#1e9cbb"],
-                    [value: 59, color: "#90d2a7"],
-                    [value: 74, color: "#44b621"],
-                    [value: 84, color: "#f1d801"],
-                    [value: 92, color: "#d04e00"],
-                    [value: 98, color: "#bc2323"]
-                ]
+                    [value: 0, color: "#153591"],
+                    [value: 7, color: "#1e9cbb"],
+                    [value: 15, color: "#90d2a7"],
+                    [value: 23, color: "#44b621"],
+                    [value: 29, color: "#f1d801"],
+                    [value: 33, color: "#d04e00"],
+                    [value: 37, color: "#bc2323"]
+                ],  defaultState: true
         }
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 2, height: 2) {
-            state "humidity", label: '${currentValue}% humidity', unit: ""
+            state "humidity", label: '${currentValue} % humidity', unit: "% humidity", defaultState: true
         }
         valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
-            state "illuminance", label: '${currentValue} lux', unit: ""
+            state "illuminance", label: '${currentValue} lux', unit: "", defaultState: true
         }
         valueTile("ultravioletIndex", "device.ultravioletIndex", inactiveLabel: false, width: 2, height: 2) {
-            state "ultravioletIndex", label: '${currentValue} UV index', unit: ""
+            state "ultravioletIndex", label: '${currentValue} UV index', unit: "", defaultState: true
         }
         valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "battery", label: '${currentValue}% battery', unit: ""
+            state "battery", label: '${currentValue}% battery', unit: "", defaultState: true
         }
         valueTile("batteryStatus", "device.batteryStatus", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "batteryStatus", label: '${currentValue}', unit: ""
+            state "batteryStatus", label: '${currentValue}', unit: "", defaultState: true
         }
         valueTile("powerSource", "device.powerSource", height: 2, width: 2, decoration: "flat") {
-            state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff"
-        } // ?standardTile?
-        valueTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
-            state "clear", label: 'tamper clear', backgroundColor: "#ffffff"
-            state "detected", label: 'tampered', backgroundColor: "#ff0000"
+            state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff", defaultState: true
+        }
+        standardTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
+            state "clear", label: 'tamper clear', action: "resetTamper", backgroundColor: "#ffffff", defaultState: true // remove action after testing
+            state "detected", label: 'tampered', action: "resetTamper", backgroundColor: "#ff0000"
+        }
+        valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
+            state "syncPending", label: '${currentValue}', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+        }
+        valueTile("logMessage", "device.logMessage", height: 2, width: 2, decoration: "flat") {
+            state "clear", label: '${currentValue}', backgroundColor: "#ffffff", defaultState: true
+        }
+        standardTile("syncAll", "device.sync", height: 2, width: 2, decoration: "flat") {
+            state "syncAll", label: 'sync all', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+        }
+        standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
+            state "test", label: 'test', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "syncAll", "test"])
     }
 
     preferences {
@@ -212,7 +229,7 @@ def parse(String description) {
         if (cmd) {
             result = zwaveEvent(cmd)
             logger "After zwaveEvent(cmd) >> Parsed '${description}' to ${result.inspect()}", "trace"
-            if (listening() & (device.latestValue('syncPending') > 0) & (cmd.commandClassId in commandClassesUnsolicited())) sync()
+            if (listening() && (device.latestValue('syncPending') > 0) && (cmd.commandClassId in commandClassesUnsolicited())) sync()
         } else {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
@@ -250,7 +267,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 break
         }
     } else {
-        log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
+        logger("Need to handle this cmd.notificationType: ${cmd.notificationType}", 'warn')
         result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
     }
     result
@@ -287,14 +304,14 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70=2, // Configuration
     // *** to sort - use cached values?
-    log.debug "ConfigurationReport: $cmd"
+    logger("ConfigurationReport: $cmd", 'trace')
 
     def param = cmd.parameterNumber.toString().padLeft(3, "0")
     def paramValue = cmd.scaledConfigurationValue.toString()
-    log.debug "Processing Configuration Report: (Parameter: $param, Value: $paramValue)"
+    logger("Processing Configuration Report: (Parameter: $param, Value: $paramValue)", 'trace')
     state.configurationReport << [(param): paramValue]
     if (state.configurationReport.size() == getConfigurationParameters().size()) {
-        log.debug "All Configuration Values Reported"
+        logger('All Configuration Values Reported', 'trace')
         updateDataValue("configurationReport", state.configurationReport.collect {
             it
         }.join(","))
@@ -305,7 +322,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
         value = "dc"
         if (!isConfigured()) {
-            log.debug("ConfigurationReport: configuring device")
+            logger('ConfigurationReport: configuring device', 'trace')
             result << response(configure())
         }
         result << createEvent(name: "batteryStatus", value: "USB Cable", displayed: false)
@@ -340,7 +357,9 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x
 
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) { // 0x72: 2
     logger('zwaveEvent(deviceSpecificReport): Serial number report received.', 'trace')
-    def serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? cmd.deviceIdData.each { serialNumber += "${String.format(" % 02 X ", it)}" } : "0"
+    logger("zwaveEvent(deviceSpecificReport): Serial number raw report: $cmd", 'debug')
+    def serialNumber = "0"
+//    serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? (cmd.deviceIdData.each { data -> serialNumber += "${String.format(" % 02 X ", data)}" }) : "0"
     updateDataValue('serialNumber', serialNumber)
     updateSyncPending()
 }
@@ -358,23 +377,19 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86=2, // Version
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
-    log.debug "Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)"
+    logger("Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)", 'trace')
     state.commandClassVersions << [(ccValue): ccVersion]
     if (state.commandClassVersions.size() == commandClassesQuery().size()) {
-        log.debug "All Command Class Versions Reported"
-        updateDataValue("commandClassVersions", state.commandClassVersions.findAll {
-            it.value > 0
-        }.sort().collect {
-            it
-        }.join(","))
+        logger('All Command Class Versions Reported', 'debug')
+        updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
     }
-    createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
+//    createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84=2, // Wake Up
     def result = []
     def wakeupInterval = cmd.seconds
-    log.debug "wakeupInterval: $wakeupInterval"
+    logger("wakeupInterval: $wakeupInterval", 'info')
     updateDataValue("wakeupInterval", "$wakeupInterval")
     result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
     // *** need to create checkInterval event
@@ -385,10 +400,10 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
     def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
     def cmds = []
     if (!isConfigured()) {
-        log.debug("late configure")
+        logger("late configure", 'info')
         result << response(configure())
     } else {
-        log.debug("Device has been configured sending >> wakeUpNoMoreInformation()")
+        logger("Device has been configured sending >> wakeUpNoMoreInformation()", 'trace')
         cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format()
         result << response(cmds)
     }
@@ -399,10 +414,10 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
  *  Zwave Network Protocol Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) { // 0x73=1, // Powerlevel
-    log.debug "Powerlevel Report: $cmd"
+    logger("Powerlevel Report: $cmd", 'trace')
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
-    log.debug "Processing Powerlevel Report: (Powerlevel: $powerLevel dBm)"
-    updateDataValue("powerLevel", powerLevel)
+    logger("Processing Powerlevel Report: $powerLevel dBm", 'trace')
+    updateDataValue('powerLevel', "$powerLevel")
 }
 
 /*****************************************************************************************************************
@@ -411,24 +426,24 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
     def encapsulatedCommand = cmd.encapsulatedCommand([0x31: 5, 0x30: 2, 0x84: 1])
     state.sec = 1
-    log.debug "encapsulated: ${encapsulatedCommand}"
+    logger("encapsulated: ${encapsulatedCommand}", 'trace')
     if (encapsulatedCommand) {
         zwaveEvent(encapsulatedCommand)
     } else {
-        log.warn "Unable to extract encapsulated cmd from $cmd"
+        logger("Unable to extract encapsulated cmd from $cmd", 'warn')
         createEvent(descriptionText: cmd.toString())
     }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) { // 0x98=1, Security
     state.sec = 1
-    log.info "Executing zwaveEvent 98 (SecurityV1): 07 (NetworkKeyVerify) with cmd: $cmd (node is securely included)"
+    logger "Executing zwaveEvent 98 (SecurityV1): 07 (NetworkKeyVerify) with cmd: $cmd (node is securely included)"
     def result = [createEvent(name: "secureInclusion", value: "success", descriptionText: "Secure inclusion was successful", isStateChange: true)]
     result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) { // 0x98=1, Security
-    log.info "Executing zwaveEvent 98 (SecurityV1): 03 (SecurityCommandsSupportedReport) with cmd: $cmd"
+    logger "Executing zwaveEvent 98 (SecurityV1): 03 (SecurityCommandsSupportedReport) with cmd: $cmd"
     state.sec = 1
 }
 
@@ -436,7 +451,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
  *  Zwave General Event Handler
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
-    log.debug "General zwaveEvent cmd: ${cmd}"
+    logger "General zwaveEvent cmd: ${cmd}"
     createEvent(descriptionText: cmd.toString(), isStateChange: false)
 }
 
@@ -459,33 +474,36 @@ def poll() { // depreciated
  *  Custom Commands
 *****************************************************************************************************************/
 def resetTamper() {
-    logger("resetTamper(): Resetting tamper alarm.","info")
+    logger('resetTamper(): Resetting tamper alarm.', 'info')
     sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true)
 }
 
 def syncAll() {
+    logger('syncAll() called', 'trace')
     state.syncAll = true
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 
 def test() {
-    logger("test()","trace")
+    logger('test() called', 'trace')
     (listening()) ? testNow() : state.queued.plus('testNow()')
 }
 
 private testNow() {
-    logger("testRun()","trace")
-    state.queued.minus('testNow()')
+    logger('testRun() called', 'trace')
     def cmds = []
 
-    sendEvent(descriptionText: "Requesting Powerlevel Report", displayed: false)
+    logger('testRun(): Requesting Powerlevel Report.', 'trace')
     cmds << zwave.powerlevelV1.powerlevelGet()
 
-    sendEvent(descriptionText: "Requesting Command Class Report", displayed: false)
+    logger('testRun(): Requesting Command Class Report.', 'trace')
     state.commandClassVersions = [:]
     commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
+
+    if ('testNow()' in state.queued) state.queued.minus('testNow()')
+
     sendCommandSequence(cmds)
 }
 
@@ -527,25 +545,25 @@ private sync() {
     if (state.syncAll) {
         logger('sync(): Deleting all cached values.', 'trace')
         state.wakeUpIntervalCache = null
-        getParametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
-        setDataValue('serialNumber', null)
+        parametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
+        updateDataValue('serialNumber', '')
         state.syncAll = false
     }
-    if (!listening() & (state.wakeUpIntervalTarget != null) & (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+    if (!listening() && (state.wakeUpIntervalTarget != null) && (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}", 'info')
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         syncPending++
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
-        if ((state."paramTarget${it.id}" != null) & (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
+        if ((state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             syncPending++
         }
     }
-    if (getDataValue("serialNumber") == null) {
+    if (getDataValue('serialNumber') == '') {
         logger('sync(): Requesting device serial number.', 'trace')
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
@@ -561,13 +579,13 @@ private updateSyncPending() {
     def userConfig = 0
     if (state.syncAll) {
         state.wakeUpIntervalCache = null
-        getParametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
-        setDataValue('serialNumber', null)
+        parametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
+        updateDataValue('serialNumber', null)
         state.syncAll = false
     }
     if (!listening()) {
         def target = state.wakeUpIntervalTarget
-        if ((target != null) & (target != state.wakeUpIntervalCache)) {
+        if ((target != null) && (target != state.wakeUpIntervalCache)) {
             syncPending++
         }
         if (target != configurationIntervals().wakeUpIntervalSpecified) {
@@ -576,11 +594,11 @@ private updateSyncPending() {
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
         def target = state."paramTarget${it.id}"
-        if ((target != null) & (target != state."paramCache${it.id}")) {
+        if ((target != null) && (target != state."paramCache${it.id}")) {
             syncPending++
         }
         def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-        if (sv & (target != sv)) {
+        if (sv && (target != sv)) {
             userConfig++
         } else if (target != it.defaultValue) {
             userConfig++
@@ -589,10 +607,10 @@ private updateSyncPending() {
     if (getDataValue('serialNumber') == null) {
         syncPending++
     }
-    logger("updateSyncPending(): syncPending: ${syncPending}", "debug")
-    if ((syncPending == 0) & (device.latestValue('syncPending') > 0)) {
+    logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
+    if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
         logger("Sync Complete.", "info")
-        def ct = (userConfig > 0) 'user' : 'specified'
+        def ct = (userConfig > 0) ? 'user' : 'specified'
         updateDataValue('configurationType', ct)
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
@@ -680,7 +698,7 @@ private sendCommandSequence(commands, delay = 1200) {
 // private selectEncapsulation(physicalgraph.zwave.Command cmd) {
 private selectEncapsulation(cmd) {
     logger('selectEncapsulation(): Selecting encapsulation method.', 'trace')
-    // if (zwaveInfo?.zw.endsWith("s") & (cmd.commandClassId in commandClassesSecure())) {
+    // if (zwaveInfo?.zw.endsWith("s") && (cmd.commandClassId in commandClassesSecure())) {
     if (zwaveInfo?.zw.endsWith('s')) {
         secureEncapsulate(cmd)
     } else if (zwaveInfo?.cc.contains('56')) {

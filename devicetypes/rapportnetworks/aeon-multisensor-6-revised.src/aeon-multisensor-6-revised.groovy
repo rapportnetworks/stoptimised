@@ -320,11 +320,30 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     state.configurationReport << [(param): paramValue]
     if (state.configurationReport.size() == configurationParameters().size()) {
         logger('All Configuration Values Reported', 'trace')
-        def report = state.configurationReport.collect { it }.join(",")
-        logger("Configuration Report: $report", 'debug')
+        def copy = state.configurationReport
+        def report = state.configurationReport.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
+        state.configurationReport = copy
         logger("Configuration Report State: $state.configurationReport", 'debug')
     }
+
+/*
+    // *** added processing of configuration report to update data value
+    	def nparam = "${cmd.parameterNumber}"
+    	def nvalue = "${cmd.scaledConfigurationValue}"
+    	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
+    	def cP = [:]
+    	cP = state.configuredParameters
+    	cP.put("${nparam}", "${nvalue}")
+    	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
+        cPReport = cPReport.sort()
+        def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
+        cPReport = toKeyValue(cPReport)
+    	updateDataValue("configuredParameters", cPReport)
+    	state.configuredParameters = cP
+    // *** end of processing configuration report
+*/
+
 
     def result = []
     def value
@@ -524,7 +543,7 @@ private testNow() {
     */
 
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
-
+    logger('testNow(): Sending test commands.', 'trace')
     sendCommandSequence(cmds)
 }
 
@@ -576,21 +595,18 @@ private sync() {
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         syncPending++
     }
-    parametersMetadata().findAll( {!it.readonly} ).each {
-        if ((state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
+    parametersMetadata().each {
+        if (!it.readonly && (state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
-            if (!state.syncAll) cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             syncPending++
+        } else if (state.syncAll && it.id in configurationParameters()) {
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
 
-    if (state.syncAll) { // requests all configuration parameters of interest
-        configurationParameters().each {
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
-        }
-        state.syncAll = false
-    }
+    state.syncAll = false
 
     if (getDataValue('serialNumber') == null) {
         logger('sync(): Requesting device serial number.', 'trace')
@@ -599,7 +615,6 @@ private sync() {
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false, descriptionText: "Change to syncPending.", isStateChange: true)
     logger('sync(): Sending sync commands.', 'trace')
-    logger("sync(): Command sequence: $cmds", 'debug')
     sendCommandSequence(cmds)
 }
 
@@ -718,6 +733,7 @@ private byteArrayToUInt(byteArray) {
 *****************************************************************************************************************/
 private sendCommandSequence(commands, delay = 1200) {
     logger('sendCommandSequence(): Assembling commands.', 'trace')
+    logger("sendCommandSequence(): Command sequence: $commands", 'debug')
     // delayBetween(commands.collect { encapsulate(it) }, delay)
     if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
     sendHubCommand(commands.collect { response(it) }, delay)

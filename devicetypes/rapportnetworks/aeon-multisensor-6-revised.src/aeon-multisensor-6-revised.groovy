@@ -97,11 +97,14 @@ metadata {
         standardTile("syncAll", "device.sync", height: 2, width: 2, decoration: "flat") {
             state "syncAll", label: 'sync all', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
         }
+        standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
+            state "configure", label: 'configure', action: "configure", backgroundColor: "#ffffff", defaultState: true
+        }
         standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
             state "test", label: 'test', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "syncAll", "test"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "syncAll", "configure", "test"])
     }
 
     preferences {
@@ -148,9 +151,9 @@ def installed() {
 
 def configure() {
     logger('configure(): Configuring device', 'trace')
-    device.updateSetting('configLoggingLevelIDE', value: '3')
-    device.updateSetting('configLoggingLevelDevice', value: '2')
-    device.updateSetting('configLoggingLevelDevice', value: 30)
+    device.updateSetting('autoResetTamperDelay', 30)
+    device.updateSetting('configLoggingLevelIDE', '5') // set to 3 when finished debugging
+    device.updateSetting('configLoggingLevelDevice', '2')
 
     if (!listening()) {
         def interval = (configurationIntervals().wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
@@ -168,8 +171,9 @@ def configure() {
             device.updateSetting("configParam${it.id}", it.defaultValue)
         }
     }
-    updateDataValue('serialNumber', null)
     state.syncAll = true
+    state.configurationReport = [:]
+    updateDataValue('serialNumber', null)
     updated()
 }
 
@@ -187,14 +191,18 @@ def updated() {
                 switch(it.type) {
                     case "number":
                         state."param${it.id}target" = settings."configParam${it.id}"
+                        break
                     case "enum":
                         state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                        break
                     case "bool":
-                        state."param${it.id}target" = (settings."configParam${it.id}".toBoolean()) ? (it.trueValue ?: 1) : (it.falseValue ?: 0)
+                        state."param${it.id}target" = (settings."configParam${it.id}") ? (it.trueValue ?: 1) : (it.falseValue ?: 0)
+                        break
                     case "flags":
                         def target = 0
                         settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v.toBoolean()) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
                         state."param${it.id}target" = target
+                        break
                 }
             }
         }
@@ -310,7 +318,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     def paramValue = cmd.scaledConfigurationValue.toString()
     logger("Processing Configuration Report: (Parameter: $param, Value: $paramValue)", 'trace')
     state.configurationReport << [(param): paramValue]
-    if (state.configurationReport.size() == getConfigurationParameters().size()) {
+    if (state.configurationReport.size() == configurationParameters().size()) {
         logger('All Configuration Values Reported', 'trace')
         updateDataValue("configurationReport", state.configurationReport.collect {
             it
@@ -321,10 +329,12 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     def value
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
         value = "dc"
-        if (!isConfigured()) {
+        /*
+        if (!configured()) {
             logger('ConfigurationReport: configuring device', 'trace')
             result << response(configure())
         }
+        */
         result << createEvent(name: "batteryStatus", value: "USB Cable", displayed: false)
         result << createEvent(name: "powerSource", value: value, displayed: false)
     } else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
@@ -359,7 +369,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
     logger('zwaveEvent(deviceSpecificReport): Serial number report received.', 'trace')
     logger("zwaveEvent(deviceSpecificReport): Serial number raw report: $cmd", 'debug')
     def serialNumber = "0"
-//    serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? (cmd.deviceIdData.each { data -> serialNumber += "${String.format(" % 02 X ", data)}" }) : "0"
+    // serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? (cmd.deviceIdData.each { data -> serialNumber += "${String.format(" % 02 X ", data)}" }) : "0"
     updateDataValue('serialNumber', serialNumber)
     updateSyncPending()
 }
@@ -383,7 +393,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
         logger('All Command Class Versions Reported', 'debug')
         updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
     }
-//    createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
+    // createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84=2, // Wake Up
@@ -399,7 +409,8 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // // 0x84=2, // Wake Up
     def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
     def cmds = []
-    if (!isConfigured()) {
+    /*
+    if (!configured()) {
         logger("late configure", 'info')
         result << response(configure())
     } else {
@@ -407,6 +418,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
         cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format()
         result << response(cmds)
     }
+    */
     result
 }
 
@@ -502,6 +514,12 @@ private testNow() {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
 
+    logger('testRun(): Requesting Configuration Report.', 'trace')
+    state.configurationReport = [:]
+    configurationParameters().each {
+        cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
+    }
+
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
 
     sendCommandSequence(cmds)
@@ -546,7 +564,7 @@ private sync() {
         logger('sync(): Deleting all cached values.', 'trace')
         state.wakeUpIntervalCache = null
         parametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
-        updateDataValue('serialNumber', '')
+        updateDataValue('serialNumber', null)
         state.syncAll = false
     }
     if (!listening() && (state.wakeUpIntervalTarget != null) && (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
@@ -563,7 +581,12 @@ private sync() {
             syncPending++
         }
     }
-    if (getDataValue('serialNumber') == '') {
+
+    parametersMetadata().findAll( {it.readonly} ).each {
+        if (it in configurationParameters()) cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+    }
+
+    if (getDataValue('serialNumber') == null) {
         logger('sync(): Requesting device serial number.', 'trace')
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
@@ -835,7 +858,7 @@ private configurationSpecified() { [
 ] }
 
 private configurationUser() { [
-    // 2, 3, 4
+    3, 4
 ] }
 
 private configurationHandler() { [
@@ -860,33 +883,16 @@ private configurationUseStates() { [
 ] }
 
 private parametersMetadata() { [
-    [id: 1, size: 1, type: "flags", defaultValue: 15, required: false, readonly: false,
-        isSigned: false,
-        name: "Acoustic and Visual Alarms",
-        description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
-        flags: [
-            [id: 'a', description: 'enable temperature', defaultValue: true, flagValue: 1],
-            [id: 'b', description: 'enable illuminance', defaultValue: true, flagValue: 2],
-            [id: 'c', description: 'enable ultraviolet', defaultValue: false, flagValue: 4],
-            [id: 'd', description: 'enable humidity', defaultValue: false, flagValue: 8]
-            ]],
-    [id: 2, size: 1, type: "bool", defaultValue: false, required: false, readonly: false,
-        isSigned: false,
-        name: "Acoustic and Visual Alarms",
-        description : "Enable LED indicator and acoustic alarm for flooding detection.",
-        falseValue: 0,
-        trueValue: 1 ],
-    [id:  3, size: 2, type: "number", range: "0..3600", defaultValue: 0, required: false, readonly: false,
-        isSigned: true,
-        name: "Alarm Cancellation Delay",
-        description: "The time for which the device will retain the flood state after flooding has ceased.\n" +
-        "Values: 0-3600 = Time Delay (s)"],
-    [id: 4, size: 1, type: "enum", defaultValue: "3", required: false, readonly: false,
-        isSigned: true,
-        name: "Acoustic and Visual Alarms",
-        description : "Disable/enable LED indicator and acoustic alarm for flooding detection.",
-        options: ["0" : "0: Acoustic alarm INACTIVE. Visual alarm INACVTIVE",
-                    "1" : "1: Acoustic alarm INACTIVE. Visual alarm ACTIVE",
-                    "2" : "2: Acoustic alarm ACTIVE. Visual alarm INACTIVE",
-                    "3" : "3: Acoustic alarm ACTIVE. Visual alarm ACTIVE"] ],
+    [id: 2, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable waking up for 10 minutes', description: 'when re-power on (battery mode) the MultiSensor', valueTrue: 3, valueFalse: 1],
+    [id: 3, size: 2, type: 'number', range: '10..3600', defaultValue: 240, required: false, readonly: false, isSigned: false, name: 'PIR reset time', description: 'Reset time for PIR sensor'],
+    [id: 4, size: 1, type: 'enum', defaultValue: '5', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: ['0': 'Off', '1': 'level 1 (minimum)', '2': 'level 2', '3': 'level 3', '4': 'level 4', '5': 'level 5 (maximum)']],
+    [id: 5, size: 1, type: 'enum', defaultValue: '1', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],[id: 8, size: 1, type: 'number', range: '..', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
+    [id: 9, size: 2, type: 'flags', defaultValue: 'a', required: false, readonly: true, isSigned: false, name: 'a', description: 'a', flags: []],
+    [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],[id: 81, size: 1, type: 'enum', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],
+    [id: 101, size: 4, type: 'flags', defaultValue: '241', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
+    [id: 102, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
+    [id: 103, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
+    [id: 111, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
+    [id: 112, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
+    [id: 113, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a']
 ] }

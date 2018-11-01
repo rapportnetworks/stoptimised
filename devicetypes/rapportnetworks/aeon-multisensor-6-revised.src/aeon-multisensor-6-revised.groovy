@@ -320,9 +320,10 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     state.configurationReport << [(param): paramValue]
     if (state.configurationReport.size() == configurationParameters().size()) {
         logger('All Configuration Values Reported', 'trace')
-        updateDataValue("configurationReport", state.configurationReport.collect {
-            it
-        }.join(","))
+        def report = state.configurationReport.collect { it }.join(",")
+        logger("Configuration Report: $report", 'debug')
+        updateDataValue("configurationReport", report)
+        logger("Configuration Report State: $state.configurationReport", 'debug')
     }
 
     def result = []
@@ -514,11 +515,13 @@ private testNow() {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
 
+    /*
     logger('testRun(): Requesting Configuration Report.', 'trace')
     state.configurationReport = [:]
     configurationParameters().each {
         cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
     }
+    */
 
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
 
@@ -565,7 +568,7 @@ private sync() {
         state.wakeUpIntervalCache = null
         parametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
-        state.syncAll = false
+        // state.syncAll = false
     }
     if (!listening() && (state.wakeUpIntervalTarget != null) && (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}", 'info')
@@ -576,14 +579,17 @@ private sync() {
     parametersMetadata().findAll( {!it.readonly} ).each {
         if ((state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            if (!state.syncAll) cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             syncPending++
         }
     }
 
-    parametersMetadata().findAll( {it.readonly} ).each {
-        if (it in configurationParameters()) cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+    if (state.syncAll) { // requests all configuration parameters of interest
+        configurationParameters().each {
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
+        }
+        state.syncAll = false
     }
 
     if (getDataValue('serialNumber') == null) {

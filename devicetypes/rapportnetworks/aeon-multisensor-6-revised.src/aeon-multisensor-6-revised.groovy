@@ -85,26 +85,23 @@ metadata {
             state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
-            state "clear", label: 'tamper clear', action: "resetTamper", backgroundColor: "#ffffff", defaultState: true // remove action after testing
-            state "detected", label: 'tampered', action: "resetTamper", backgroundColor: "#ff0000"
+            state "clear", label: 'tamper clear', backgroundColor: "#ffffff", defaultState: true
+            state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
         }
         valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
-            state "syncPending", label: '${currentValue}', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+            state "syncPending", label: '${currentValue} to sync', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
         }
         valueTile("logMessage", "device.logMessage", height: 2, width: 2, decoration: "flat") {
             state "clear", label: '${currentValue}', backgroundColor: "#ffffff", defaultState: true
         }
-        standardTile("syncAll", "device.sync", height: 2, width: 2, decoration: "flat") {
-            state "syncAll", label: 'sync all', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
-        }
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
-            state "configure", label: 'configure', action: "configure", backgroundColor: "#ffffff", defaultState: true
+            state "configure", label: 'configure', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
-            state "test", label: 'test', action: "test", backgroundColor: "#ffffff", defaultState: true
+            state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "syncAll", "configure", "test"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "configure", "test"])
     }
 
     preferences {
@@ -200,7 +197,7 @@ def updated() {
                         break
                     case "flags":
                         def target = 0
-                        settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v.toBoolean()) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
+                        settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
                         state."param${it.id}target" = target
                         break
                 }
@@ -310,14 +307,19 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70=2, // Configuration
-    // *** to sort - use cached values?
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70: 2, // Configuration
     logger("ConfigurationReport: $cmd", 'trace')
+    def paramMd = parametersMetadata().find( { it.id == cmd.parameterNumber })
+    def paramValue = (paramMd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
+    def signInfo = (paramMd?.isSigned) ? "SIGNED" : "UNSIGNED"
+    state."paramCache${cmd.parameterNumber}" = paramValue
+    logger("Parameter #${cmd.parameterNumber} [${paramMd?.name}] has value: ${paramValue} [${signInfo}]", 'info')
+    updateSyncPending()
 
-    def param = cmd.parameterNumber.toString().padLeft(3, "0")
-    def paramValue = cmd.scaledConfigurationValue.toString()
-    logger("Processing Configuration Report: (Parameter: $param, Value: $paramValue)", 'trace')
-    state.configurationReport << [(param): paramValue]
+    def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
+    def paramValueReport = paramValue.toString()
+    logger("Processing Configuration Report: (Parameter: $paramReport, Value: $paramValueReport)", 'trace')
+    state.configurationReport << [(paramReport): paramValueReport]
     if (state.configurationReport.size() == configurationParameters().size()) {
         logger('All Configuration Values Reported', 'trace')
         def copy = state.configurationReport
@@ -326,48 +328,16 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
         state.configurationReport = copy
         logger("Configuration Report State: $state.configurationReport", 'debug')
     }
-
-/*
-    // *** added processing of configuration report to update data value
-    	def nparam = "${cmd.parameterNumber}"
-    	def nvalue = "${cmd.scaledConfigurationValue}"
-    	log.debug "Processing Configuration Report: (Parameter: $nparam, Value: $nvalue)"
-    	def cP = [:]
-    	cP = state.configuredParameters
-    	cP.put("${nparam}", "${nvalue}")
-    	def cPReport = cP.collectEntries { key, value -> [key.padLeft(3,"0"), value] }
-        cPReport = cPReport.sort()
-        def toKeyValue = { it.collect { /$it.key=$it.value/ } join "," }
-        cPReport = toKeyValue(cPReport)
-    	updateDataValue("configuredParameters", cPReport)
-    	state.configuredParameters = cP
-    // *** end of processing configuration report
-*/
-
-
     def result = []
-    def value
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
-        value = "dc"
-        /*
-        if (!configured()) {
-            logger('ConfigurationReport: configuring device', 'trace')
-            result << response(configure())
-        }
-        */
-        result << createEvent(name: "batteryStatus", value: "USB Cable", displayed: false)
-        result << createEvent(name: "powerSource", value: value, displayed: false)
+        result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
+        result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
     } else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
-        value = "battery"
-        result << createEvent(name: "powerSource", value: value, displayed: false)
+        result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
     }
-    /* Think this condition is a bug as it seems to creates an infintie loop (since added request for parameter 101)
-    	else if (cmd.parameterNumber == 101){
-    		result << response(configure())
-    	}
-    */
     result
 }
+
 /*****************************************************************************************************************
  *  Zwave Management Events Handlers
 *****************************************************************************************************************/
@@ -404,7 +374,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     updateDataValue("MSR", msr)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86=2, // Version
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86: 2, // Version
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
     logger("Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)", 'trace')
@@ -413,7 +383,6 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
         logger('All Command Class Versions Reported', 'debug')
         updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
     }
-    // createEvent(descriptionText: "${device.displayName} Command Class Versions Report", isStateChange: true, data: [name: 'Version Command Class Report', requestedCommandClass: ccValue, commandClassVersion: ccVersion])
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84=2, // Wake Up
@@ -637,23 +606,27 @@ private updateSyncPending() {
         }
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
-        def target = state."paramTarget${it.id}"
-        if ((target != null) && (target != state."paramCache${it.id}")) {
-            syncPending++
-        }
-        def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-        if (sv && (target != sv)) {
-            userConfig++
-        } else if (target != it.defaultValue) {
-            userConfig++
+        def target = state?."paramTarget${it.id}"
+        if (target != null) {
+            if (target != state."paramCache${it.id}") {
+                syncPending++
+            }
+            def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
+            if (sv && (target != sv)) {
+                userConfig++
+            } else if (target != it.defaultValue.toInteger()) {
+                userConfig++
+            }
         }
     }
     if (getDataValue('serialNumber') == null) {
         syncPending++
     }
     logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
-    if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
+    // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
+    if (syncPending == 0) {
         logger("Sync Complete.", "info")
+        logger("updateSyncPending(): userconfig: $userConfig", 'debug')
         def ct = (userConfig > 0) ? 'user' : 'specified'
         updateDataValue('configurationType', ct)
     }
@@ -910,7 +883,8 @@ private parametersMetadata() { [
     [id: 4, size: 1, type: 'enum', defaultValue: '5', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: ['0': 'Off', '1': 'level 1 (minimum)', '2': 'level 2', '3': 'level 3', '4': 'level 4', '5': 'level 5 (maximum)']],
     [id: 5, size: 1, type: 'enum', defaultValue: '1', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],[id: 8, size: 1, type: 'number', range: '..', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
     [id: 9, size: 2, type: 'flags', defaultValue: 'a', required: false, readonly: true, isSigned: false, name: 'a', description: 'a', flags: []],
-    [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],[id: 81, size: 1, type: 'enum', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],
+    [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
+    [id: 81, size: 1, type: 'enum', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],
     [id: 101, size: 4, type: 'flags', defaultValue: '241', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
     [id: 102, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
     [id: 103, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],

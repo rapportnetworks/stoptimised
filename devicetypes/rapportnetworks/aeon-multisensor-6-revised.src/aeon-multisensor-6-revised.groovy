@@ -33,6 +33,7 @@ metadata {
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
 
         // Custom Commands:
+        command "configureAll"
         command "resetTamper"
         command "syncAll"
         command "test"
@@ -95,7 +96,10 @@ metadata {
             state "clear", label: '${currentValue}', backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
-            state "configure", label: 'configure', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
+            state "configure", label: 'configure default', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
+        }
+        standardTile("configureAll", "device.configureAll", height: 2, width: 2, decoration: "flat") {
+            state "configure", label: 'configure all', icon: 'st.secondary.tools', action: "configureAll", backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
             state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
@@ -113,15 +117,15 @@ metadata {
             input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
         }
 
-        if ('autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: '30', required: false)
+        if (state.cofigureAll || 'autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: '30', required: false)
 
-        if ('loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning', '3' : 'Info', '4' : 'Debug', '5' : 'Trace'], defaultValue: '3', required: true)
+        if (state.configureAll || 'loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning', '3' : 'Info', '4' : 'Debug', '5' : 'Trace'], defaultValue: '3', required: true)
 
-        if ('loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning'], defaultValue: '2', required: true)
+        if (state.configureAll || 'loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning'], defaultValue: '2', required: true)
 
-        if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: '4000', required: false)
+        if (state.configureAll || 'wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: '4000', required: false)
 
-        if (configurationUser()) generatePrefsParams()
+        if (state.configureAll || configurationUser()) generatePrefsParams()
     }
 }
 
@@ -168,6 +172,7 @@ def configure() {
             device.updateSetting("configParam${it.id}", it.defaultValue)
         }
     }
+    state.configureAll = false
     state.syncAll = true
     state.configurationReport = [:]
     updateDataValue('serialNumber', null)
@@ -474,6 +479,10 @@ def poll() { // depreciated
 /*****************************************************************************************************************
  *  Custom Commands
 *****************************************************************************************************************/
+def configureAll() {
+    state.configureAll = true
+}
+
 def resetTamper() {
     logger('resetTamper(): Resetting tamper alarm.', 'info')
     sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true)
@@ -642,7 +651,7 @@ private generatePrefsParams() {
                      "Refer to the product documentation for a full description of each parameter."
     )
     parametersMetadata().findAll{ !it.readonly }.each{
-        if (it.id in configurationUser()) {
+        if (state.configureAll || it.id in configurationUser()) {
             def lb = (it.description.length() > 0) ? "\n" : ""
             switch(it.type) {
                 case "number":

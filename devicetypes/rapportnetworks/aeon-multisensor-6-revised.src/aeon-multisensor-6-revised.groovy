@@ -159,13 +159,30 @@ def configure() {
     }
 
     parametersMetadata().findAll( { !it.readonly } ).each {
+        def defaultSetting
         def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
         if (sv) {
             state."paramTarget${it.id}" = sv
-            device.updateSetting("configParam${it.id}", sv)
-
+            defaultSetting = sv
         } else {
-            device.updateSetting("configParam${it.id}", it.defaultValue)
+            defaultSetting = it.defaultValue
+        }
+        switch(it.type) {
+            case "number":
+                device.updateSetting("configParam${it.id}", defaultSetting)
+                break
+            case "enum":
+                device.updateSetting("configParam${it.id}", defaultSetting)
+                break
+            case "bool":
+                def defaultState = (it.falseValue == defaultSetting) ? false : true
+                device.updateSetting("configParam${it.id}", defaultState)
+                break
+            case "flags":
+                def target = 0
+                settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
+                state."param${it.id}target" = target
+                break
         }
     }
     state.syncAll = true
@@ -184,16 +201,16 @@ def updated() {
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
 
         parametersMetadata().findAll( {!it.readonly} ).each {
-            if (settings?."configParam${it.id}" || settings?.find { s -> s.key ==~ /configParam${it.id}[a-z]/ }) {
+            if (!settings?."configParam${it.id}" == null || settings?.find { s -> s.key ==~ /configParam${it.id}[a-z]/ }) {
                 switch(it.type) {
                     case "number":
                         state."param${it.id}target" = settings."configParam${it.id}"
                         break
                     case "enum":
-                        state."param${it.id}target" = settings."configParam${it.id}".toInteger()
+                        state."param${it.id}target" = settings."configParam${it.id}"
                         break
                     case "bool":
-                        state."param${it.id}target" = (settings."configParam${it.id}") ? (it.trueValue ?: 1) : (it.falseValue ?: 0)
+                        state."param${it.id}target" = (settings."configParam${it.id}") ? it.trueValue : it.falseValue
                         break
                     case "flags":
                         def target = 0
@@ -648,7 +665,7 @@ private generatePrefsParams() {
                 case "number":
                     input (
                         name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
                         type: it.type,
                         range: it.range,
                         defaultValue: it.defaultValue,
@@ -658,7 +675,7 @@ private generatePrefsParams() {
                 case "enum":
                     input (
                         name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
                         type: it.type,
                         options: it.options,
                         defaultValue: it.defaultValue,
@@ -668,9 +685,9 @@ private generatePrefsParams() {
                 case "bool":
                     input (
                         name: "configParam${it.id}",
-                        title: "#${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
                         type: it.type,
-                        defaultValue: it.defaultValue,
+                        defaultValue: (it.defaultValue == it.trueValue) ? true ; false,
                         required: it.required
                     )
                     break
@@ -682,10 +699,10 @@ private generatePrefsParams() {
                     )
                     it.flags.each { flag ->
                         input (
-                            name: "configParam${it.id}${flag.id}", // ? how best to reference? 1a or 1-a or 1-32 etc
+                            name: "configParam${it.id}${flag.id}", // ?? how best to reference? 1a or 1-a or 1-32 etc
                             title: "${flag.id}) ${flag.description}",
                             type: 'bool',
-                            defaultValue: flag.default,
+                            defaultValue: (flag.defaultValue == flag.flagValue) ? true : false,
                             required: it.required
                         )
                     }
@@ -880,7 +897,7 @@ private configurationUseStates() { [
 private parametersMetadata() { [
     [id: 2, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable waking up for 10 minutes', description: 'when re-power on (battery mode) the MultiSensor', valueTrue: 3, valueFalse: 1],
     [id: 3, size: 2, type: 'number', range: '10..3600', defaultValue: 240, required: false, readonly: false, isSigned: false, name: 'PIR reset time', description: 'Reset time for PIR sensor'],
-    [id: 4, size: 1, type: 'enum', defaultValue: '5', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: ['0': 'Off', '1': 'level 1 (minimum)', '2': 'level 2', '3': 'level 3', '4': 'level 4', '5': 'level 5 (maximum)']],
+    [id: 4, size: 1, type: 'enum', defaultValue: 5, required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: [0: 'Off', 1: 'level 1 (minimum)', 2: 'level 2', 3: 'level 3', 4: 'level 4', 5: 'level 5 (maximum)']],
     [id: 5, size: 1, type: 'enum', defaultValue: '1', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],[id: 8, size: 1, type: 'number', range: '..', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
     [id: 9, size: 2, type: 'flags', defaultValue: 'a', required: false, readonly: true, isSigned: false, name: 'a', description: 'a', flags: []],
     [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],

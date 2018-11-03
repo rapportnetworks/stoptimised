@@ -181,8 +181,8 @@ def configure() {
                 break
             case "flags":
                 if (sv) {
-                    configurationSpecified().findAll { cs -> cs.id ==~ /${it.id}([a-z])/ }.each{ cse ->
-                        rs = (cse.specifiedValue  == it.flags.find { f -> f.id == '$1' }.flagValue) ? true : false
+                    configurationSpecified().findAll { cs -> cs.id ==~ /${it.id}[a-z]/ }.each{ cse ->
+                        rs = (cse.specifiedValue == (it.flags.find { f -> f.id == "${cs.id.reverse().take(1)}" }.flagValue)) ? true : false // *** issue here ***
                         device.updateSetting("configParam${it.id}${f.id}", rs)
                     }
                 } else {
@@ -594,10 +594,10 @@ private sync() {
         if (!it.readonly && (state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
             syncPending++
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
-            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id.toInteger(), size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id.toInteger())
         } else if (state.syncAll && it.id.toInteger() in configurationParameters()) {
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id.toInteger())
         }
     }
 

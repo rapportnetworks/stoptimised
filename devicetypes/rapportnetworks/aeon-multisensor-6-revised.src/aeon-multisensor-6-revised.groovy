@@ -201,7 +201,7 @@ def updated() {
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
 
         parametersMetadata().findAll( {!it.readonly} ).each {
-            if (!settings?."configParam${it.id}" == null || settings?.find { s -> s.key ==~ /configParam${it.id}[a-z]/ }) {
+            if (!settings?."configParam${it.id}" == null || settings?.find { s -> s.key == "configParam${it.id}a" }) {
                 switch(it.type) {
                     case "number":
                         state."param${it.id}target" = settings."configParam${it.id}"
@@ -214,7 +214,7 @@ def updated() {
                         break
                     case "flags":
                         def target = 0
-                        settings.findAll { st -> st.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find{ flag -> flag.id == "${k.reverse().take(1)}" }.flagValue }
+                        settings.findAll { set -> set.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                         state."param${it.id}target" = target
                         break
                 }
@@ -576,18 +576,18 @@ private sync() {
         // state.syncAll = false
     }
     if (!listening() && (state.wakeUpIntervalTarget != null) && (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+        syncPending++
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}", 'info')
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
-        syncPending++
     }
     parametersMetadata().each {
         if (!it.readonly && (state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
+            syncPending++
+            logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
-            logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
-            syncPending++
-        } else if (state.syncAll && it.id in configurationParameters()) {
+        } else if (state.syncAll && it.id.toInteger() in configurationParameters()) {
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
@@ -623,15 +623,14 @@ private updateSyncPending() {
         }
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
-        def target = state?."paramTarget${it.id}"
-        if (target != null) {
-            if (target != state."paramCache${it.id}") {
+        if (!it.readonly && (state."paramTarget${it.id}" != null)) {
+            if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
                 syncPending++
             }
-            def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-            if (sv && (target != sv)) {
+            else if (it.id in configurationSpecified() && state."paramCache${it.id}" != configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue) {
                 userConfig++
-            } else if (target != it.defaultValue.toInteger()) {
+            }
+            else if (state."paramCache${it.id}" != it.defaultValue) {
                 userConfig++
             }
         }
@@ -659,13 +658,14 @@ private generatePrefsParams() {
                      "Refer to the product documentation for a full description of each parameter."
     )
     parametersMetadata().findAll{ !it.readonly }.each{
-        if (it.id in configurationUser()) {
+        if (it.id.toInteger() in configurationUser()) {
             def lb = (it.description.length() > 0) ? "\n" : ""
             switch(it.type) {
                 case "number":
                     input (
                         name: "configParam${it.id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                        description: it.description,
                         type: it.type,
                         range: it.range,
                         defaultValue: it.defaultValue,
@@ -676,6 +676,7 @@ private generatePrefsParams() {
                     input (
                         name: "configParam${it.id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        description: it.description,
                         type: it.type,
                         options: it.options,
                         defaultValue: it.defaultValue,
@@ -686,8 +687,9 @@ private generatePrefsParams() {
                     input (
                         name: "configParam${it.id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        description: it.description,
                         type: it.type,
-                        defaultValue: (it.defaultValue == it.trueValue) ? true ; false,
+                        defaultValue: (it.defaultValue == it.trueValue) ? true : false,
                         required: it.required
                     )
                     break
@@ -858,11 +860,11 @@ private configurationParameters() { [
 ] }
 
 private configurationSpecified() { [
-    [id: '002', size: 1, specifiedValue: 1],
-    [id: '003', size: 2, specifiedValue: 10],
-    [id: '004', size: 1, specifiedValue: 5],
-    [id: '040', size: 1, specifiedValue: 0],
-    [id: '081', size: 1, specifiedValue: 2],
+    [id: '2', size: 1, specifiedValue: 1],
+    [id: '3', size: 2, specifiedValue: 60],
+    [id: '4', size: 1, specifiedValue: 5],
+    [id: '40', size: 1, specifiedValue: 0],
+    [id: '81', size: 1, specifiedValue: 2],
     [id: '101', size: 4, specifiedValue: 240],
     [id: '101a', defaultValue: 1, specifiedValue: 0],
     [id: '101b', defaultValue: 16, specifiedValue: 16],
@@ -885,7 +887,7 @@ private configurationSpecified() { [
 ] }
 
 private configurationUser() { [
-    3, 4
+    2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
 ] }
 
 private configurationHandler() { [
@@ -910,17 +912,18 @@ private configurationUseStates() { [
 ] }
 
 private parametersMetadata() { [
-    [id: 2, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable waking up for 10 minutes', description: 'when re-power on (battery mode) the MultiSensor', valueTrue: 3, valueFalse: 1],
+    [id: 2, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable waking up for 10 minutes', description: 'when re-power on (battery mode) the MultiSensor', falseValue: 0, trueValue: 1],
     [id: 3, size: 2, type: 'number', range: '10..3600', defaultValue: 240, required: false, readonly: false, isSigned: false, name: 'PIR reset time', description: 'Reset time for PIR sensor'],
-    [id: 4, size: 1, type: 'enum', defaultValue: 5, required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: [0: 'Off', 1: 'level 1 (minimum)', 2: 'level 2', 3: 'level 3', 4: 'level 4', 5: 'level 5 (maximum)']],
-    [id: 5, size: 1, type: 'enum', defaultValue: '1', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],[id: 8, size: 1, type: 'number', range: '..', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
-    [id: 9, size: 2, type: 'flags', defaultValue: 'a', required: false, readonly: true, isSigned: false, name: 'a', description: 'a', flags: []],
-    [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
-    [id: 81, size: 1, type: 'enum', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', options: []],
-    [id: 101, size: 4, type: 'flags', defaultValue: '241', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
-    [id: 102, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
-    [id: 103, size: 4, type: 'flags', defaultValue: '0', required: false, readonly: false, isSigned: false, name: 'a', description: 'a', flags: [[id: 'a', description: 'enable battery', defaultValue: true, flagValue: 1], [id: 'b', description: 'enable ultraviolet', defaultValue: true, flagValue: 16], [id: 'c', description: 'enable temperature', defaultValue: true, flagValue: 32], [id: 'd', description: 'enable humidity', defaultValue: true, flagValue: 64], [id: 'e', description: 'enable luminance', defaultValue: true, flagValue: 128]]],
-    [id: 111, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
-    [id: 112, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a'],
-    [id: 113, size: 4, type: 'number', range: '..', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'a', description: 'a']
+    [id: 4, size: 1, type: 'enum', defaultValue: 5, required: false, readonly: false, isSigned: false, name: '', description: '', options: [0: 'Off', 1: 'level 1 (minimum)', 2: 'level 2', 3: 'level 3', 4: 'level 4', 5: 'level 5 (maximum)']],
+    [id: 5, size: 1, type: 'enum', defaultValue: 1, required: false, readonly: false, isSigned: false, name: 'Which command?', description: 'Command sent when the motion sensor triggered.', options: [1: 'send Basic Set CC', 2: 'send Sensor Binary Report CC']],
+    [id: 8, size: 1, type: 'number', range: '15..60', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'Timeout of after Wake Up', description: 'Set the timeout of awake after the Wake Up CC is sent out'],
+    [id: 9, size: 2, type: 'flags', defaultValue: , required: false, readonly: true, isSigned: false, name: 'Report the current power mode and the product state for battery power mode', description: 'Report the current power mode and the product state for battery power mode', flags: []],
+    [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Selective reporting', description: 'Enable selective reporting', falseValue: 0, trueValue: 1],
+    [id: 81, size: 1, type: 'enum', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable LED', description: 'Enable/disable the LED blinking', options: [ and sensor report',  wakeup, 0: 'Enable LED blinking', 1: 'Disable LED blinking only when the PIR is triggered', 2: 'Completely disable LED for motion]],
+    [id: 101, size: 4, type: 'flags', defaultValue: 241, required: false, readonly: false, isSigned: false, name: 'Group 1 Report', description: 'Which report needs to be sent in Report group 1', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
+    [id: 102, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 2 Report', description: 'Which report needs to be sent in Report group 2', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
+    [id: 103, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 3 Report', description: 'Which report needs to be sent in Report group 3', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
+    [id: 111, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 1 report', description: 'The interval time of sending reports in group 1'],
+    [id: 112, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 2 report', description: 'The interval time of sending reports in group 2'],
+    [id: 113, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 3 report', description: 'The interval time of sending reports in group 3']
 ] }

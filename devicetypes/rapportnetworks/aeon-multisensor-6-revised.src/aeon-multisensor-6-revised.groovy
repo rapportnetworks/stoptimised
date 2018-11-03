@@ -160,34 +160,35 @@ def configure() {
 
     parametersMetadata().findAll( { !it.readonly } ).each {
         def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-        def resetValue
+        def rv
+        def rs
         if (sv) {
             state."paramTarget${it.id}" = sv
-            resetValue = sv
+            rv = sv
         } else {
-            resetValue = it.defaultValue
+            rv = it.defaultValue
         }
         switch(it.type) {
             case "number":
-                device.updateSetting("configParam${it.id}", resetValue)
+                device.updateSetting("configParam${it.id}", rv)
                 break
             case "enum":
-                device.updateSetting("configParam${it.id}", resetValue)
+                device.updateSetting("configParam${it.id}", rv)
                 break
             case "bool":
-                def resetState = (resetValue == it.trueValue) ? true : false
-                device.updateSetting("configParam${it.id}", resetState)
+                rs = (rv == it.trueValue) ? true : false
+                device.updateSetting("configParam${it.id}", rs)
                 break
             case "flags":
                 if (sv) {
                     configurationSpecified().findAll { cs -> cs.id ==~ /${it.id}([a-z])/ }.each{ cse ->
-                        def resetState = (cse.specifiedValue  == it.flags.find { f -> f.id == '$1' }.flagValue) ? true : false
-                        device.updateSetting("configParam${it.id}${f.id}", resetState)
+                        rs = (cse.specifiedValue  == it.flags.find { f -> f.id == '$1' }.flagValue) ? true : false
+                        device.updateSetting("configParam${it.id}${f.id}", rs)
                     }
                 } else {
                     it.flags.each { f ->
-                        def resetState = (f.defaultValue == f.flagValue) ? true : false
-                        device.updateSetting("configParam${it.id}${f.id}", resetState)
+                        rs = (f.defaultValue == f.flagValue) ? true : false
+                        device.updateSetting("configParam${it.id}${f.id}", rs)
                     }
                 }
                 break
@@ -668,6 +669,8 @@ private generatePrefsParams() {
     )
     parametersMetadata().findAll{ !it.readonly }.each{
         if (it.id.toInteger() in configurationUser()) {
+            def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
+            def dv = (sv) ? sv : it.defaultValue
             def lb = (it.description.length() > 0) ? "\n" : ""
             switch(it.type) {
                 case "number":
@@ -677,7 +680,7 @@ private generatePrefsParams() {
                         description: it.description,
                         type: it.type,
                         range: it.range,
-                        defaultValue: it.defaultValue,
+                        defaultValue: dv,
                         required: it.required
                     )
                     break
@@ -688,7 +691,7 @@ private generatePrefsParams() {
                         description: it.description,
                         type: it.type,
                         options: it.options,
-                        defaultValue: it.defaultValue,
+                        defaultValue: dv,
                         required: it.required
                     )
                     break
@@ -698,7 +701,7 @@ private generatePrefsParams() {
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
                         description: it.description,
                         type: it.type,
-                        defaultValue: (it.defaultValue == it.trueValue) ? true : false,
+                        defaultValue: (dv == it.trueValue) ? true : false,
                         required: it.required
                     )
                     break
@@ -708,12 +711,12 @@ private generatePrefsParams() {
                         description: it.description,
                         type: "paragraph", element: "paragraph"
                     )
-                    it.flags.each { flag ->
+                    it.flags.each { f ->
                         input (
-                            name: "configParam${it.id}${flag.id}", // ?? how best to reference? 1a or 1-a or 1-32 etc
-                            title: "${flag.id}) ${flag.description}",
+                            name: "configParam${it.id}${f.id}",
+                            title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: (flag.defaultValue == flag.flagValue) ? true : false,
+                            defaultValue: (f.defaultValue == f.flagValue) ? true : false,
                             required: it.required
                         )
                     }
@@ -926,12 +929,12 @@ private parametersMetadata() { [
     [id: 4, size: 1, type: 'enum', defaultValue: 5, required: false, readonly: false, isSigned: false, name: '', description: '', options: [0: 'Off', 1: 'level 1 (minimum)', 2: 'level 2', 3: 'level 3', 4: 'level 4', 5: 'level 5 (maximum)']],
     [id: 5, size: 1, type: 'enum', defaultValue: 1, required: false, readonly: false, isSigned: false, name: 'Which command?', description: 'Command sent when the motion sensor triggered.', options: [1: 'send Basic Set CC', 2: 'send Sensor Binary Report CC']],
     [id: 8, size: 1, type: 'number', range: '15..60', defaultValue: 15, required: false, readonly: false, isSigned: false, name: 'Timeout of after Wake Up', description: 'Set the timeout of awake after the Wake Up CC is sent out'],
-    [id: 9, size: 2, type: 'flags', required: false, readonly: true, isSigned: false, name: 'Report the current power mode and the product state for battery power mode', description: 'Report the current power mode and the product state for battery power mode'],
+    [id: 9, size: 2, type: 'flags', defaultValue: , required: false, readonly: true, isSigned: false, name: 'Report the current power mode and the product state for battery power mode', description: 'Report the current power mode and the product state for battery power mode', flags: []],
     [id: 40, size: 1, type: 'bool', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Selective reporting', description: 'Enable selective reporting', falseValue: 0, trueValue: 1],
     [id: 81, size: 1, type: 'enum', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Enable LED', description: 'Enable/disable the LED blinking', options: [0: 'Enable LED blinking', 1: 'Disable LED blinking only when the PIR is triggered', 2: 'Completely disable LED for motion; wakeup; and sensor report']],
     [id: 101, size: 4, type: 'flags', defaultValue: 241, required: false, readonly: false, isSigned: false, name: 'Group 1 Report', description: 'Which report needs to be sent in Report group 1', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
-    [id: 102, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 2 Report', description: 'Which report needs to be sent in Report group 2', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
-    [id: 103, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 3 Report', description: 'Which report needs to be sent in Report group 3', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 1], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 16], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 32], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 64], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 128]]],
+    [id: 102, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 2 Report', description: 'Which report needs to be sent in Report group 2', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 0], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 0], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 0], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 0], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 0]]],
+    [id: 103, size: 4, type: 'flags', defaultValue: 0, required: false, readonly: false, isSigned: false, name: 'Group 3 Report', description: 'Which report needs to be sent in Report group 3', flags: [[id: 'a', description: 'enable battery', flagValue: 1, defaultValue: 0], [id: 'b', description: 'enable ultraviolet', flagValue: 16, defaultValue: 0], [id: 'c', description: 'enable temperature', flagValue: 32, defaultValue: 0], [id: 'd', description: 'enable humidity', flagValue: 64, defaultValue: 0], [id: 'e', description: 'enable luminance', flagValue: 128, defaultValue: 0]]],
     [id: 111, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 1 report', description: 'The interval time of sending reports in group 1'],
     [id: 112, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 2 report', description: 'The interval time of sending reports in group 2'],
     [id: 113, size: 4, type: 'number', range: '300..12000', defaultValue: 3600, required: false, readonly: false, isSigned: false, name: 'Time interval of group 3 report', description: 'The interval time of sending reports in group 3']

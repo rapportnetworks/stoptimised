@@ -668,10 +668,11 @@ private generatePrefsParams() {
                      "Refer to the product documentation for a full description of each parameter."
     )
     parametersMetadata().findAll{ !it.readonly }.each{
-        if (it.id.toInteger() in configurationUser()) {
-            def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-            def dv = (sv) ? sv : it.defaultValue
+        if (configurationUser()[0] == 0 || it.id in configurationUser()) {
+            def id = it.id.toString().padLeft(3, "0") // *** need to alter name: below
             def lb = (it.description.length() > 0) ? "\n" : ""
+            def sv = configurationSpecified()?.find { cs -> cs.id == it.id }.specifiedValue
+            def dv = (sv) ? sv : it.defaultValue
             switch(it.type) {
                 case "number":
                     input (
@@ -711,18 +712,19 @@ private generatePrefsParams() {
                         description: it.description,
                         type: "paragraph", element: "paragraph"
                     )
+                    if (sv) def svf = configurationSpecified()?.find { cs -> cs.id == it.id }.flags
                     it.flags.each { f ->
-                        def fdv
+                        def dvf
                         if (sv) {
-                            fdv = (configurationSpecified().find { cs -> cs.id == "${it.id}${f.id}" }.specifiedValue == f.flagValue) ? true : false
+                            dvf = (svf.find { s -> s.id == f.id }.specifiedValue == f.flagValue) ? true : false
                         } else {
-                            fdv = (f.defaultValue == f.flagValue) ? true : false
+                            dvf = (f.defaultValue == f.flagValue) ? true : false
                         }
                         input (
                             name: "configParam${it.id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: fdv,
+                            defaultValue: dvf,
                             required: it.required
                         )
                     }

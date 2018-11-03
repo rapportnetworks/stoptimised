@@ -712,11 +712,17 @@ private generatePrefsParams() {
                         type: "paragraph", element: "paragraph"
                     )
                     it.flags.each { f ->
+                        def fdv
+                        if (sv) {
+                            fdv = (configurationSpecified().find { cs -> cs.id == "${it.id}${f.id}" }.specifiedValue == f.flagValue) ? true : false
+                        } else {
+                            fdv = (f.defaultValue == f.flagValue) ? true : false
+                        }
                         input (
                             name: "configParam${it.id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: (f.defaultValue == f.flagValue) ? true : false,
+                            defaultValue: fdv,
                             required: it.required
                         )
                     }

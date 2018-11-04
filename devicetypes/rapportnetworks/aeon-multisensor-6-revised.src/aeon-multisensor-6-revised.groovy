@@ -85,7 +85,7 @@ metadata {
             state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
-            state "clear", label: 'tamper clear', backgroundColor: "#ffffff", defaultState: true
+            state "clear", label: 'tamper clear', backgroundColor: "#ffffff", defaultState: true, action: "resetTamper" // *** remove action after testing
             state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
         }
         valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
@@ -113,13 +113,13 @@ metadata {
             input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
         }
 
-        if ('autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: '30', required: false)
+        if ('autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: 30, required: false)
 
-        if ('loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning', '3' : 'Info', '4' : 'Debug', '5' : 'Trace'], defaultValue: '3', required: true)
+        if ('loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: true)
 
-        if ('loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: ['0' : 'None', '1' : 'Error', '2' : 'Warning'], defaultValue: '2', required: true)
+        if ('loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: true)
 
-        if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: '4000', required: false)
+        if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: 4000, required: false)
 
         if (configurationUser()) generatePrefsParams()
     }
@@ -149,8 +149,8 @@ def installed() {
 def configure() {
     logger('configure(): Configuring device', 'trace')
     device.updateSetting('autoResetTamperDelay', 30)
-    device.updateSetting('configLoggingLevelIDE', '5') // set to 3 when finished debugging
-    device.updateSetting('configLoggingLevelDevice', '2')
+    device.updateSetting('configLoggingLevelIDE', 5) // set to 3 when finished debugging
+    device.updateSetting('configLoggingLevelDevice', 2)
 
     if (!listening()) {
         def interval = (configurationIntervals().wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
@@ -193,9 +193,9 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
-        state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice.toInteger(): 2
-        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
+        state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 3
+        state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice : 2
+        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay : 30
 
         parametersMetadata().findAll( {!it.readonly} ).each {
             def id = it.id.toString().padLeft(3, "0")
@@ -491,12 +491,13 @@ def poll() { // depreciated
 *****************************************************************************************************************/
 def resetTamper() {
     logger('resetTamper(): Resetting tamper alarm.', 'info')
-    sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true)
+    sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true, isStateChange: true)
 }
 
 def syncAll() {
     logger('syncAll() called', 'trace')
     state.syncAll = true
+    state.configurationReport = [:]
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 
@@ -573,20 +574,20 @@ private sync() {
         updateDataValue('serialNumber', null)
         // state.syncAll = false
     }
-    if (!listening() && (state.wakeUpIntervalTarget != null) && (state.wakeUpIntervalTarget != state.wakeUpIntervalCache)) {
+    if (!listening() && state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         syncPending++
         logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}", 'info')
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
     }
     parametersMetadata().each {
-        if (!it.readonly && (state."paramTarget${it.id}" != null) && (state."paramCache${it.id}" != state."paramTarget${it.id}")) {
+        if (!it.readonly && state."paramTarget${it.id}" != null && state."paramCache${it.id}" != state."paramTarget${it.id}") {
             syncPending++
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
-            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id.toInteger(), size: it.size, scaledConfigurationValue: state."paramTarget${it.id}".toInteger())
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id.toInteger())
-        } else if (state.syncAll && it.id.toInteger() in configurationParameters()) {
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id.toInteger())
+            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+        } else if (state.syncAll && it.id in configurationParameters()) {
+            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
 
@@ -622,7 +623,7 @@ private updateSyncPending() {
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
         if (!it.readonly && state."paramTarget${it.id}" != null) {
-            def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
+            def sv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
                 syncPending++
             }
@@ -660,7 +661,7 @@ private generatePrefsParams() {
         if (configurationUser()[0] == 0 || it.id in configurationUser()) {
             def id = it.id.toString().padLeft(3, "0") // *** need to alter name: below
             def lb = (it.description.length() > 0) ? "\n" : ""
-            def sv = configurationSpecified()?.find { cs -> cs.id == it.id }.specifiedValue
+            def sv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
             def dv = (sv) ? sv : it.defaultValue
             switch(it.type) {
                 case "number":
@@ -701,7 +702,7 @@ private generatePrefsParams() {
                         description: it.description,
                         type: "paragraph", element: "paragraph"
                     )
-                    if (sv) def svf = configurationSpecified()?.find { cs -> cs.id == it.id }.flags
+                    if (sv) def svf = configurationSpecified()?.find { cs -> cs.id == it.id }?.flags
                     it.flags.each { f ->
                         def dvf = (sv) ? svf.find { s -> s.id == f.id }?.specifiedValue : f.defaultValue
                         input (

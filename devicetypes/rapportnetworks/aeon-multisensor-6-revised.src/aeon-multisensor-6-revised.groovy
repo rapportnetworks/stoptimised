@@ -159,37 +159,25 @@ def configure() {
     }
 
     parametersMetadata().findAll( { !it.readonly } ).each {
-        def sv = configurationSpecified().find { cs -> cs.id == it.id }?.specifiedValue
-        def rv
-        def rs
-        if (sv) {
-            state."paramTarget${it.id}" = sv
-            rv = sv
-        } else {
-            rv = it.defaultValue
-        }
+        def cs = configurationSpecified()?.find { cs -> cs.id == it.id }
+        if (cs?.specifiedValue) state."paramTarget${it.id}" = sv
+        def rv = (cs?.specifiedValue) ?: it.defaultValue
+        def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
             case "number":
-                device.updateSetting("configParam${it.id}", rv)
+                device.updateSetting("configParam${id}", rv)
                 break
             case "enum":
-                device.updateSetting("configParam${it.id}", rv)
+                device.updateSetting("configParam${id}", rv)
                 break
             case "bool":
-                rs = (rv == it.trueValue) ? true : false
-                device.updateSetting("configParam${it.id}", rs)
+                device.updateSetting("configParam${id}", (rv == it.trueValue) ? true : false)
                 break
             case "flags":
                 if (sv) {
-                    configurationSpecified().findAll { cs -> cs.id ==~ /${it.id}[a-z]/ }.each{ cse ->
-                        rs = (cse.specifiedValue == (it.flags.find { f -> f.id == "${cs.id.reverse().take(1)}" }.flagValue)) ? true : false // *** issue here ***
-                        device.updateSetting("configParam${it.id}${f.id}", rs)
-                    }
+                    cs.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.specifiedValue == f.flagValue) ? true : false) }
                 } else {
-                    it.flags.each { f ->
-                        rs = (f.defaultValue == f.flagValue) ? true : false
-                        device.updateSetting("configParam${it.id}${f.id}", rs)
-                    }
+                    it.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.defaultValue == f.flagValue) ? true : false) }
                 }
                 break
         }
@@ -210,20 +198,21 @@ def updated() {
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay.toInteger() : 30
 
         parametersMetadata().findAll( {!it.readonly} ).each {
-            if (!settings?."configParam${it.id}" == null || settings?.find { s -> s.key == "configParam${it.id}a" }) {
+            def id = it.id.toString().padLeft(3, "0")
+            if (!settings?."configParam${id}" == null || settings?.find { s -> s.key == "configParam${id}a" }) {
                 switch(it.type) {
                     case "number":
-                        state."param${it.id}target" = settings."configParam${it.id}"
+                        state."param${it.id}target" = settings."configParam${id}"
                         break
                     case "enum":
-                        state."param${it.id}target" = settings."configParam${it.id}"
+                        state."param${it.id}target" = settings."configParam${id}"
                         break
                     case "bool":
-                        state."param${it.id}target" = (settings."configParam${it.id}") ? it.trueValue : it.falseValue
+                        state."param${it.id}target" = (settings."configParam${id}") ? it.trueValue : it.falseValue
                         break
                     case "flags":
                         def target = 0
-                        settings.findAll { set -> set.key ==~ /configParam${it.id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                        settings.findAll { set -> set.key ==~ /configParam${it}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                         state."param${it.id}target" = target
                         break
                 }
@@ -676,7 +665,7 @@ private generatePrefsParams() {
             switch(it.type) {
                 case "number":
                     input (
-                        name: "configParam${it.id}",
+                        name: "configParam${id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
                         description: it.description,
                         type: it.type,
@@ -687,7 +676,7 @@ private generatePrefsParams() {
                     break
                 case "enum":
                     input (
-                        name: "configParam${it.id}",
+                        name: "configParam${id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
                         description: it.description,
                         type: it.type,
@@ -698,7 +687,7 @@ private generatePrefsParams() {
                     break
                 case "bool":
                     input (
-                        name: "configParam${it.id}",
+                        name: "configParam${id}",
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
                         description: it.description,
                         type: it.type,
@@ -714,17 +703,12 @@ private generatePrefsParams() {
                     )
                     if (sv) def svf = configurationSpecified()?.find { cs -> cs.id == it.id }.flags
                     it.flags.each { f ->
-                        def dvf
-                        if (sv) {
-                            dvf = (svf.find { s -> s.id == f.id }.specifiedValue == f.flagValue) ? true : false
-                        } else {
-                            dvf = (f.defaultValue == f.flagValue) ? true : false
-                        }
+                        def dvf = (sv) ? svf.find { s -> s.id == f.id }?.specifiedValue : f.defaultValue
                         input (
-                            name: "configParam${it.id}${f.id}",
+                            name: "configParam${id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: dvf,
+                            defaultValue: (dvf == f.flagValue) ? true : false,
                             required: it.required
                         )
                     }
@@ -885,9 +869,9 @@ private configurationSpecified() { [
     [id: 4, size: 1, defaultValue: 5, specifiedValue: 5],
     [id: 40, size: 1, defaultValue: 0, specifiedValue: 0],
     [id: 81, size: 1, defaultValue: 0, specifiedValue: 2],
-    [id: 101, size: 4, defaultValue: 241, specifiedValue: 240, flags: [[id: 'a', defaultValue: 1, specifiedValue: 0], [id: 'b', defaultValue: 16, specifiedValue: 16], [id: 'c', defaultValue: 32, specifiedValue: 32], [id: 'd', defaultValue: 64, specifiedValue: 64], [id: 'e', defaultValue: 128, specifiedValue: 128]]],
-    [id: 102, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', defaultValue: 0, specifiedValue: 0], [id: 'b', defaultValue: 0, specifiedValue: 0], [id: 'c', defaultValue: 0, specifiedValue: 0], [id: 'd', defaultValue: 0, specifiedValue: 0], [id: 'e', defaultValue: 0, specifiedValue: 0]]],
-    [id: 103, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', defaultValue: 0, specifiedValue: 0], [id: 'b', defaultValue: 0, specifiedValue: 0], [id: 'c', defaultValue: 0, specifiedValue: 0], [id: 'd', defaultValue: 0, specifiedValue: 0], [id: 'e', defaultValue: 0, specifiedValue: 0]]],
+    [id: 101, size: 4, defaultValue: 241, specifiedValue: 240, flags: [[id: 'a', flagValue: 1, defaultValue: 1, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 16, specifiedValue: 16], [id: 'c', flagValue: 32, defaultValue: 32, specifiedValue: 32], [id: 'd', flagValue: 64, defaultValue: 64, specifiedValue: 64], [id: 'e', flagValue: 128, defaultValue: 128, specifiedValue: 128]]],
+    [id: 102, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', flagValue: 1, defaultValue: 0, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 0, specifiedValue: 0], [id: 'c', flagValue: 32, defaultValue: 0, specifiedValue: 0], [id: 'd', flagValue: 64, defaultValue: 0, specifiedValue: 0], [id: 'e', flagValue: 128, defaultValue: 0, specifiedValue: 0]]],
+    [id: 103, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', flagValue: 1, defaultValue: 0, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 0, specifiedValue: 0], [id: 'c', flagValue: 32, defaultValue: 0, specifiedValue: 0], [id: 'd', flagValue: 64, defaultValue: 0, specifiedValue: 0], [id: 'e', flagValue: 128, defaultValue: 0, specifiedValue: 0]]],
     [id: 111, size: 4, defaultValue: 3600, specifiedValue: 3600]
 ] }
 

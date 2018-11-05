@@ -519,14 +519,6 @@ private testNow() {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
 
-    /*
-    logger('testRun(): Requesting Configuration Report.', 'trace')
-    state.configurationReport = [:]
-    configurationParameters().each {
-        cmds << zwave.configurationV1.configurationGet(parameterNumber: it)
-    }
-    */
-
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
     logger('testNow(): Sending test commands.', 'trace')
     sendCommandSequence(cmds)
@@ -535,6 +527,12 @@ private testNow() {
 /*****************************************************************************************************************
  *  Generic Helper Methods
 *****************************************************************************************************************/
+private byteArrayToUInt(byteArray) {
+    def i = 0
+    byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
+    return i
+}
+
 private listening() {
     getZwaveInfo()?.zw?.startsWith("L")
 }
@@ -572,7 +570,6 @@ private sync() {
         state.wakeUpIntervalCache = null
         parametersMetadata().findAll( {!it.readonly} ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
-        // state.syncAll = false
     }
     if (!listening() && state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         syncPending++
@@ -590,9 +587,7 @@ private sync() {
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
-
     state.syncAll = false
-
     if (getDataValue('serialNumber') == null) {
         logger('sync(): Requesting device serial number.', 'trace')
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
@@ -614,30 +609,18 @@ private updateSyncPending() {
     }
     if (!listening()) {
         def target = state.wakeUpIntervalTarget
-        if ((target != null) && (target != state.wakeUpIntervalCache)) {
-            syncPending++
-        }
-        if (target != configurationIntervals().wakeUpIntervalSpecified) {
-            userConfig++
-        }
+        if ((target != null) && (target != state.wakeUpIntervalCache)) syncPending++
+        if (target != configurationIntervals().wakeUpIntervalSpecified) userConfig++
     }
     parametersMetadata().findAll( {!it.readonly} ).each {
         if (!it.readonly && state."paramTarget${it.id}" != null) {
             def sv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-            if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
-                syncPending++
-            }
-            else if (sv && state."paramCache${it.id}"!= sv) {
-                userConfig++
-            }
-            else if (state."paramCache${it.id}" != it.defaultValue) {
-                userConfig++
-            }
+            if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
+            else if (sv && state."paramCache${it.id}"!= sv) { userConfig++ }
+            else if (state."paramCache${it.id}" != it.defaultValue) { userConfig++ }
         }
     }
-    if (getDataValue('serialNumber') == null) {
-        syncPending++
-    }
+    if (getDataValue('serialNumber') == null) syncPending++
     logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
     // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
     if (syncPending == 0) {
@@ -719,12 +702,6 @@ private generatePrefsParams() {
     }
 }
 
-private byteArrayToUInt(byteArray) {
-    def i = 0
-    byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
-    return i
-}
-
 /*****************************************************************************************************************
  * Send Zwave Commands
 *****************************************************************************************************************/
@@ -777,14 +754,6 @@ private deviceUseStates() {
     updateDataValue('activeState', activeState)
 }
 
-private sensorValueEvent(Short value) {
-    def eventValue = null
-    if (value == 0x00) {eventValue = "dry"}
-    if (value == 0xFF) {eventValue = "wet"}
-    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
-    return result
-}
-
 private motionEvent(value) {
     def map = [name: "motion"]
     if (value) {
@@ -797,26 +766,32 @@ private motionEvent(value) {
     createEvent(map)
 }
 
-private getTimeOptionValueMap() {
-    [
-        "10 seconds": 10,
-        "20 seconds": 20,
-        "40 seconds": 40,
-        "1 minute": 60,
-        "2 minutes": 2 * 60,
-        "3 minutes": 3 * 60,
-        "4 minutes": 4 * 60,
-        "5 minutes": 5 * 60,
-        "8 minutes": 8 * 60,
-        "15 minutes": 15 * 60,
-        "30 minutes": 30 * 60,
-        "1 hour": 1 * 60 * 60,
-        "6 hours": 6 * 60 * 60,
-        "12 hours": 12 * 60 * 60,
-        "18 hours": 18 * 60 * 60,
-        "24 hours": 24 * 60 * 60,
-    ]
+private sensorValueEvent(Short value) {
+    def eventValue = null
+    if (value == 0x00) {eventValue = "dry"}
+    if (value == 0xFF) {eventValue = "wet"}
+    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
+    return result
 }
+
+private getTimeOptionValueMap() { [
+    "10 seconds": 10,
+    "20 seconds": 20,
+    "40 seconds": 40,
+    "1 minute": 60,
+    "2 minutes": 2 * 60,
+    "3 minutes": 3 * 60,
+    "4 minutes": 4 * 60,
+    "5 minutes": 5 * 60,
+    "8 minutes": 8 * 60,
+    "15 minutes": 15 * 60,
+    "30 minutes": 30 * 60,
+    "1 hour": 1 * 60 * 60,
+    "6 hours": 6 * 60 * 60,
+    "12 hours": 12 * 60 * 60,
+    "18 hours": 18 * 60 * 60,
+    "24 hours": 24 * 60 * 60
+] }
 
 /*****************************************************************************************************************
  *  Matadata Functions
@@ -860,6 +835,25 @@ private commandClassesVersions() { [
     0x85=2, // Association
 */
 
+private configurationHandler() { [
+    'deviceUse', 'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE', 'wakeUpInterval'
+] }
+
+private configurationUseStates() { [
+    Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
+    Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
+    Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
+    Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
+] }
+
+private configurationIntervals() { [
+    wakeUpIntervalDefault: 4_000,
+    checkIntervalDefault: 8_500,
+    wakeUpIntervalSpecified: 86_400,
+    checkIntervalSpecified: 180_000,
+    batteryRefresh: 604_800
+] }
+
 private configurationParameters() { [
     2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
 ] }
@@ -878,27 +872,6 @@ private configurationSpecified() { [
 
 private configurationUser() { [
     2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
-] }
-
-private configurationHandler() { [
-    // 'deviceUse',
-    'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE'
-    // , 'wakeUpInterval'
-] }
-
-private configurationIntervals() { [
-    wakeUpIntervalDefault: 4_000,
-    checkIntervalDefault: 8_500,
-    wakeUpIntervalSpecified: 86_400,
-    checkIntervalSpecified: 180_000,
-    batteryRefresh: 604_800
-] }
-
-private configurationUseStates() { [
-    Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
-    Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-    Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-    Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 
 private parametersMetadata() { [

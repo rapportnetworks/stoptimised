@@ -151,13 +151,11 @@ def configure() {
     device.updateSetting('autoResetTamperDelay', 30)
     device.updateSetting('configLoggingLevelIDE', 5) // set to 3 when finished debugging
     device.updateSetting('configLoggingLevelDevice', 2)
-
     if (!listening()) {
         def interval = (configurationIntervals().wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', value: interval)
     }
-
     parametersMetadata().findAll( { !it.readonly } ).each {
         def cs = configurationSpecified()?.find { cs -> cs.id == it.id }
         if (cs?.specifiedValue) state."paramTarget${it.id}" = sv
@@ -174,11 +172,8 @@ def configure() {
                 device.updateSetting("configParam${id}", (rv == it.trueValue) ? true : false)
                 break
             case "flags":
-                if (sv) {
-                    cs.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.specifiedValue == f.flagValue) ? true : false) }
-                } else {
-                    it.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.defaultValue == f.flagValue) ? true : false) }
-                }
+                if (sv) { cs.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.specifiedValue == f.flagValue) ? true : false) } }
+                else { it.flags.each { f -> device.updateSetting("configParam${id}${f.id}", (f.defaultValue == f.flagValue) ? true : false) } }
                 break
         }
     }
@@ -192,11 +187,9 @@ def updated() {
     logger('updated(): Updating device', 'trace')
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
-
         state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 3
         state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice : 2
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay : 30
-
         parametersMetadata().findAll( {!it.readonly} ).each {
             def id = it.id.toString().padLeft(3, "0")
             if (!settings?."configParam${id}" == null || settings?.find { s -> s.key == "configParam${id}a" }) {
@@ -220,16 +213,14 @@ def updated() {
         }
         if (listening()) {
             sync()
-        } else {
-            if (settings.configWakeUpInterval) {
-                state.wakeUpIntervalTarget = settings.configWakeUpInterval
-            }
+        }
+        else {
             state.queued = [] as Set
             state.queued.plus('sync()')
+            if (settings.configWakeUpInterval) state.wakeUpIntervalTarget = settings.configWakeUpInterval
         }
-    } else {
-        logger('updated(): Ran within last 2 seconds so aborting update.', 'trace')
     }
+    else { logger('updated(): Ran within last 2 seconds so aborting update.', 'trace') }
 }
 
 def parse(String description) {
@@ -240,7 +231,8 @@ def parse(String description) {
             logger("parse() >> Err 106", "error")
             result = createEvent(name: "secureInclusion", value: "failed", isStateChange: true,
                     descriptionText: "This sensor failed to complete the network security key exchange. If you are unable to control it via SmartThings, you must remove it from your network and add it again.")
-        } else {
+        }
+        else {
             logger("parse(): Unknown Error. Raw message: ${description}","error")
         }
     }
@@ -250,7 +242,8 @@ def parse(String description) {
             result = zwaveEvent(cmd)
             logger "After zwaveEvent(cmd) >> Parsed '${description}' to ${result.inspect()}", "trace"
             if (listening() && (device.latestValue('syncPending') > 0) && (cmd.commandClassId in commandClassesUnsolicited())) sync()
-        } else {
+        }
+        else {
             logger("parse(): Could not parse raw message: ${description}","error")
         }
     }
@@ -286,7 +279,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 result << motionEvent(1)
                 break
         }
-    } else {
+    }
+    else {
         logger("Need to handle this cmd.notificationType: ${cmd.notificationType}", 'warn')
         result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
     }
@@ -347,7 +341,8 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
         result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
         result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
-    } else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
+    }
+    else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
         result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
     }
     result
@@ -362,7 +357,8 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x
         map.value = 1
         map.descriptionText = "${device.displayName} battery is low"
         map.isStateChange = true
-    } else {
+    }
+    else {
         map.value = cmd.batteryLevel
         map.isStateChange = true // force propogation of event
     }
@@ -445,7 +441,8 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
     logger("encapsulated: ${encapsulatedCommand}", 'trace')
     if (encapsulatedCommand) {
         zwaveEvent(encapsulatedCommand)
-    } else {
+    }
+    else {
         logger("Unable to extract encapsulated cmd from $cmd", 'warn')
         createEvent(descriptionText: cmd.toString())
     }
@@ -475,9 +472,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  *  Capability-related Commands
 *****************************************************************************************************************/
 def ping() {
-    if (listening()) {
-        sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
-    }
+    if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
 }
 
 def refresh() {
@@ -509,16 +504,13 @@ def test() {
 private testNow() {
     logger('testRun() called', 'trace')
     def cmds = []
-
     logger('testRun(): Requesting Powerlevel Report.', 'trace')
     cmds << zwave.powerlevelV1.powerlevelGet()
-
     logger('testRun(): Requesting Command Class Report.', 'trace')
     state.commandClassVersions = [:]
     commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
-
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
     logger('testNow(): Sending test commands.', 'trace')
     sendCommandSequence(cmds)
@@ -530,7 +522,7 @@ private testNow() {
 private byteArrayToUInt(byteArray) {
     def i = 0
     byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
-    return i
+    i
 }
 
 private listening() {
@@ -583,7 +575,8 @@ private sync() {
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
-        } else if (state.syncAll && it.id in configurationParameters()) {
+        }
+        else if (state.syncAll && it.id in configurationParameters()) {
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
@@ -720,9 +713,11 @@ private selectEncapsulation(cmd) {
     // if (zwaveInfo?.zw.endsWith("s") && (cmd.commandClassId in commandClassesSecure())) {
     if (zwaveInfo?.zw.endsWith('s')) {
         secureEncapsulate(cmd)
-    } else if (zwaveInfo?.cc.contains('56')) {
+    }
+    else if (zwaveInfo?.cc.contains('56')) {
         crc16Encapsulate(cmd)
-    } else {
+    }
+    else {
         cmd.format()
     }
 }
@@ -759,7 +754,8 @@ private motionEvent(value) {
     if (value) {
         map.value = "active"
         map.descriptionText = "$device.displayName detected motion"
-    } else {
+    }
+    else {
         map.value = "inactive"
         map.descriptionText = "$device.displayName motion has stopped"
     }

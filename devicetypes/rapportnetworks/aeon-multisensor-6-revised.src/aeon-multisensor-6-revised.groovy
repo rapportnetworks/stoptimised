@@ -197,18 +197,18 @@ def updated() {
             if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || (settings?.find { s -> s.key == "configParam${id}a" })) {
                 switch(it.type) {
                     case 'number':
-                        state."param${it.id}target" = settings."configParam${id}"
+                        state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'enum':
-                        state."param${it.id}target" = settings."configParam${id}"
+                        state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'bool':
-                        state."param${it.id}target" = (settings."configParam${id}") ? it.trueValue : it.falseValue
+                        state."paramTarget${it.id}" = (settings."configParam${id}") ? it.trueValue : it.falseValue
                         break
                     case 'flags':
                         def target = 0
                         settings.findAll { set -> set.key ==~ /configParam${it}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
-                        state."param${it.id}target" = target
+                        state."paramTarget${it.id}" = target
                         break
                 }
             }
@@ -870,7 +870,7 @@ private configurationUser() { [
 
 private parametersMetadata() { [
     [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
-    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
+    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:true,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
     [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'',description:'',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
     [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
     [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],

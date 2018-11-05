@@ -159,23 +159,28 @@ def configure() {
     parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each {
         def csv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
         def rv = (csv) ?: it.defaultValue
+        (csv) ? logger("configure() Parameter: $it.id Specified value: $csv", 'debug') : logger("configure() Parameter: $it.id Reset value: $rv", 'debug')
         state."paramTarget${it.id}" = rv
         def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
             case "number":
                 device.updateSetting("configParam${id}", rv)
+                logger("configure() Parameter id: $id, reset preference (number) to: $rv", 'debug')
                 break
             case "enum":
                 device.updateSetting("configParam${id}", rv)
+                logger("configure() Parameter id: $id, reset preference (enum) to: $rv", 'debug')
                 break
             case "bool":
                 device.updateSetting("configParam${id}", ((rv == it.trueValue) ? true : false))
+                logger("configure() Parameter id: $id, reset preference (bool) to: ${(rv == it.trueValue) ? true : false}", 'debug')
                 break
             case "flags":
                 def flags = (configurationSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
                 flags.each { f ->
                     def fv = (f?.specifiedValue) ?: f.defaultValue
                     device.updateSetting("configParam${id}${f.id}", ((fv == f.flagValue) ? true : false))
+                    logger("configure() Parameter id: $id$f.id, reset preference (flag) to: ${(fv == f.flagValue) ? true : false}", 'debug')
                 }
                 break
         }

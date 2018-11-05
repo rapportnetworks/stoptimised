@@ -203,17 +203,24 @@ def updated() {
             if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || (settings?.find { s -> s.key == "configParam${id}a" })) {
                 switch(it.type) {
                     case 'number':
+                        def setting = settings."configParam${id}"
+                        logger("updated() Parameter id: $id, preference (number): $setting", 'debug')
                         state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'enum':
+                        def setting = settings."configParam${id}"
+                        logger("updated() Parameter id: $id, preference (enum): $setting", 'debug')
                         state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'bool':
+                        def setting = (settings."configParam${id}") ? it.trueValue : it.falseValue
+                        logger("updated() Parameter id: $id, preference (bool): $setting", 'debug')
                         state."paramTarget${it.id}" = (settings."configParam${id}") ? it.trueValue : it.falseValue
                         break
                     case 'flags':
                         def target = 0
                         settings.findAll { set -> set.key ==~ /configParam${it}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                        logger("updated() Parameter id: $id, preference (flags): $target", 'debug')
                         state."paramTarget${it.id}" = target
                         break
                 }
@@ -331,7 +338,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     def signInfo = (paramMd?.isSigned) ? "SIGNED" : "UNSIGNED"
     state."paramCache${cmd.parameterNumber}" = paramValue
     logger("Parameter #${cmd.parameterNumber} [${paramMd?.name}] has value: ${paramValue} [${signInfo}]", 'info')
-    updateSyncPending()
+    if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 
     def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
     def paramValueReport = paramValue.toString()

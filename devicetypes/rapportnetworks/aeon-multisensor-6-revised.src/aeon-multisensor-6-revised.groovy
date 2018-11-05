@@ -157,24 +157,25 @@ def configure() {
         device.updateSetting('configWakeUpInterval', interval)
     }
     parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each {
-        def v = (configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue) ?: it.defaultValue
-        state."paramTarget${it.id}" = v
+        def csv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+        def rv = (csv) ?: it.defaultValue
+        state."paramTarget${it.id}" = rv
         def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
             case "number":
-                device.updateSetting("configParam${id}", v)
+                device.updateSetting("configParam${id}", rv)
                 break
             case "enum":
-                device.updateSetting("configParam${id}", v)
+                device.updateSetting("configParam${id}", rv)
                 break
             case "bool":
-                device.updateSetting("configParam${id}", (v == it.trueValue) ? true : false)
+                device.updateSetting("configParam${id}", ((rv == it.trueValue) ? true : false))
                 break
             case "flags":
-                def flags = (configurationSpecified()?.find { cs -> cs.id == it.id }?.flags) ?: it.flags
+                def flags = (configurationSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
                 flags.each { f ->
-                    def vf = (f?.specifiedValue) ?: f.defaultValue
-                    device.updateSetting("configParam${id}${f.id}", (vf == f.flagValue) ? true : false)
+                    def fv = (f?.specifiedValue) ?: f.defaultValue
+                    device.updateSetting("configParam${id}${f.id}", ((fv == f.flagValue) ? true : false))
                 }
                 break
         }

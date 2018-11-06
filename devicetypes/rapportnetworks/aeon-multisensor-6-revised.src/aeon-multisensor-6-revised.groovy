@@ -105,23 +105,23 @@ metadata {
     }
 
     preferences {
-        if (configurationHandler()) input(name: 'paraGeneral', title: 'GENERAL', description: 'Device handler settings.', type: 'paragraph', element: 'paragraph')
+        if (configHandler()) input(name: 'paraGeneral', title: 'GENERAL', description: 'Device handler settings.', type: 'paragraph', element: 'paragraph')
 
-        if ('deviceUse' in configurationHandler()) {
-            def uses = configurationUseStates().keySet().sort() as List
-            def defaultUse = configurationUseStates().find { it.value.default }.key
+        if ('deviceUse' in configHandler()) {
+            def uses = configUseStates().keySet().sort() as List
+            def defaultUse = configUseStates().find { it.value.default }.key
             input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
         }
 
-        if ('autoResetTamperDelay' in configurationHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: 30, required: false)
+        if ('autoResetTamperDelay' in configHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: 30, required: false)
 
-        if ('loggingLevelIDE' in configurationHandler()) input(name: 'configLoggingLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: false)
+        if ('logLevelIDE' in configHandler()) input(name: 'configLogLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: false)
 
-        if ('loggingLevelDevice' in configurationHandler()) input(name: 'configLoggingLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
+        if ('logLevelDevice' in configHandler()) input(name: 'configLogLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
 
-        if ('wakeUpInterval' in configurationHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: 4000, required: false)
+        if ('wakeUpInterval' in configHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: 4000, required: false)
 
-        if (configurationUser()) generatePrefsParams()
+        if (configUser()) generatePrefsParams()
     }
 }
 
@@ -130,11 +130,11 @@ metadata {
 *****************************************************************************************************************/
 private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS:', description: 'Device parameters are used to customise the physical device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
-    parametersMetadata().findAll{ !it.readonly }.each{
-        if (configurationUser()[0] == 0 || it.id in configurationUser()) {
+    paramsMetadata().findAll{ !it.readonly }.each{
+        if (configUser()[0] == 0 || it.id in configUser()) {
             def id = it.id.toString().padLeft(3, "0") // *** need to alter name: below
             def lb = (it.description.length() > 0) ? "\n" : ""
-            def sv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+            def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
             def dv = (sv) ? sv : it.defaultValue
             switch(it.type) {
                 case "number":
@@ -175,7 +175,7 @@ private generatePrefsParams() {
                         description: it.description,
                         type: "paragraph", element: "paragraph"
                     )
-                    if (sv) def svf = configurationSpecified()?.find { cs -> cs.id == it.id }?.flags
+                    if (sv) def svf = configSpecified()?.find { cs -> cs.id == it.id }?.flags
                     it.flags.each { f ->
                         def dvf = (sv) ? svf.find { s -> s.id == f.id }?.specifiedValue : f.defaultValue
                         input (
@@ -309,24 +309,24 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70: 2, // Configuration
     logger("ConfigurationReport: $cmd", 'debug')
-    def paramMd = parametersMetadata().find( { it.id == cmd.parameterNumber })
+    def paramMd = paramsMetadata().find( { it.id == cmd.parameterNumber })
     def paramValue = (paramMd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
     def signInfo = (paramMd?.isSigned) ? "SIGNED" : "UNSIGNED"
     state."paramCache${cmd.parameterNumber}" = paramValue
     logger("Parameter #${cmd.parameterNumber} [${paramMd?.name}] has value: ${paramValue} [${signInfo}]", 'info')
-    if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
+    if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
     def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
     def paramValueReport = paramValue.toString()
     logger("Processing Configuration Report: (Parameter: $paramReport, Value: $paramValueReport)", 'trace')
-    state.configurationReport << [(paramReport): paramValueReport]
-    if (state.configurationReport.size() == configurationParameters().size()) {
+    state.configReportBuffer << [(paramReport): paramValueReport]
+    if (state.configReportBuffer.size() == configParameters().size()) {
         logger('All Configuration Values Reported', 'info')
-        def copy = state.configurationReport
-        def report = state.configurationReport.sort().collect { it }.join(",")
+        def copy = state.configReportBuffer
+        def report = state.configReportBuffer.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
-        state.configurationReport = copy
-        logger("Configuration Report State: $state.configurationReport", 'debug')
+        state.configReportBuffer = copy
+        logger("Configuration Report State: $state.configReportBuffer", 'debug')
     }
     def result = []
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
@@ -522,7 +522,7 @@ def resetTamper() {
 def syncAll() {
     logger('syncAll() called', 'debug')
     state.syncAll = true
-    state.configurationReport = [:]
+    state.configReportBuffer = [:]
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 
@@ -550,9 +550,9 @@ private testNow() {
  *  SmartThings System Methods
  *****************************************************************************************************************/
 def installed() {
-    state.loggingLevelIDE = 5; state.loggingLevelDevice = 2
+    state.logLevelIDE = 5; state.logLevelDevice = 2
     logger('installed(): Performing initial setup', 'debug')
-    sendEvent(name: 'checkInterval', value: configurationIntervals().checkIntervalDefault, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+    sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
     deviceUseStates()
     sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
@@ -570,15 +570,15 @@ def installed() {
 def configure() {
     logger('configure(): Configuring device', 'debug')
     device.updateSetting('autoResetTamperDelay', 30)
-    device.updateSetting('configLoggingLevelIDE', 5) // set to 3 when finished debugging
-    device.updateSetting('configLoggingLevelDevice', 2)
+    device.updateSetting('configLogLevelIDE', 5) // set to 3 when finished debugging
+    device.updateSetting('configLogLevelDevice', 2)
     if (!listening()) {
-        def interval = (configurationIntervals()?.wakeUpIntervalSpecified) ?: configurationIntervals().wakeUpIntervalDefault
+        def interval = (configIntervals()?.specifiedWakeUpInterval) ?: configIntervals().defaultWakeUpInterval
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', interval)
     }
-    parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each {
-        def csv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+        def csv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
         def rv = (csv) ?: it.defaultValue
         (csv) ? logger("configure() Parameter: $it.id Specified value: $csv", 'debug') : logger("configure() Parameter: $it.id Reset value: $rv", 'debug')
         state."paramTarget${it.id}" = rv
@@ -597,7 +597,7 @@ def configure() {
                 logger("configure() Parameter id: $id, reset preference (bool) to: ${(rv == it.trueValue) ? true : false}", 'debug')
                 break
             case "flags":
-                def flags = (configurationSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
+                def flags = (configSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
                 flags.each { f ->
                     def fv = (f?.specifiedValue) ?: f.defaultValue
                     device.updateSetting("configParam${id}${f.id}", ((fv == f.flagValue) ? true : false))
@@ -607,7 +607,7 @@ def configure() {
         }
     }
     state.syncAll = true
-    state.configurationReport = [:]
+    state.configReportBuffer = [:]
     updateDataValue('serialNumber', null)
     updated()
 }
@@ -617,9 +617,9 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay : 30
-        state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE : 3
-        state.loggingLevelDevice = (settings.configLoggingLevelDevice) ? settings.configLoggingLevelDevice : 2
-        parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each {
+        state.logLevelIDE = (settings.configLogLevelIDE) ? settings.configLogLevelIDE : 3
+        state.logLevelDevice = (settings.configLogLevelDevice) ? settings.configLogLevelDevice : 2
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
             if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || (settings?.find { s -> s.key == "configParam${id}a" })) {
                 switch(it.type) {
@@ -669,7 +669,7 @@ private sync() {
     if (state.syncAll) {
         logger('sync(): Deleting all cached values.', 'trace')
         state.wakeUpIntervalCache = null
-        parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
     }
     if (!listening() && state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
@@ -678,14 +678,14 @@ private sync() {
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
     }
-    parametersMetadata().each {
-        if (it.id in configurationParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
+    paramsMetadata().each {
+        if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
             syncPending++
             logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'info')
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
-        else if (state.syncAll && it.id in configurationParameters()) {
+        else if (state.syncAll && it.id in configParameters()) {
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
     }
@@ -706,20 +706,20 @@ private updateSyncPending() {
     if (state.syncAll) {
         logger('updateSyncPending(): Deleting all cached values.', 'trace')
         state.wakeUpIntervalCache = null
-        parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
     if (!listening()) {
         def t = state.wakeUpIntervalTarget
         if ((t != null) && (target != state.wakeUpIntervalCache)) syncPending++
-        if (t != configurationIntervals().wakeUpIntervalSpecified) userConfig++
+        if (t != configIntervals().specifiedWakeUpInterval) userConfig++
     }
-    parametersMetadata().findAll( { it.id in configurationParameters() && !it.readonly} ).each {
+    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
             else if (state."paramCache${it.id}" != it.defaultValue) {
-                def sv = configurationSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+                def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
                 if (state."paramCache${it.id}"!= sv) userConfig++
             }
         }
@@ -730,7 +730,7 @@ private updateSyncPending() {
     if (syncPending == 0) {
         logger("Sync Complete.", "info")
         logger("updateSyncPending(): userconfig: $userConfig", 'debug')
-        def ct = (userConfig > 0) ? 'user' : (configurationSpecified()) ? 'specified' : 'default'
+        def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         updateDataValue('configurationType', ct)
     }
     sendEvent(name: "syncPending", value: syncPending, displayed: false)
@@ -749,21 +749,21 @@ private listening() {
 private logger(msg, level = "debug") {
     switch(level) {
         case "error":
-            if (state.loggingLevelIDE >= 1) log.error msg; sendEvent descriptionText: "Error: $msg", displayed: false, isStateChange: true
-            if (state.loggingLevelDevice >= 1) sendEvent name: "logMessage", value: "Error: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 1) log.error msg; sendEvent descriptionText: "Error: $msg", displayed: false, isStateChange: true
+            if (state.logLevelDevice >= 1) sendEvent name: "logMessage", value: "Error: $msg", displayed: false, isStateChange: true
             break
         case "warn":
-            if (state.loggingLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "Warning: $msg", displayed: false, isStateChange: true
-            if (state.loggingLevelDevice >= 2) sendEvent name: "logMessage", value: "Warning: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "Warning: $msg", displayed: false, isStateChange: true
+            if (state.logLevelDevice >= 2) sendEvent name: "logMessage", value: "Warning: $msg", displayed: false, isStateChange: true
             break
         case "info":
-            if (state.loggingLevelIDE >= 3) log.info msg; sendEvent descriptionText: "Info: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 3) log.info msg; sendEvent descriptionText: "Info: $msg", displayed: false, isStateChange: true
             break
         case "debug":
-            if (state.loggingLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "Debug: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "Debug: $msg", displayed: false, isStateChange: true
             break
         case "debug":
-            if (state.loggingLevelIDE >= 5) log.trace msg; sendEvent descriptionText: "Trace: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 5) log.trace msg; sendEvent descriptionText: "Trace: $msg", displayed: false, isStateChange: true
             break
         default:
             log.debug msg; sendEvent descriptionText: "Log: $msg", displayed: false, isStateChange: true
@@ -775,7 +775,7 @@ private logger(msg, level = "debug") {
 *****************************************************************************************************************/
 private deviceUseStates() {
     def use = settings?.configDeviceUse
-    def useStates = configurationUseStates()?.find { it.key == use }
+    def useStates = configUseStates()?.find { it.key == use }
     def event = (use) ? useStates.event : 'water'
     def inactiveState = (use) ? useStates.inactive : 'dry'
     def activeState = (use) ? useStates.active : 'wet'
@@ -848,30 +848,30 @@ private commandClassesVersions() { [
     0x85=2, // Association
 */
 
-private configurationHandler() { [
-    'deviceUse', 'autoResetTamperDelay', 'loggingLevelDevice', 'loggingLevelIDE', 'wakeUpInterval'
+private configHandler() { [
+    'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
 ] }
 
-private configurationUseStates() { [
+private configUseStates() { [
     Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
     Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
     Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
     Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 
-private configurationIntervals() { [
-    wakeUpIntervalDefault: 4_000,
-    checkIntervalDefault: 8_500,
-    wakeUpIntervalSpecified: 86_400,
-    checkIntervalSpecified: 180_000,
+private configIntervals() { [
+    defaultWakeUpInterval: 4_000,
+    defaultCheckInterval: 8_500,
+    specifiedWakeUpInterval: 86_400,
+    specifiedCheckInterval: 180_000,
     batteryRefresh: 604_800
 ] }
 
-private configurationParameters() { [
+private configParameters() { [
     2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
 ] }
 
-private configurationSpecified() { [
+private configSpecified() { [
     [id: 2, size: 1, defaultValue: 0, specifiedValue: 1],
     [id: 3, size: 2, defaultValue: 240, specifiedValue: 60],
     [id: 4, size: 1, defaultValue: 5, specifiedValue: 5],
@@ -883,11 +883,11 @@ private configurationSpecified() { [
     [id: 111, size: 4, defaultValue: 3600, specifiedValue: 3600]
 ] }
 
-private configurationUser() { [
+private configUser() { [
     2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
 ] }
 
-private parametersMetadata() { [
+private paramsMetadata() { [
     [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
     [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:true,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
     [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'',description:'',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],

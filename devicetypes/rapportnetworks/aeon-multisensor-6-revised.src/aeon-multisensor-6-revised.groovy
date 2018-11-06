@@ -165,12 +165,13 @@ private generatePrefsParams() {
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
                         description: it.description,
                         type: it.type,
-                        defaultValue: (prefDefaultValue == it.trueValue) ? true : false,
+                        defaultValue: ((prefDefaultValue == it.trueValue) ? true : false),
                         required: it.required
                     )
                     break
                 case "flags":
                     input (
+                        name: "paraFlags${id}",
                         title: "${it.id}: ${it.name}",
                         description: it.description,
                         type: "paragraph", element: "paragraph"
@@ -182,7 +183,7 @@ private generatePrefsParams() {
                             name: "configParam${id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: (prefFlagValue == f.flagValue) ? true : false,
+                            defaultValue: ((prefFlagValue == f.flagValue) ? true : false),
                             required: it.required
                         )
                     }
@@ -621,7 +622,7 @@ def updated() {
         state.logLevelDevice = (settings.configLogLevelDevice) ? settings.configLogLevelDevice : 2
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
-            if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || (settings?.find { s -> s.key == "configParam${id}a" })) {
+            if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || settings?."configParam${id}a" != null || settings?."configParam${id}a" == false) {
                 switch(it.type) {
                     case 'number':
                         def setting = settings."configParam${id}"
@@ -640,7 +641,7 @@ def updated() {
                         break
                     case 'flags':
                         def target = 0
-                        settings.findAll { set -> set.key ==~ /configParam${it}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                        settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                         logger("updated() Parameter id: $id, preference (flags): $target", 'debug')
                         state."paramTarget${it.id}" = target
                         break

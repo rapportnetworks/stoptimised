@@ -132,40 +132,40 @@ private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS:', description: 'Device parameters are used to customise the physical device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
     paramsMetadata().findAll{ !it.readonly }.each{
         if (configUser()[0] == 0 || it.id in configUser()) {
-            def id = it.id.toString().padLeft(3, "0") // *** need to alter name: below
+            def id = it.id.toString().padLeft(3, "0")
             def lb = (it.description.length() > 0) ? "\n" : ""
-            def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-            def dv = (sv) ? sv : it.defaultValue
+            def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+            def prefDefaultValue = (specifiedValue) ?: it.defaultValue
             switch(it.type) {
                 case "number":
                     input (
                         name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${prefDefaultValue}",
                         description: it.description,
                         type: it.type,
                         range: it.range,
-                        defaultValue: dv,
+                        defaultValue: prefDefaultValue,
                         required: it.required
                     )
                     break
                 case "enum":
                     input (
                         name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
                         description: it.description,
                         type: it.type,
                         options: it.options,
-                        defaultValue: dv,
+                        defaultValue: prefDefaultValue,
                         required: it.required
                     )
                     break
                 case "bool":
                     input (
                         name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${it.defaultValue}",
+                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
                         description: it.description,
                         type: it.type,
-                        defaultValue: (dv == it.trueValue) ? true : false,
+                        defaultValue: (prefDefaultValue == it.trueValue) ? true : false,
                         required: it.required
                     )
                     break
@@ -175,14 +175,14 @@ private generatePrefsParams() {
                         description: it.description,
                         type: "paragraph", element: "paragraph"
                     )
-                    if (sv) def svf = configSpecified()?.find { cs -> cs.id == it.id }?.flags
+                    if (specifiedValue) def specifiedFlags = configSpecified()?.find { csf -> csf.id == it.id }?.flags
                     it.flags.each { f ->
-                        def dvf = (sv) ? svf.find { s -> s.id == f.id }?.specifiedValue : f.defaultValue
+                        def prefFlagValue = (specifiedValue) ? specifiedFlags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
                         input (
                             name: "configParam${id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: (dvf == f.flagValue) ? true : false,
+                            defaultValue: (prefFlagValue == f.flagValue) ? true : false,
                             required: it.required
                         )
                     }
@@ -322,10 +322,10 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     state.configReportBuffer << [(paramReport): paramValueReport]
     if (state.configReportBuffer.size() == configParameters().size()) {
         logger('All Configuration Values Reported', 'info')
-        def copy = state.configReportBuffer
+//        def copy = state.configReportBuffer
         def report = state.configReportBuffer.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
-        state.configReportBuffer = copy
+//        state.configReportBuffer = copy
         logger("Configuration Report State: $state.configReportBuffer", 'debug')
     }
     def result = []
@@ -380,10 +380,10 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
     logger("Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)", 'trace')
-    state.commandClassVersions << [(ccValue): ccVersion]
-    if (state.commandClassVersions.size() == commandClassesQuery().size()) {
+    state.commandClassVersionsBuffer << [(ccValue): ccVersion]
+    if (state.commandClassVersionsBuffer.size() == commandClassesQuery().size()) {
         logger('All Command Class Versions Reported', 'debug')
-        updateDataValue("commandClassVersions", state.commandClassVersions.findAll { it.value > 0 }.sort().collect { it }.join(","))
+        updateDataValue("commandClassVersions", state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(","))
     }
 }
 
@@ -537,7 +537,7 @@ private testNow() {
     logger('testRun(): Requesting Powerlevel Report.', 'trace')
     cmds << zwave.powerlevelV1.powerlevelGet()
     logger('testRun(): Requesting Command Class Report.', 'trace')
-    state.commandClassVersions = [:]
+    state.commandClassVersionsBuffer = [:]
     commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
@@ -578,30 +578,30 @@ def configure() {
         device.updateSetting('configWakeUpInterval', interval)
     }
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
-        def csv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-        def rv = (csv) ?: it.defaultValue
-        (csv) ? logger("configure() Parameter: $it.id Specified value: $csv", 'debug') : logger("configure() Parameter: $it.id Reset value: $rv", 'debug')
-        state."paramTarget${it.id}" = rv
+        def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+        def resetValue = (specifiedValue) ?: it.defaultValue
+        (specifiedValue) ? logger("configure() Parameter: $it.id Specified value: $specifiedValue", 'debug') : logger("configure() Parameter: $it.id Reset value: $resetValue", 'debug')
+        state."paramTarget${it.id}" = resetValue
         def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
             case "number":
-                device.updateSetting("configParam${id}", rv)
-                logger("configure() Parameter id: $id, reset preference (number) to: $rv", 'debug')
+                device.updateSetting("configParam${id}", resetValue)
+                logger("configure() Parameter id: $id, reset preference (number) to: $resetValue", 'debug')
                 break
             case "enum":
-                device.updateSetting("configParam${id}", rv)
-                logger("configure() Parameter id: $id, reset preference (enum) to: $rv", 'debug')
+                device.updateSetting("configParam${id}", resetValue)
+                logger("configure() Parameter id: $id, reset preference (enum) to: $resetValue", 'debug')
                 break
             case "bool":
-                device.updateSetting("configParam${id}", ((rv == it.trueValue) ? true : false))
-                logger("configure() Parameter id: $id, reset preference (bool) to: ${(rv == it.trueValue) ? true : false}", 'debug')
+                device.updateSetting("configParam${id}", ((resetValue == it.trueValue) ? true : false))
+                logger("configure() Parameter id: $id, reset preference (bool) to: ${(resetValue == it.trueValue) ? true : false}", 'debug')
                 break
             case "flags":
                 def flags = (configSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
                 flags.each { f ->
-                    def fv = (f?.specifiedValue) ?: f.defaultValue
-                    device.updateSetting("configParam${id}${f.id}", ((fv == f.flagValue) ? true : false))
-                    logger("configure() Parameter id: $id$f.id, reset preference (flag) to: ${(fv == f.flagValue) ? true : false}", 'debug')
+                    def resetFlagValue = (f?.specifiedValue) ?: f.defaultValue
+                    device.updateSetting("configParam${id}${f.id}", ((resetFlagValue == f.flagValue) ? true : false))
+                    logger("configure() Parameter id: $id$f.id, reset preference (flag) to: ${(resetFlagValue == f.flagValue) ? true : false}", 'debug')
                 }
                 break
         }

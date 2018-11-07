@@ -329,10 +329,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     }
 
     def result = []
-
-    if (device.hasCapability('Power Source')) powerSourceHandler(cmd, result)
-
-/*
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
         result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
         result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
@@ -340,7 +336,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
         result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
     }
-*/
     result
 }
 
@@ -794,17 +789,6 @@ private deviceUseStates() {
     updateDataValue('activeState', activeState)
 }
 
-private powerSourceHandler(cmd, result) {
-    if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
-        result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
-        result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
-    }
-    else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
-        result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
-    }
-    result
-}
-
 private motionEvent(value) {
     def map = [name: "motion"]
     if (value) {
@@ -907,11 +891,11 @@ private configUser() { [
 
 private paramsMetadata() { [
     [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
-    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:true,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
-    [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'',description:'',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
+    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
+    [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
     [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
     [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
-    [id:9,size:2,type:'flags',required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode'],
+    [id:9,size:2,type:'flags',defaultValue:,required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode',flags:[]],
     [id:40,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',falseValue:0,trueValue:1],
     [id:81,size:1,type:'enum',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
     [id:101,size:4,type:'flags',defaultValue:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:1],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:16],[id:'c',description:'enable temperature',flagValue:32,defaultValue:32],[id:'d',description:'enable humidity',flagValue:64,defaultValue:64],[id:'e',description:'enable luminance',flagValue:128,defaultValue:128]]],

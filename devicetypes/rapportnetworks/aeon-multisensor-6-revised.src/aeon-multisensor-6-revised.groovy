@@ -34,8 +34,8 @@ metadata {
 
         // Custom Commands:
         command "resetTamper"
-        command "sync"
         command "syncAll"
+        command "syncRemaining"
         command "test"
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
@@ -90,7 +90,7 @@ metadata {
             state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
         }
         valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
-            state "syncPending", label: '${currentValue} to sync', action: "sync", backgroundColor: "#ffffff", defaultState: true
+            state "syncPending", label: '${currentValue} to sync', action: "syncRemaining", backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("syncAll", "device.syncAll", height: 2, width: 2, decoration: "flat") {
             state "syncAll", label: 'Sync All', icon: 'st.secondary.tools', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
@@ -528,6 +528,11 @@ def syncAll() {
     logger('syncAll() called', 'info')
     state.syncAll = true
     state.configReportBuffer = [:]
+    (listening()) ? sync() : state.queued.plus('sync()')
+}
+
+def syncRemaining() {
+    logger('syncRemaining() called', 'info')
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 

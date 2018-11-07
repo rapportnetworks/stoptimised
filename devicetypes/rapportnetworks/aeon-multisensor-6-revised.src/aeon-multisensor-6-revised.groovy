@@ -34,6 +34,7 @@ metadata {
 
         // Custom Commands:
         command "resetTamper"
+        command "sync"
         command "syncAll"
         command "test"
 
@@ -89,9 +90,12 @@ metadata {
             state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
         }
         valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
-            state "syncPending", label: '${currentValue} to sync', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+            state "syncPending", label: '${currentValue} to sync', action: "sync", backgroundColor: "#ffffff", defaultState: true
         }
-        valueTile("logMessage", "device.logMessage", height: 2, width: 2, decoration: "flat") {
+        standardTile("syncAll", "device.syncAll", height: 2, width: 2, decoration: "flat") {
+            state "syncAll", label: 'Sync All', icon: 'st.secondary.tools', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+        }
+        valueTile("logMessage", "device.logMessage", height: 2, width: 4, decoration: "flat") {
             state "clear", label: '${currentValue}', backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
@@ -101,7 +105,7 @@ metadata {
             state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "logMessage", "configure", "test"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "test"])
     }
 
     preferences {
@@ -280,31 +284,32 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, // Sensor Multilevel
-    def map = [: ]
+    def map = [:]
     switch (cmd.sensorType) {
         case 1:
-            map.name = "temperature"
-            def cmdScale = cmd.scale == 1 ? "F" : "C"
+            map.name = 'temperature'
+            def cmdScale = (cmd.scale == 1) ? 'F' : 'C'
             map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
             map.unit = getTemperatureScale()
             break
         case 3:
-            map.name = "illuminance"
+            map.name = 'illuminance'
             map.value = cmd.scaledSensorValue.toInteger()
-            map.unit = "lux"
+            map.unit = 'lux'
             break
         case 5:
-            map.name = "humidity"
+            map.name = 'humidity'
             map.value = cmd.scaledSensorValue.toInteger()
-            map.unit = "%"
+            map.unit = '%'
             break
         case 0x1B:
-            map.name = "ultravioletIndex"
+            map.name = 'ultravioletIndex'
             map.value = cmd.scaledSensorValue.toInteger()
             break
         default:
             map.descriptionText = cmd.toString()
     }
+    map << [isStateChange: true]
     createEvent(map)
 }
 
@@ -895,7 +900,7 @@ private paramsMetadata() { [
     [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
     [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
     [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
-    [id:9,size:2,type:'flags',defaultValue:,required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode',flags:[]],
+    [id:9,size:2,type:'flags',required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode'],
     [id:40,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',falseValue:0,trueValue:1],
     [id:81,size:1,type:'enum',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
     [id:101,size:4,type:'flags',defaultValue:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:1],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:16],[id:'c',description:'enable temperature',flagValue:32,defaultValue:32],[id:'d',description:'enable humidity',flagValue:64,defaultValue:64],[id:'e',description:'enable luminance',flagValue:128,defaultValue:128]]],

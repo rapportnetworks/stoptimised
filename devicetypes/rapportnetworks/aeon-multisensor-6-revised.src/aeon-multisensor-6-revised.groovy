@@ -312,24 +312,27 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("ConfigurationReport: $cmd", 'info')
     def paramMd = paramsMetadata().find( { it.id == cmd.parameterNumber })
     def paramValue = (paramMd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
-    def signInfo = (paramMd?.isSigned) ? "SIGNED" : "UNSIGNED"
-    state."paramCache${cmd.parameterNumber}" = paramValue
+    def signInfo = (paramMd?.isSigned) ? 'signed' : 'unsigned'
     logger("Parameter #${cmd.parameterNumber} [${paramMd?.name}] has value: ${paramValue} [${signInfo}]", 'debug')
+    state."paramCache${cmd.parameterNumber}" = paramValue
     if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
     def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
-    def paramValueReport = paramValue.toString()
+    def paramValueReport = paramValue.toString() // need tp check if signed values handled correctly
     logger("Processing Configuration Report: (Parameter: $paramReport, Value: $paramValueReport)", 'trace')
     state.configReportBuffer << [(paramReport): paramValueReport]
     if (state.configReportBuffer.size() == configParameters().size()) {
         logger('All Configuration Values Reported', 'info')
-//        def copy = state.configReportBuffer
         def report = state.configReportBuffer.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
-//        state.configReportBuffer = copy
         logger("Configuration Report State: $state.configReportBuffer", 'debug')
     }
+
     def result = []
+
+    if (device.hasCapability('Power Source')) powerSourceHandler(cmd, result)
+
+/*
     if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
         result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
         result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
@@ -337,6 +340,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
         result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
     }
+*/
     result
 }
 
@@ -535,13 +539,18 @@ def test() {
 private testNow() {
     logger('testRun() called', 'info')
     def cmds = []
-    logger('testRun(): Requesting Powerlevel Report.', 'debug')
-    cmds << zwave.powerlevelV1.powerlevelGet()
+
+    if (commandClassVersions().containsKey(0x73)) {
+        logger('testRun(): Requesting Powerlevel Report.', 'debug')
+        cmds << zwave.powerlevelV1.powerlevelGet()
+    }
+
     logger('testRun(): Requesting Command Class Report.', 'debug')
     state.commandClassVersionsBuffer = [:]
     commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
+
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
     logger('testNow(): Sending test commands.', 'info')
     sendCommandSequence(cmds)
@@ -585,19 +594,19 @@ def configure() {
         state."paramTarget${it.id}" = resetValue
         def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
-            case "number":
+            case 'number':
                 device.updateSetting("configParam${id}", resetValue)
                 logger("configure() Parameter id: $id, reset preference (number) to: $resetValue", 'trace')
                 break
-            case "enum":
+            case 'enum':
                 device.updateSetting("configParam${id}", resetValue)
                 logger("configure() Parameter id: $id, reset preference (enum) to: $resetValue", 'trace')
                 break
-            case "bool":
+            case 'bool':
                 device.updateSetting("configParam${id}", ((resetValue == it.trueValue) ? true : false))
                 logger("configure() Parameter id: $id, reset preference (bool) to: ${(resetValue == it.trueValue) ? true : false}", 'debug')
                 break
-            case "flags":
+            case 'flags':
                 def flags = (configSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
                 flags.each { f ->
                     def resetFlagValue = (f?.specifiedValue) ?: f.defaultValue
@@ -696,7 +705,7 @@ private sync() {
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
     }
-    sendEvent(name: "syncPending", value: syncPending, displayed: false, descriptionText: "Change to syncPending.", isStateChange: true)
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
     logger('sync(): Sending sync commands.', 'debug')
     sendCommandSequence(cmds)
 }
@@ -713,9 +722,9 @@ private updateSyncPending() {
         state.syncAll = false
     }
     if (!listening()) {
-        def t = state.wakeUpIntervalTarget
-        if ((t != null) && (target != state.wakeUpIntervalCache)) syncPending++
-        if (t != configIntervals().specifiedWakeUpInterval) userConfig++
+        def target = state.wakeUpIntervalTarget
+        if (target != null && target != state.wakeUpIntervalCache) syncPending++
+        if (target != configIntervals().specifiedWakeUpInterval) userConfig++
     }
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
         if (state."paramTarget${it.id}" != null) {
@@ -730,18 +739,16 @@ private updateSyncPending() {
     logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
     // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
     if (syncPending == 0) {
-        logger("Sync Complete.", "info")
+        logger('Sync Complete.', 'info')
         logger("updateSyncPending(): userconfig: $userConfig", 'debug')
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         updateDataValue('configurationType', ct)
     }
-    sendEvent(name: "syncPending", value: syncPending, displayed: false)
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 }
 
 private byteArrayToUInt(byteArray) {
-    def i = 0
-    byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }
-    i
+    def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
 }
 
 private listening() {
@@ -752,11 +759,11 @@ private logger(msg, level = 'debug') {
     switch(level) {
         case 'error':
             if (state.logLevelIDE >= 1) log.error msg; sendEvent descriptionText: "Error: $msg", displayed: false, isStateChange: true
-            if (state.logLevelDevice >= 1) sendEvent name: "logMessage", value: "Error: $msg", displayed: false, isStateChange: true
+            if (state.logLevelDevice >= 1) sendEvent name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true
             break
         case 'warn':
             if (state.logLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "Warning: $msg", displayed: false, isStateChange: true
-            if (state.logLevelDevice >= 2) sendEvent name: "logMessage", value: "Warning: $msg", displayed: false, isStateChange: true
+            if (state.logLevelDevice >= 2) sendEvent name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true
             break
         case 'info':
             if (state.logLevelIDE >= 3) log.info msg; sendEvent descriptionText: "Info: $msg", displayed: false, isStateChange: true
@@ -765,7 +772,7 @@ private logger(msg, level = 'debug') {
             if (state.logLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "Debug: $msg", displayed: false, isStateChange: true
             break
         case 'debug':
-            if (state.logLevelIDE >= 5) log.trace msg; sendEvent descriptionText: "Trace: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 5) log.trace msg
             break
         default:
             log.debug msg; sendEvent descriptionText: "Log: $msg", displayed: false, isStateChange: true
@@ -785,6 +792,17 @@ private deviceUseStates() {
     updateDataValue('event', event)
     updateDataValue('inactiveState', inactiveState)
     updateDataValue('activeState', activeState)
+}
+
+private powerSourceHandler(cmd, result) {
+    if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
+        result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
+        result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
+    }
+    else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
+        result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
+    }
+    result
 }
 
 private motionEvent(value) {
@@ -862,10 +880,8 @@ private configUseStates() { [
 ] }
 
 private configIntervals() { [
-    defaultWakeUpInterval: 4_000,
-    defaultCheckInterval: 8_500,
-    specifiedWakeUpInterval: 86_400,
-    specifiedCheckInterval: 180_000,
+    defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
+    specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
     batteryRefresh: 604_800
 ] }
 
@@ -874,15 +890,15 @@ private configParameters() { [
 ] }
 
 private configSpecified() { [
-    [id: 2, size: 1, defaultValue: 0, specifiedValue: 1],
-    [id: 3, size: 2, defaultValue: 240, specifiedValue: 60],
-    [id: 4, size: 1, defaultValue: 5, specifiedValue: 5],
-    [id: 40, size: 1, defaultValue: 0, specifiedValue: 0],
-    [id: 81, size: 1, defaultValue: 0, specifiedValue: 2],
-    [id: 101, size: 4, defaultValue: 241, specifiedValue: 240, flags: [[id: 'a', flagValue: 1, defaultValue: 1, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 16, specifiedValue: 16], [id: 'c', flagValue: 32, defaultValue: 32, specifiedValue: 32], [id: 'd', flagValue: 64, defaultValue: 64, specifiedValue: 64], [id: 'e', flagValue: 128, defaultValue: 128, specifiedValue: 128]]],
-    [id: 102, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', flagValue: 1, defaultValue: 0, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 0, specifiedValue: 0], [id: 'c', flagValue: 32, defaultValue: 0, specifiedValue: 0], [id: 'd', flagValue: 64, defaultValue: 0, specifiedValue: 0], [id: 'e', flagValue: 128, defaultValue: 0, specifiedValue: 0]]],
-    [id: 103, size: 4, defaultValue: 0, specifiedValue: 0, flags: [[id: 'a', flagValue: 1, defaultValue: 0, specifiedValue: 0], [id: 'b', flagValue: 16, defaultValue: 0, specifiedValue: 0], [id: 'c', flagValue: 32, defaultValue: 0, specifiedValue: 0], [id: 'd', flagValue: 64, defaultValue: 0, specifiedValue: 0], [id: 'e', flagValue: 128, defaultValue: 0, specifiedValue: 0]]],
-    [id: 111, size: 4, defaultValue: 3600, specifiedValue: 3600]
+    [id:2,size:1,defaultValue:0,specifiedValue:1],
+    [id:3,size:2,defaultValue:240,specifiedValue:60],
+    [id:4,size:1,defaultValue:5,specifiedValue:5],
+    [id:40,size:1,defaultValue:0,specifiedValue:0],
+    [id:81,size:1,defaultValue:0,specifiedValue:2],
+    [id:101,size:4,defaultValue:241,specifiedValue:240,flags:[[id:'a',flagValue:1,defaultValue:1,specifiedValue:0],[id:'b',flagValue:16,defaultValue:16,specifiedValue:16],[id:'c',flagValue:32,defaultValue:32,specifiedValue:32],[id:'d',flagValue:64,defaultValue:64,specifiedValue:64],[id:'e',flagValue:128,defaultValue:128,specifiedValue:128]]],
+    [id:102,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
+    [id:103,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
+    [id:111,size:4,defaultValue:3600,specifiedValue:3600]
 ] }
 
 private configUser() { [

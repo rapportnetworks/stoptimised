@@ -631,9 +631,11 @@ def updated() {
     logger('updated(): Updating device', 'info')
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
+
         state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay : 30
         state.logLevelIDE = (settings.configLogLevelIDE) ? settings.configLogLevelIDE : 3
         state.logLevelDevice = (settings.configLogLevelDevice) ? settings.configLogLevelDevice : 2
+
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
             if (settings?."configParam${id}" != null || settings?."configParam${id}a" != null) {
@@ -646,7 +648,7 @@ def updated() {
                     case 'enum':
                         def setting = settings."configParam${id}"
                         logger("updated() Parameter: $it.id, preference (enum): $setting", 'trace')
-                        state."paramTarget${it.id}" = settings."configParam${id}"
+                        state."paramTarget${it.id}" = settings."configParam${id}".toInteger()
                         break
                     case 'bool':
                         def setting = (settings."configParam${id}") ? it.trueValue : it.falseValue
@@ -655,15 +657,16 @@ def updated() {
                         break
                     case 'flags':
                         def target = 0
-                        settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                        settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                         logger("updated() Parameter: $it.id, preference (flags): $target", 'trace')
                         state."paramTarget${it.id}" = target
                         break
                 }
             }
         }
+
         if (listening()) {
-            sync()
+            response(sync())
         }
         else {
             state.queued = [] as Set

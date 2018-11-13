@@ -469,15 +469,13 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 *****************************************************************************************************************/
 private sendCommandSequence(commands, delay = 1200) {
     logger('sendCommandSequence(): Assembling commands.', 'debug')
-    logger("sendCommandSequence(): Command sequence: $commands", 'debug')
-    // delayBetween(commands.collect { encapsulate(it) }, delay)
+    logger("sendCommandSequence(): Command sequence: $commands", 'trace')
     if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
-    sendHubCommand(commands.collect { response(it) }, delay)
-    // sendHubCommand(commands.collect { selectEncapsulation(response(it)) }, delay) // not sure of this code // not sure of this code
+    // sendHubCommand(commands.collect { response(it) }, delay)
+    delayBetween(commands.collect { selectEncapsulation(it) }, delay)
 }
 
-// private selectEncapsulation(physicalgraph.zwave.Command cmd) {
-private selectEncapsulation(cmd) {
+private selectEncapsulation(physicalgraph.zwave.Command cmd) {
     logger('selectEncapsulation(): Selecting encapsulation method.', 'debug')
     // if (zwaveInfo?.zw.endsWith("s") && (cmd.commandClassId in commandClassesSecure())) {
     if (zwaveInfo?.zw.endsWith('s')) {
@@ -491,15 +489,13 @@ private selectEncapsulation(cmd) {
     }
 }
 
-// private secureEncapsulate(physicalgraph.zwave.Command cmd) {
-private secureEncapsulate(cmd) {
-    logger('secureEncapsulate(): Encapsulating using secure method.', 'trace')
+private secureEncapsulate(physicalgraph.zwave.Command cmd) {
+    logger('secureEncapsulate(): Encapsulating using secure method.', 'debug')
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
-// private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
-private crc16Encapsulate(cmd) {
-    logger('crc16Encapsulate(): Encapsulating using crc16 method.', 'trace')
+private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
+    logger('crc16Encapsulate(): Encapsulating using crc16 method.', 'debug')
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
@@ -593,30 +589,34 @@ def configure() {
         device.updateSetting('configWakeUpInterval', interval)
     }
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
-        def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+        // def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+        def specified = configSpecified()?.find { cs -> cs.id == it.id }
+        def specifiedValue = specified?.specifiedValue
         def resetValue = (specifiedValue) ?: it.defaultValue
-        (specifiedValue) ? logger("configure() Parameter: $it.id Specified value: $specifiedValue", 'debug') : logger("configure() Parameter: $it.id Reset value: $resetValue", 'debug')
+        (specifiedValue) ? logger("configure() Parameter: $it.id, specified value: $specifiedValue", 'debug') : logger("configure() Parameter: $it.id, reset value: $resetValue", 'debug')
         state."paramTarget${it.id}" = resetValue
         def id = it.id.toString().padLeft(3, "0")
         switch(it.type) {
             case 'number':
                 device.updateSetting("configParam${id}", resetValue)
-                logger("configure() Parameter id: $id, reset preference (number) to: $resetValue", 'trace')
+                logger("configure() Parameter: $it.id, reset preference (number) to: $resetValue", 'trace')
                 break
             case 'enum':
                 device.updateSetting("configParam${id}", resetValue)
-                logger("configure() Parameter id: $id, reset preference (enum) to: $resetValue", 'trace')
+                logger("configure() Parameter: $it.id, reset preference (enum) to: $resetValue", 'trace')
                 break
             case 'bool':
-                device.updateSetting("configParam${id}", ((resetValue == it.trueValue) ? true : false))
-                logger("configure() Parameter id: $id, reset preference (bool) to: ${(resetValue == it.trueValue) ? true : false}", 'debug')
+                def resetBool = (resetValue == it.trueValue) ? true : false
+                device.updateSetting("configParam${id}", resetBool)
+                logger("configure() Parameter: $it.id, reset preference (bool) to: $resetBool", 'trace')
                 break
             case 'flags':
-                def flags = (configSpecified()?.find { csf -> csf.id == it.id }?.flags) ?: it.flags
-                flags.each { f ->
-                    def resetFlagValue = (f?.specifiedValue) ?: f.defaultValue
-                    device.updateSetting("configParam${id}${f.id}", ((resetFlagValue == f.flagValue) ? true : false))
-                    logger("configure() Parameter id: $id$f.id, reset preference (flag) to: ${(resetFlagValue == f.flagValue) ? true : false}", 'trace')
+                def resetFlags = (specified?.flags) ?: it.flags
+                resetFlags.each { rf ->
+                    def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
+                    def resetBool = (resetFlagValue == rf.flagValue) ? true : false
+                    device.updateSetting("configParam${id}${rf.id}", resetBool)
+                    logger("configure() Parameter: $it.id$rf.id, reset preference (flag) to: $resetBool", 'trace')
                 }
                 break
         }
@@ -636,27 +636,27 @@ def updated() {
         state.logLevelDevice = (settings.configLogLevelDevice) ? settings.configLogLevelDevice : 2
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
-            if (settings?."configParam${id}" != null || settings?."configParam${id}" == false || settings?."configParam${id}a" != null || settings?."configParam${id}a" == false) {
+            if (settings?."configParam${id}" != null || settings?."configParam${id}a" != null) {
                 switch(it.type) {
                     case 'number':
                         def setting = settings."configParam${id}"
-                        logger("updated() Parameter id: $id, preference (number): $setting", 'trace')
+                        logger("updated() Parameter: $it.id, preference (number): $setting", 'trace')
                         state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'enum':
                         def setting = settings."configParam${id}"
-                        logger("updated() Parameter id: $id, preference (enum): $setting", 'trace')
+                        logger("updated() Parameter: $it.id, preference (enum): $setting", 'trace')
                         state."paramTarget${it.id}" = settings."configParam${id}"
                         break
                     case 'bool':
                         def setting = (settings."configParam${id}") ? it.trueValue : it.falseValue
-                        logger("updated() Parameter id: $id, preference (bool): $setting", 'trace')
+                        logger("updated() Parameter: $it.id, preference (bool): $setting", 'trace')
                         state."paramTarget${it.id}" = (settings."configParam${id}") ? it.trueValue : it.falseValue
                         break
                     case 'flags':
                         def target = 0
                         settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each{ k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
-                        logger("updated() Parameter id: $id, preference (flags): $target", 'trace')
+                        logger("updated() Parameter: $it.id, preference (flags): $target", 'trace')
                         state."paramTarget${it.id}" = target
                         break
                 }
@@ -712,7 +712,7 @@ private sync() {
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
     logger('sync(): Sending sync commands.', 'debug')
-    sendCommandSequence(cmds)
+    if (cmds) sendCommandSequence(cmds)
 }
 
 private updateSyncPending() {
@@ -776,7 +776,7 @@ private logger(msg, level = 'debug') {
         case 'debug':
             if (state.logLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "Debug: $msg", displayed: false, isStateChange: true
             break
-        case 'debug':
+        case 'trace':
             if (state.logLevelIDE >= 5) log.trace msg
             break
         default:

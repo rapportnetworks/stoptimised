@@ -562,11 +562,14 @@ private testNow() {
  *****************************************************************************************************************/
 def installed() {
     state.logLevelIDE = 5; state.logLevelDevice = 2
-    logger('installed(): Performing initial setup', 'info')
+    logger('installed: setting initial state of device attributes', 'info')
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
+
+    logger('installed: setting device use states', 'debug')
     deviceUseStates()
     sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
+
     if (listening()) {
         logger('Device is in listening mode (powered).', 'info')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
@@ -579,48 +582,51 @@ def installed() {
 }
 
 def configure() {
-    logger('configure(): Configuring device', 'info')
+    logger('configure: setting configuration targets to default/specified values', 'info')
     device.updateSetting('configAutoResetTamperDelay', 30)
     device.updateSetting('configLogLevelIDE', 5) // set to 3 when finished debugging
     device.updateSetting('configLogLevelDevice', 2)
+
     if (!listening()) {
         def interval = (configIntervals()?.specifiedWakeUpInterval) ?: configIntervals().defaultWakeUpInterval
         state.wakeUpIntervalTarget = interval
         device.updateSetting('configWakeUpInterval', interval)
     }
+
+    logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
-        // def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
         def specified = configSpecified()?.find { cs -> cs.id == it.id }
         def specifiedValue = specified?.specifiedValue
         def resetValue = (specifiedValue) ?: it.defaultValue
-        (specifiedValue) ? logger("configure() Parameter: $it.id, specified value: $specifiedValue", 'debug') : logger("configure() Parameter: $it.id, reset value: $resetValue", 'debug')
-        state."paramTarget${it.id}" = resetValue
+        state."paramTarget$it.id" = resetValue
         def id = it.id.toString().padLeft(3, "0")
+        (specifiedValue) ? logger("configure: parameter: $id, specified value: $specifiedValue", 'trace') : logger("configure: parameter: $id, reset value: $resetValue", 'trace')
         switch(it.type) {
             case 'number':
-                device.updateSetting("configParam${id}", resetValue)
-                logger("configure() Parameter: $it.id, reset preference (number) to: $resetValue", 'trace')
+                logger("configure: parameter $id, reset number preference to: $resetValue", 'trace')
+                device.updateSetting("configParam$id", resetValue)
                 break
             case 'enum':
-                device.updateSetting("configParam${id}", resetValue)
-                logger("configure() Parameter: $it.id, reset preference (enum) to: $resetValue", 'trace')
+                logger("configure: parameter $id, reset enum preference to: $resetValue", 'trace')
+                device.updateSetting("configParam$id", resetValue)
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue) ? true : false
-                device.updateSetting("configParam${id}", resetBool)
-                logger("configure() Parameter: $it.id, reset preference (bool) to: $resetBool", 'trace')
+                logger("configure: parameter: $id, reset bool preference to: $resetBool", 'trace')
+                device.updateSetting("configParam$id", resetBool)
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
                 resetFlags.each { rf ->
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue) ? true : false
-                    device.updateSetting("configParam${id}${rf.id}", resetBool)
-                    logger("configure() Parameter: $it.id$rf.id, reset preference (flag) to: $resetBool", 'trace')
+                    logger("configure: parameter: $id$rf.id, reset flag preference to: $resetBool", 'trace')
+                    device.updateSetting("configParam$id$rf.id", resetBool)
                 }
                 break
         }
     }
+
     state.syncAll = true
     state.configReportBuffer = [:]
     updateDataValue('serialNumber', null)
@@ -628,7 +634,7 @@ def configure() {
 }
 
 def updated() {
-    logger('updated(): Updating device', 'info')
+    logger('updated: updating configuration targets to match any user preferences', 'info')
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
@@ -638,28 +644,28 @@ def updated() {
 
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
-            if (settings?."configParam${id}" != null || settings?."configParam${id}a" != null) {
+            if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
                 switch(it.type) {
                     case 'number':
-                        def setting = settings."configParam${id}"
-                        logger("updated() Parameter: $it.id, preference (number): $setting", 'trace')
-                        state."paramTarget${it.id}" = settings."configParam${id}"
+                        def setting = settings."configParam$id"
+                        logger("updated: parameter $id set to match number preference value: $setting", 'trace')
+                        state."paramTarget$it.id" = setting
                         break
                     case 'enum':
-                        def setting = settings."configParam${id}"
-                        logger("updated() Parameter: $it.id, preference (enum): $setting", 'trace')
-                        state."paramTarget${it.id}" = settings."configParam${id}".toInteger()
+                        def setting = settings."configParam$id".toInteger()
+                        logger("updated: parameter $id set to match enum preference value: $setting", 'trace')
+                        state."paramTarget$it.id" = setting
                         break
                     case 'bool':
-                        def setting = (settings."configParam${id}") ? it.trueValue : it.falseValue
-                        logger("updated() Parameter: $it.id, preference (bool): $setting", 'trace')
-                        state."paramTarget${it.id}" = (settings."configParam${id}") ? it.trueValue : it.falseValue
+                        def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
+                        logger("updated: parameter $id set to match bool preference value: $setting", 'trace')
+                        state."paramTarget$it.id" = setting
                         break
                     case 'flags':
                         def target = 0
                         settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                         logger("updated() Parameter: $it.id, preference (flags): $target", 'trace')
-                        state."paramTarget${it.id}" = target
+                        state."paramTarget$it.id" = target
                         break
                 }
             }
@@ -669,6 +675,7 @@ def updated() {
             response(sync())
         }
         else {
+            logger('updated: sleepy device, queuing sync()', 'info')
             state.queued = [] as Set
             state.queued.plus('sync()')
             if (settings.configWakeUpInterval) state.wakeUpIntervalTarget = settings.configWakeUpInterval

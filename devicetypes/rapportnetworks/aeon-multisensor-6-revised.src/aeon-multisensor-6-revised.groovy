@@ -580,7 +580,7 @@ def installed() {
 
 def configure() {
     logger('configure(): Configuring device', 'info')
-    device.updateSetting('autoResetTamperDelay', 30)
+    device.updateSetting('configAutoResetTamperDelay', 30)
     device.updateSetting('configLogLevelIDE', 5) // set to 3 when finished debugging
     device.updateSetting('configLogLevelDevice', 2)
     if (!listening()) {

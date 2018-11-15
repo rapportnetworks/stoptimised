@@ -566,9 +566,12 @@ def installed() {
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
-    logger('installed: setting device use states', 'debug')
-    deviceUseStates()
-    sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
+
+    if ('deviceUse' in configHandler()) {
+        logger('installed: setting device use states', 'debug')
+        deviceUseStates()
+        sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
+    }
 
     if (listening()) {
         logger('Device is in listening mode (powered).', 'info')
@@ -752,7 +755,7 @@ private updateSyncPending() {
     }
     if (getDataValue('serialNumber') == null) syncPending++
     logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
-    // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) {
+    // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) { // ??? is this needed to stop this triggering when not needed?
     if (syncPending == 0) {
         logger('Sync Complete.', 'info')
         logger("updateSyncPending(): userconfig: $userConfig", 'debug')

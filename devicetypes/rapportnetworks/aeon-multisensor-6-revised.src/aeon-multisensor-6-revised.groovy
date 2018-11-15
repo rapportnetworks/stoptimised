@@ -432,7 +432,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
  *  Zwave Transport Encapsulation Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
-    def encapsulatedCommand = cmd.encapsulatedCommand([0x31: 5, 0x30: 2, 0x84: 1])
+    def encapsulatedCommand = cmd.encapsulatedCommand(commandClassesVersions())
     state.sec = 1
     logger("encapsulated: ${encapsulatedCommand}", 'debug')
     if (encapsulatedCommand) {
@@ -633,7 +633,7 @@ def configure() {
     state.syncAll = true
     state.configReportBuffer = [:]
     updateDataValue('serialNumber', null)
-    updated()
+    runIn(60, updated()) // ??? should this be delayed (e.g. 30s or longer 60s) to make sure that preferences are reset, before being read into configTargets in updated() ???
 }
 
 def updated() {
@@ -641,9 +641,9 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ? settings.configAutoResetTamperDelay : 30
-        state.logLevelIDE = (settings.configLogLevelIDE) ? settings.configLogLevelIDE : 3
-        state.logLevelDevice = (settings.configLogLevelDevice) ? settings.configLogLevelDevice : 2
+        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ?: 30
+        state.logLevelIDE = (settings.configLogLevelIDE) ?: 3
+        state.logLevelDevice = (settings.configLogLevelDevice) ?: 2
 
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
@@ -667,7 +667,7 @@ def updated() {
                     case 'flags':
                         def target = 0
                         settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
-                        logger("updated() Parameter: $it.id, preference (flags): $target", 'trace')
+                        logger("updated: parameter $it.id set to match sum of flag preference values: $target", 'debug')
                         state."paramTarget$it.id" = target
                         break
                 }

@@ -478,10 +478,10 @@ private sendCommandSequence(commands, delay = 1200) {
 private selectEncapsulation(physicalgraph.zwave.Command cmd) {
     logger('selectEncapsulation(): Selecting encapsulation method.', 'debug')
     // if (zwaveInfo?.zw.endsWith("s") && (cmd.commandClassId in commandClassesSecure())) {
-    if (zwaveInfo?.zw.endsWith('s')) {
+    if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
         secureEncapsulate(cmd)
     }
-    else if (zwaveInfo?.cc.contains('56')) {
+    else if (zwaveInfo?.cc?.contains('56')) {
         crc16Encapsulate(cmd)
     }
     else {

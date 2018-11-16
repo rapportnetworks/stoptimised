@@ -468,7 +468,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  * Send Zwave Commands to Device
 *****************************************************************************************************************/
 private sendCommandSequence(commands, delay = 1200) {
-    logger('sendCommandSequence(): Assembling commands.', 'debug')
+    logger('sendCommandSequence: Assembling commands.', 'debug')
     logger("sendCommandSequence(): Command sequence: $commands", 'trace')
     if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
     // sendHubCommand(commands.collect { response(it) }, delay)
@@ -476,8 +476,7 @@ private sendCommandSequence(commands, delay = 1200) {
 }
 
 private selectEncapsulation(physicalgraph.zwave.Command cmd) {
-    logger('selectEncapsulation(): Selecting encapsulation method.', 'debug')
-    // if (zwaveInfo?.zw.endsWith("s") && (cmd.commandClassId in commandClassesSecure())) {
+    logger('selectEncapsulation: Selecting encapsulation method.', 'trace')
     if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
         secureEncapsulate(cmd)
     }
@@ -490,12 +489,12 @@ private selectEncapsulation(physicalgraph.zwave.Command cmd) {
 }
 
 private secureEncapsulate(physicalgraph.zwave.Command cmd) {
-    logger('secureEncapsulate(): Encapsulating using secure method.', 'debug')
+    logger('secureEncapsulate: Encapsulating using secure method.', 'trace')
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
 private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
-    logger('crc16Encapsulate(): Encapsulating using crc16 method.', 'debug')
+    logger('crc16Encapsulate: Encapsulating using crc16 method.', 'trace')
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
@@ -587,8 +586,8 @@ def installed() {
 def configure() {
     logger('configure: setting configuration targets to default/specified values', 'info')
     device.updateSetting('configAutoResetTamperDelay', 30)
-    device.updateSetting('configLogLevelIDE', 5) // set to 3 when finished debugging
-    device.updateSetting('configLogLevelDevice', 2)
+    device.updateSetting('configLogLevelIDE', 4); state.logLevelIDE = 4 // set to 3 when finished debugging
+    device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
 
     if (!listening()) {
         def interval = (configIntervals()?.specifiedWakeUpInterval) ?: configIntervals().defaultWakeUpInterval
@@ -633,7 +632,8 @@ def configure() {
     state.syncAll = true
     state.configReportBuffer = [:]
     updateDataValue('serialNumber', null)
-    runIn(60, updated()) // ??? should this be delayed (e.g. 30s or longer 60s) to make sure that preferences are reset, before being read into configTargets in updated() ???
+    // runIn(60, updated()) // ??? should this be delayed (e.g. 30s or longer 60s) to make sure that preferences are reset, before being read into configTargets in updated() ???
+    updated()
 }
 
 def updated() {
@@ -641,9 +641,12 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.autoResetTamperDelay = (settings.configAutoResetTamperDelay) ?: 30
-        state.logLevelIDE = (settings.configLogLevelIDE) ?: 3
-        state.logLevelDevice = (settings.configLogLevelDevice) ?: 2
+        state.autoResetTamperDelay = (settings?.configAutoResetTamperDelay) ?: 30
+        logger("updated: autoResetTamperDelay: $state.autoResetTamperDelay", 'info')
+        state.logLevelIDE = (settings?.configLogLevelIDE) ? settings.configLogLevelIDE.toInteger() : 3
+        logger("updated: logLevelIDE: $state.logLevelIDE", 'info')
+        state.logLevelDevice = (settings?.configLogLevelDevice) ? settings.configLogLevelDevice.toInteger() : 2
+        logger("updated: logLevelDevice: $state.logLevelDevice", 'info')
 
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
@@ -691,25 +694,25 @@ def updated() {
  *  Generic Helper Methods
 *****************************************************************************************************************/
 private sync() {
-    logger('sync(): Syncing configuration with the physical device.', 'info')
+    logger('sync: Syncing configuration with the physical device.', 'info')
     def cmds = []
     def syncPending = 0
     if (state.syncAll) {
-        logger('sync(): Deleting all cached values.', 'trace')
+        logger('sync: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
     }
     if (!listening() && state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         syncPending++
-        logger("sync(): Syncing Wake Up Interval: New Value: ${state.wakeUpIntervalTarget}", 'trace')
+        logger("sync: Wake Up Interval: New value: ${state.wakeUpIntervalTarget}", 'debug')
         cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds << zwave.wakeUpV1.wakeUpIntervalGet()
     }
     paramsMetadata().each {
         if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
             syncPending++
-            logger("sync(): Syncing parameter #${it.id} [${it.name}]: New Value: " + state."paramTarget${it.id}", 'debug')
+            logger("sync: Syncing parameter ${it.id}: New value: " + state."paramTarget${it.id}", 'debug')
             cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
             cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
         }
@@ -719,21 +722,23 @@ private sync() {
     }
     state.syncAll = false
     if (getDataValue('serialNumber') == null) {
-        logger('sync(): Requesting device serial number.', 'trace')
+        logger('sync: Requesting device serial number.', 'debug')
         cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         syncPending++
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
-    logger('sync(): Sending sync commands.', 'debug')
-    if (cmds) sendCommandSequence(cmds)
+    if (cmds) {
+        logger('sync: Sending sync commands.', 'debug')
+        sendCommandSequence(cmds)
+    }
 }
 
 private updateSyncPending() {
-    logger('updateSyncPending() called', 'info')
+    logger('updateSyncPending: called', 'info')
     def syncPending = 0
     def userConfig = 0
     if (state.syncAll) {
-        logger('updateSyncPending(): Deleting all cached values.', 'trace')
+        logger('updateSyncPending: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
@@ -754,11 +759,11 @@ private updateSyncPending() {
         }
     }
     if (getDataValue('serialNumber') == null) syncPending++
-    logger("updateSyncPending(): syncPending: ${syncPending}", 'debug')
+    logger("updateSyncPending: syncPending: ${syncPending}", 'trace')
     // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) { // ??? is this needed to stop this triggering when not needed?
     if (syncPending == 0) {
-        logger('Sync Complete.', 'info')
-        logger("updateSyncPending(): userconfig: $userConfig", 'debug')
+        logger('updateSyncPending: Sync Complete.', 'info')
+        logger("updateSyncPending: Userconfig: $userConfig", 'info')
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         updateDataValue('configurationType', ct)
     }

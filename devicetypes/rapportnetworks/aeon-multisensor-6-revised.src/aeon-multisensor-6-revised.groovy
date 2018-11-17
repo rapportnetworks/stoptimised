@@ -220,27 +220,27 @@ private getTimeOptionValueMap() { [
  *  Parse Method
 *****************************************************************************************************************/
 def parse(String description) {
-    logger("parse(): Parsing raw message: ${description}", 'info')
+    logger("parse: raw message: $description", 'trace')
     def result = []
     if (description.startsWith('Err')) {
         if (description.startsWith('Err 106')) {
-            logger('parse() >> Err 106', 'error')
+            logger('parse: Error 106', 'error')
             result << createEvent(name: 'secureInclusion', value: 'failed', isStateChange: true, descriptionText: 'Sensor failed to complete the network security key exchange. You must remove it from your network and add it again.')
         } else {
-            logger("parse(): Unknown Error. Raw message: ${description}", 'error')
+            logger("parse: Unknown Error. Raw message: $description", 'error')
         }
     }
     else if (description != 'updated') {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
             result << zwaveEvent(cmd)
-            logger("After zwaveEvent(cmd) >> Parsed '${description}' to ${result.inspect()}", 'debug')
+            logger("parse: parsed '$description' to ${result.inspect()}", 'debug')
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
-                logger('parse(): sync() called', 'debug')
+                logger('parse: sync() called', 'debug')
                 sync()
             }
         } else {
-            logger("parse(): Could not parse raw message: ${description}", 'error')
+            logger("parse: could not parse raw message: $description", 'error')
         }
     }
     result
@@ -250,54 +250,55 @@ def parse(String description) {
  *  Zwave Application Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, // Basic
-    logger('BasicSet(): Creating Motion event', 'info')
-    motionEvent(cmd.value) // responding to BasicSet - 2001 value FF
+    logger("zwe: Basic Set: creating motion event: $cmd", 'info')
+    motionEvent(cmd.value) // responding to BasicSet - 2001 value FF - ???should this be ignored?
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, // Sensor Binary
-    logger('SensorBinaryReport(): Creating Motion event', 'info')
-    motionEvent(cmd.sensorValue)
+    logger("zwe: Sensor Binary Report: creating motion event: $cmd", 'info')
+    motionEvent(cmd.sensorValue) // ??? is this required???
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, // Notification
+    logger("zwe: Notification Report $cmd", 'debug')
     def result = []
-    if (cmd.notificationType == 7) {
+    if (cmd.notificationType == 0x07) {
         switch (cmd.event) {
-            case 0:
+            case 0x00:
                 result << motionEvent(0)
-                result << createEvent(name: "tamper", value: "clear")
+                result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
                 break
-            case 3:
+            case 0x03:
                 result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
                 if (state.autoResetTamperDelay > 0) runIn(state.autoResetTamperDelay, "resetTamper")
                 break
-            case 7: // ? shouldn't it be case 8: ?
+            case 0x07:
                 result << motionEvent(1)
                 break
         }
     }
     else {
-        logger("Need to handle this cmd.notificationType: ${cmd.notificationType}", 'warn')
-        result << createEvent(descriptionText: cmd.toString(), isStateChange: false)
+        logger("zwe: Notification Report: unhandled notification type: $cmd.notificationType", 'warn')
     }
     result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, // Sensor Multilevel
+    logger("zwe: processing $cmd", 'info')
     def map = [:]
     switch (cmd.sensorType) {
-        case 1:
+        case 0x01:
             map.name = 'temperature'
             def cmdScale = (cmd.scale == 1) ? 'F' : 'C'
             map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
             map.unit = getTemperatureScale()
             break
-        case 3:
+        case 0x03:
             map.name = 'illuminance'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = 'lux'
             break
-        case 5:
+        case 0x05:
             map.name = 'humidity'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = '%'
@@ -307,39 +308,42 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
             map.value = cmd.scaledSensorValue.toInteger()
             break
         default:
-            map.descriptionText = cmd.toString()
+            logger("zwe: Sensor Multilevel Report: unhandled sensor type: $cmd", 'warn')
+            break
     }
-    map << [isStateChange: true]
+    map.isStateChange = true
     createEvent(map)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70: 2, // Configuration
-    logger("ConfigurationReport: $cmd", 'info')
-    def paramMd = paramsMetadata().find( { it.id == cmd.parameterNumber })
-    def paramValue = (paramMd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
-    def signInfo = (paramMd?.isSigned) ? 'signed' : 'unsigned'
-    logger("Parameter #${cmd.parameterNumber} [${paramMd?.name}] has value: ${paramValue} [${signInfo}]", 'debug')
+    logger("zwe: processing $cmd", 'info')
+    def pmd = paramsMetadata()?.find { it.id == cmd.parameterNumber }
+    def paramValue = (pmd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue) // *** need to check this out
+    def signInfo = (pmd?.isSigned) ? 'signed' : 'unsigned'
+    logger("zwe: parameter $cmd.parameterNumber has value: $paramValue ($signInfo)", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
     if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
     def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
     def paramValueReport = paramValue.toString() // need tp check if signed values handled correctly
-    logger("Processing Configuration Report: (Parameter: $paramReport, Value: $paramValueReport)", 'trace')
+    logger("zwe: processing Configuration Report: (parameter: $paramReport, value: $paramValueReport)", 'trace')
     state.configReportBuffer << [(paramReport): paramValueReport]
     if (state.configReportBuffer.size() == configParameters().size()) {
-        logger('All Configuration Values Reported', 'info')
+        logger('zwe: All Configuration Values Reported', 'info')
         def report = state.configReportBuffer.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
-        logger("Configuration Report State: $state.configReportBuffer", 'debug')
+        logger("zwe: Configuration Report State: $state.configReportBuffer", 'debug')
     }
 
     def result = []
-    if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 0) {
-        result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
-        result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
-    }
-    else if (cmd.parameterNumber == 9 && cmd.configurationValue[0] == 1) {
-        result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
+    if (cmd.parameterNumber == 9) {
+        if (cmd.configurationValue[0] == 0) {
+            result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
+            result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
+        }
+        else if (cmd.configurationValue[0] == 1) {
+            result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
+        }
     }
     result
 }
@@ -432,28 +436,25 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
  *  Zwave Transport Encapsulation Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
+    logger("zwe: security(raw): $cmd", 'trace')
     def encapsulatedCommand = cmd.encapsulatedCommand(commandClassesVersions())
-    state.sec = 1
-    logger("encapsulated: ${encapsulatedCommand}", 'debug')
+    logger("zwe: security(encapsulated): $encapsulatedCommand", 'trace')
     if (encapsulatedCommand) {
         zwaveEvent(encapsulatedCommand)
     }
     else {
-        logger("Unable to extract encapsulated cmd from $cmd", 'warn')
-        createEvent(descriptionText: cmd.toString())
+        logger('zwe: security: Unable to extract encapsulated cmd.', 'warn')
     }
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) { // 0x98=1, Security
-    state.sec = 1
-    logger("Executing zwaveEvent 98 (SecurityV1): 07 (NetworkKeyVerify) with cmd: $cmd (node is securely included)", 'info')
-    def result = [createEvent(name: "secureInclusion", value: "success", descriptionText: "Secure inclusion was successful", isStateChange: true)]
+    logger('zwe: network(verify): Device is securely included.', 'info')
+    def result = [createEvent(name: 'secureInclusion', value: 'success', descriptionText: 'Secure inclusion was successful', isStateChange: true)]
     result
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) { // 0x98=1, Security
-    logger("Executing zwaveEvent 98 (SecurityV1): 03 (SecurityCommandsSupportedReport) with cmd: $cmd", 'info')
-    state.sec = 1
+    logger("zwe: Security Commands Supported Report: $cmd", 'info')
 }
 
 /*****************************************************************************************************************
@@ -471,8 +472,7 @@ private sendCommandSequence(commands, delay = 1200) {
     logger('sendCommandSequence: Assembling commands.', 'debug')
     logger("sendCommandSequence(): Command sequence: $commands", 'trace')
     if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
-    // sendHubCommand(commands.collect { response(it) }, delay)
-    delayBetween(commands.collect { selectEncapsulation(it) }, delay)
+    delayBetween(commands.collect { selectEncapsulation(it) }, delay) // sendHubCommand(commands.collect { response(it) }, delay)
 }
 
 private selectEncapsulation(physicalgraph.zwave.Command cmd) {
@@ -734,7 +734,7 @@ private sync() {
 }
 
 private updateSyncPending() {
-    logger('updateSyncPending: called', 'info')
+    logger('updateSyncPending: called', 'trace')
     def syncPending = 0
     def userConfig = 0
     if (state.syncAll) {
@@ -818,13 +818,14 @@ private deviceUseStates() {
 }
 
 private motionEvent(value) {
-    def map = [name: "motion"]
+    logger('Creating Motion Event', 'debug')
+    def map = [name: 'motion', displayed: true, isStateChange: true]
     if (value) {
-        map.value = "active"
+        map.value = 'active'
         map.descriptionText = "$device.displayName detected motion"
     }
     else {
-        map.value = "inactive"
+        map.value = 'inactive'
         map.descriptionText = "$device.displayName motion has stopped"
     }
     createEvent(map)
@@ -841,19 +842,19 @@ private sensorValueEvent(Short value) {
 /*****************************************************************************************************************
  *  Matadata Methods
  *****************************************************************************************************************/
-private commandClassesQuery() { [
+private commandClassesQuery() { [ // list to query device for versions supported
     0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
 ] }
 
-private commandClassesSecure() { [
+private commandClassesSecure() { [ // *** don't think this is needed
     0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
 ] }
 
-private commandClassesUnsolicited() { [
+private commandClassesUnsolicited() { [ // command classes of sensor reports - to trigger sync if device on battery
     0x20, 0x30, 0x31, 0x60, 0x71, 0x9C
 ] }
 
-private commandClassesVersions() { [
+private commandClassesVersions() { [ // device/SmartThings versions supported
     0x20: 1, // Basic
     0x30: 2, // Sensor Binary
     0x31: 5, // Sensor Multilevel
@@ -880,7 +881,7 @@ private commandClassesVersions() { [
     0x85=2, // Association
 */
 
-private configHandler() { [
+private configHandler() { [ // menu items available in app
     'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
 ] }
 

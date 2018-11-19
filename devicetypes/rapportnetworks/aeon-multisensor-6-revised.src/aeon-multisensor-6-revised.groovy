@@ -249,18 +249,18 @@ def parse(String description) {
 /*****************************************************************************************************************
  *  Zwave Application Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, // Basic
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, Basic
     logger("zwe: Basic Set: creating motion event: $cmd", 'info')
-    motionEvent(cmd.value) // responding to BasicSet - 2001 value FF - ???should this be ignored?
+    motionEvent(cmd.value) // check values (see Zwave documentation)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, // Sensor Binary
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, Sensor Binary
     logger("zwe: Sensor Binary Report: creating motion event: $cmd", 'info')
-    motionEvent(cmd.sensorValue) // ??? is this required???
+    motionEvent(cmd.sensorValue) // 0 | 255, SENSOR_TYPE_MOTION	= 12
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, // Notification
-    logger("zwe: Notification Report $cmd", 'debug')
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, Notification
+    logger("zwe: Notification Report $cmd", 'info')
     def result = []
     if (cmd.notificationType == 0x07) {
         switch (cmd.event) {
@@ -283,7 +283,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, // Sensor Multilevel
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, Sensor Multilevel
     logger("zwe: processing $cmd", 'info')
     def map = [:]
     switch (cmd.sensorType) {
@@ -332,7 +332,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
         logger('zwe: All Configuration Values Reported', 'info')
         def report = state.configReportBuffer.sort().collect { it }.join(",")
         updateDataValue("configurationReport", report)
-        logger("zwe: Configuration Report State: $state.configReportBuffer", 'debug')
     }
 
     def result = []

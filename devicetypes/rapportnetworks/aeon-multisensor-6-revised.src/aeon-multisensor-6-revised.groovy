@@ -317,21 +317,17 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
 
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70: 2, // Configuration
     logger("zwe: processing $cmd", 'info')
-    def pmd = paramsMetadata()?.find { it.id == cmd.parameterNumber }
-    def paramValue = (pmd?.isSigned) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue) // *** need to check this out
-    def signInfo = (pmd?.isSigned) ? 'signed' : 'unsigned'
-    logger("zwe: parameter $cmd.parameterNumber has value: $paramValue ($signInfo)", 'debug')
+    def signed = paramsMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
+    def paramValue = (signed) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue) // *** need to check this out
+
+    logger("zwe: parameter $cmd.parameterNumber has value: $paramValue (${(signed) ? 'signed' : 'unsigned'})", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
     if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
-    def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
-    def paramValueReport = paramValue.toString() // need tp check if signed values handled correctly
-    logger("zwe: processing Configuration Report: (parameter: $paramReport, value: $paramValueReport)", 'trace')
-    state.configReportBuffer << [(paramReport): paramValueReport]
+    state.configReportBuffer << ["${cmd.parameterNumber.toString().padLeft(3, "0")}": "$paramValue"]
     if (state.configReportBuffer.size() == configParameters().size()) {
         logger('zwe: All Configuration Values Reported', 'info')
-        def report = state.configReportBuffer.sort().collect { it }.join(",")
-        updateDataValue("configurationReport", report)
+        updateDataValue("configurationReport", state.configReportBuffer.sort().collect { it }.join(","))
     }
 
     def result = []

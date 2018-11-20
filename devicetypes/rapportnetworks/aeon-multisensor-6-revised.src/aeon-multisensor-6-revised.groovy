@@ -269,7 +269,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 // result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
                 break
             case 0x03:
-                result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
+                result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
                 if (state.autoResetTamperDelay > 0) runIn(state.autoResetTamperDelay, "resetTamper")
                 break
             case 0x07:

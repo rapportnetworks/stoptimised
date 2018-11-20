@@ -33,6 +33,7 @@ metadata {
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
 
         // Custom Commands:
+        command "resetLog"
         command "resetTamper"
         command "syncAll"
         command "syncRemaining"
@@ -96,7 +97,7 @@ metadata {
             state "syncAll", label: 'Sync All', icon: 'st.secondary.tools', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
         }
         valueTile("logMessage", "device.logMessage", height: 2, width: 4, decoration: "flat") {
-            state "clear", label: '${currentValue}', backgroundColor: "#ffffff", defaultState: true
+            state "clear", label: '${currentValue}', action: "resetLog", backgroundColor: "#ffffff", defaultState: true
         }
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
             state "configure", label: 'configure', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
@@ -234,7 +235,6 @@ def parse(String description) {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
             result << zwaveEvent(cmd)
-            logger("parse: parsed '$description' to [${result}]", 'trace')
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
                 logger('parse: sync() called', 'debug')
                 sync()
@@ -260,13 +260,13 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, Notification
-    logger("NotificationReport: '$cmd'", 'info')
+    logger("NotificationReport: '$cmd'", 'debug')
     def result = []
     if (cmd.notificationType == 0x07) {
         switch (cmd.event) {
             case 0x00:
                 result << motionEvent(0)
-                result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
+                // result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
                 break
             case 0x03:
                 result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered")
@@ -279,6 +279,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 result << motionEvent(1)
                 break
         }
+        logger("NotificationReport: '$result'", 'info')
     }
     else {
         logger("NotificationReport: Unhandled notification type '$cmd.notificationType'", 'warn')
@@ -287,7 +288,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, Sensor Multilevel
-    logger("SensorMultilevelReport: $cmd", 'info')
+    logger("SensorMultilevelReport: $cmd", 'debug')
     def map = [:]
     switch (cmd.sensorType) {
         case 0x01:
@@ -311,10 +312,11 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
             map.value = cmd.scaledSensorValue.toInteger()
             break
         default:
-            logger("zwe: Sensor Multilevel Report: unhandled sensor type: $cmd", 'warn')
+            logger("SensorMultilevelReport: Unhandled sensor report '$cmd'", 'warn')
             break
     }
     map.isStateChange = true
+    logger("SensorMultilevelReport: '$map'", 'info')
     createEvent(map)
 }
 
@@ -323,7 +325,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     def signed = paramsMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
     def paramValue = (signed) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
 
-    logger("ConfigurationReport: Parameter $cmd.parameterNumber has value (${(signed) ? 'signed' : 'unsigned'}) $paramValue", 'debug')
+    logger("ConfigurationReport: Parameter $cmd.parameterNumber has been set to value (${(signed) ? 'signed' : 'unsigned'}) $paramValue", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
     if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
@@ -515,45 +517,48 @@ def refresh() {
 /*****************************************************************************************************************
  *  Custom Commands
 *****************************************************************************************************************/
+def resetLog() {
+    sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
+}
+
 def resetTamper() {
-    logger('resetTamper(): Resetting tamper alarm.', 'info')
+    logger('resetTamper: Resetting tamper alarm.', 'info')
     sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true, isStateChange: true)
 }
 
 def syncAll() {
-    logger('syncAll() called', 'info')
+    logger('syncAll: Called', 'info')
     state.syncAll = true
     state.configReportBuffer = [:]
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 
 def syncRemaining() {
-    logger('syncRemaining() called', 'info')
+    logger('syncRemaining: Called', 'info')
     (listening()) ? sync() : state.queued.plus('sync()')
 }
 
 def test() {
-    logger('test() called', 'info')
+    logger('test: Called', 'info')
     (listening()) ? testNow() : state.queued.plus('testNow()')
 }
 
 private testNow() {
-    logger('testRun() called', 'info')
+    logger('testRun: Called', 'info')
     def cmds = []
 
     if (commandClassVersions().containsKey(0x73)) {
-        logger('testRun(): Requesting Powerlevel Report.', 'debug')
+        logger('testRun: Requesting Powerlevel Report.', 'debug')
         cmds << zwave.powerlevelV1.powerlevelGet()
     }
 
-    logger('testRun(): Requesting Command Class Report.', 'debug')
+    logger('testRun: Requesting Command Class Report.', 'debug')
     state.commandClassVersionsBuffer = [:]
     commandClassesQuery().each {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
 
     if ('testNow()' in state.queued) state.queued.minus('testNow()')
-    logger('testNow(): Sending test commands.', 'info')
     sendCommandSequence(cmds)
 }
 
@@ -587,9 +592,9 @@ def installed() {
 def configure() {
     logger('configure: Setting configuration targets to default/specified values.', 'info')
     logger('configure: Setting autoResetTamperDelay preference to 30', 'debug')
-    device.updateSetting('configAutoResetTamperDelay', 30)
+    device.updateSetting('configAutoResetTamperDelay', 30); state.autoResetTamperDelay = 30
     logger('configure: Setting configLogLevelIDE preference to 4', 'debug')
-    device.updateSetting('configLogLevelIDE', 4); state.logLevelIDE = 4 // set to 3 when finished debugging
+    device.updateSetting('configLogLevelIDE', 5); state.logLevelIDE = 5 // set to 3 when finished debugging
     logger('configure: Setting configLogLevelDevice preference to 2', 'debug')
     device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
 
@@ -606,19 +611,19 @@ def configure() {
         def resetValue = (specifiedValue) ?: it.defaultValue
         state."paramTarget$it.id" = resetValue
         def id = it.id.toString().padLeft(3, "0")
-        (specifiedValue) ? logger("configure: parameter: $id, specified value: $specifiedValue", 'trace') : logger("configure: parameter: $id, reset value: $resetValue", 'trace')
+        def resetType = (specifiedValue) ? 'specified' : 'default'
         switch(it.type) {
             case 'number':
-                logger("configure: parameter $id, reset number preference to: $resetValue", 'trace')
+                logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
                 device.updateSetting("configParam$id", resetValue)
                 break
             case 'enum':
-                logger("configure: parameter $id, reset enum preference to: $resetValue", 'trace')
+                logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
                 device.updateSetting("configParam$id", resetValue)
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue) ? true : false
-                logger("configure: parameter: $id, reset bool preference to: $resetBool", 'trace')
+                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
                 device.updateSetting("configParam$id", resetBool)
                 break
             case 'flags':
@@ -626,7 +631,7 @@ def configure() {
                 resetFlags.each { rf ->
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue) ? true : false
-                    logger("configure: parameter: $id$rf.id, reset flag preference to: $resetBool", 'trace')
+                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
                     device.updateSetting("configParam$id$rf.id", resetBool)
                 }
                 break
@@ -645,11 +650,11 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.autoResetTamperDelay = (settings?.configAutoResetTamperDelay) ?: 30
+        state.autoResetTamperDelay = (settings?.configAutoResetTamperDelay != null) ? settings.configAutoResetTamperDelay : 30
         logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
-        state.logLevelIDE = (settings?.configLogLevelIDE) ? settings.configLogLevelIDE.toInteger() : 3
+        state.logLevelIDE = (settings?.configLogLevelIDE != null) ? settings.configLogLevelIDE.toInteger() : 3
         logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
-        state.logLevelDevice = (settings?.configLogLevelDevice) ? settings.configLogLevelDevice.toInteger() : 2
+        state.logLevelDevice = (settings?.configLogLevelDevice != null) ? settings.configLogLevelDevice.toInteger() : 2
         logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
 
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
@@ -698,11 +703,10 @@ def updated() {
  *  Generic Helper Methods
 *****************************************************************************************************************/
 private sync() {
-    logger('sync: Syncing configuration with the physical device.', 'info')
     def cmds = []
     def syncPending = 0
     if (state.syncAll) {
-        logger('sync: Deleting all cached values.', 'debug')
+        logger('sync: Deleting all cached configuration values.', 'debug')
         state.wakeUpIntervalCache = null
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
@@ -759,11 +763,11 @@ private updateSyncPending() {
         }
     }
     if (getDataValue('serialNumber') == null) syncPending++
-    logger("updateSyncPending: $syncPending items remaining", 'trace')
+    logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
     // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) { // ??? is this needed to stop this triggering when not needed?
     if (syncPending == 0) {
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
-        logger("updateSyncPending: Sync Complete: $ct", 'info')
+        logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)

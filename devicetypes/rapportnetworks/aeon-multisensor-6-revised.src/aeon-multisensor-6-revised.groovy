@@ -250,13 +250,13 @@ def parse(String description) {
  *  Zwave Application Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, Basic
-    logger("BasicSet: '$cmd'", 'info')
-    motionEvent(cmd.value) // check values (see Zwave documentation)
+    logger("BasicSet: Ignoring '$cmd'", 'info')
+    // motionEvent(cmd.value)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, Sensor Binary
-    logger("SensorBinaryReport: '$cmd'", 'info')
-    motionEvent(cmd.sensorValue) // 0 | 255, SENSOR_TYPE_MOTION	= 12
+    logger("SensorBinaryReport: Ignoring '$cmd'", 'info')
+    // motionEvent(cmd.sensorValue)
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, Notification
@@ -523,7 +523,7 @@ def resetLog() {
 
 def resetTamper() {
     logger('resetTamper: Resetting tamper alarm.', 'info')
-    sendEvent(name: "tamper", value: "clear", descriptionText: "Tamper alarm cleared", displayed: true, isStateChange: true)
+    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper alarm cleared', displayed: true, isStateChange: true)
 }
 
 def syncAll() {
@@ -821,7 +821,7 @@ private deviceUseStates() {
 }
 
 private motionEvent(value) {
-    logger('Creating Motion Event', 'debug')
+    logger('motionEvent: Creating Motion Event', 'debug')
     def map = [name: 'motion', displayed: true, isStateChange: true]
     if (value) {
         map.value = 'active'

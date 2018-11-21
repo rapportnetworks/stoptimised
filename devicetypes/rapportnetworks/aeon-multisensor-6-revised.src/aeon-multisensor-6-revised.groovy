@@ -418,8 +418,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
     def cmds = []
     if (listening()) {
         powerlevelGet(cmds)
-        if (device.latestValue('syncPending') > 0) sync()
-        wakeUpNoMoreInformation(cmds)
+        if (device.latestValue('syncPending') > 0) cmds << sync() // need to sort this bit
     }
     else {
         if (state.queued != null) state.queued.each.call()
@@ -438,7 +437,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
         }
     }
     logger("WakeUpNotification: Returning '$cmds', '$result'", 'debug')
-    [response(cmds), result]
+    [response(sendCommandSequence(cmds)), result]
 }
 
 /*****************************************************************************************************************
@@ -759,7 +758,7 @@ private sync() {
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
     state.syncAll = false
     if ('sync()' in state?.queued) state.queued.minus('sync()')
-    if (cmds) sendCommandSequence(cmds)
+    if (cmds) sendCommandSequence(cmds) // should I move this call to updated? then sync can be called from WakeUpNotification
 }
 
 private updateSyncPending() {

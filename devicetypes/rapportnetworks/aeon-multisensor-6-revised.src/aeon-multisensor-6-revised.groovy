@@ -414,14 +414,18 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // 0x84: 2, Wake Up
     logger('WakeUpNotification: Device woke up.', 'info')
-    def result = []
     def cmds = []
     if (listening()) {
-        powerlevelGet(cmds)
-        if (device.latestValue('syncPending') > 0) cmds << sync() // need to sort this bit
+        powerlevelGet(cmds) // *** need to redo this (and others) - don't neet to send cmds except for loops i.e. should be:
+        // cmds << powerlevelGet()
+        if (device.latestValue('syncPending') > 0) cmds << sync()
     }
     else {
-        if (state.queued != null) state.queued.each.call()
+        if (state.queued != null) {
+            state.queued.each {
+                cmds << call(it)
+            }
+        }
         if (device.latestValue('syncPending') > 0) {
             logger('updated: Sleepy device, queuing sync().', 'info')
             state.queued.plus('sync()')
@@ -429,15 +433,13 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
         if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
             batteryGet(cmds)
             powerlevelGet(cmds)
-            wakeUpNoMoreInformation(cmds)
         }
         else {
-            wakeUpNoMoreInformation(cmds)
-            result << createEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
+            sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
         }
     }
     logger("WakeUpNotification: Returning '$cmds', '$result'", 'debug')
-    [response(sendCommandSequence(cmds)), result]
+    response(sendCommandSequence(cmds))
 }
 
 /*****************************************************************************************************************
@@ -546,17 +548,17 @@ def syncAll() {
     logger('syncAll: Called', 'info')
     state.syncAll = true
     state.configReportBuffer = [:]
-    (listening()) ? sync() : state.queued.plus('sync()')
+    (listening()) ? sendCommandSequence(sync()) : state.queued.plus('sync()')
 }
 
 def syncRemaining() {
     logger('syncRemaining: Called', 'info')
-    (listening()) ? sync() : state.queued.plus('sync()')
+    (listening()) ? sendCommandSequence(sync()) : state.queued.plus('sync()')
 }
 
 def test() {
     logger('test: Called', 'info')
-    (listening()) ? testNow() : state.queued.plus('testNow()')
+    (listening()) ? sendCommandSequence(testNow()) : state.queued.plus('testNow()')
 }
 
 private testNow() {
@@ -565,7 +567,7 @@ private testNow() {
     powerlevelGet(cmds)
     versionCommandClassGet(cmds)
     if ('testNow()' in state?.queued) state.queued.minus('testNow()')
-    sendCommandSequence(cmds)
+    cmds
 }
 
 /*****************************************************************************************************************
@@ -704,7 +706,7 @@ def updated() {
         }
 
         if (listening()) {
-            response(sync())
+            response(sendCommandSequence(sync()))
         }
         else {
             logger('updated: Sleepy device, queuing sync().', 'info')
@@ -758,7 +760,8 @@ private sync() {
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
     state.syncAll = false
     if ('sync()' in state?.queued) state.queued.minus('sync()')
-    if (cmds) sendCommandSequence(cmds) // should I move this call to updated? then sync can be called from WakeUpNotification
+    // if (cmds) sendCommandSequence(cmds) // should I move this call to updated? then sync can be called from WakeUpNotification
+    cmds
 }
 
 private updateSyncPending() {

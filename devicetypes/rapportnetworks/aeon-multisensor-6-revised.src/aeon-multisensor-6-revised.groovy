@@ -222,7 +222,7 @@ private getTimeOptionValueMap() { [
 *****************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
-    def result = []
+    def result = null
     if (description.startsWith('Err')) {
         if (description.startsWith('Err 106')) {
             logger('parse: Error 106', 'error')
@@ -234,7 +234,7 @@ def parse(String description) {
     else if (description != 'updated') {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
-            result << zwaveEvent(cmd)
+            result = zwaveEvent(cmd)
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
                 logger('parse: sync() called', 'debug')
                 sync()
@@ -287,7 +287,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31=5, Sensor Multilevel
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31: 5, Sensor Multilevel
     logger("SensorMultilevelReport: $cmd", 'debug')
     def map = [:]
     switch (cmd.sensorType) {
@@ -353,7 +353,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 /*****************************************************************************************************************
  *  Zwave Management Events Handlers
 *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x80=1, // Battery
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x80:1, Battery
     def map = [name: "battery", unit: "%"]
     if (cmd.batteryLevel == 0xFF) {
         map.value = 1
@@ -377,7 +377,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
     updateSyncPending()
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) { // 0x72=2, // Manufacturer Specific
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) { // 0x72=2, Manufacturer Specific
     log.info "Executing zwaveEvent 72 (ManufacturerSpecificV2) : 05 (ManufacturerSpecificReport) with cmd: $cmd"
     log.debug "manufacturerId:   ${cmd.manufacturerId}"
     log.debug "manufacturerName: ${cmd.manufacturerName}"
@@ -387,50 +387,61 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     updateDataValue("MSR", msr)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86: 2, // Version
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86: 2, Version
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
-    logger("Processing Command Class Version Report: (Command Class: $ccValue, Version: $ccVersion)", 'info')
+    logger("VersionCommandClassReport: Command Class: $ccValue, version: $ccVersion", 'debug')
     state.commandClassVersionsBuffer << [(ccValue): ccVersion]
     if (state.commandClassVersionsBuffer.size() == commandClassesQuery().size()) {
-        logger('All Command Class Versions Reported', 'info')
+        logger('VersionCommandClassReport: All Command Class Versions Reported.', 'info')
         updateDataValue("commandClassVersions", state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(","))
     }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84=2, // Wake Up
-    def result = []
-    def wakeupInterval = cmd.seconds
-    logger("wakeupInterval: $wakeupInterval", 'info')
-    updateDataValue("wakeupInterval", "$wakeupInterval")
-    result << createEvent(descriptionText: "$device.displayName wakeupInterval: $wakeupInterval", isStateChange: false)
-    // *** need to create checkInterval event
-    result
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84: 2, Wake Up
+    logger("WakeUpIntervalReport: '$cmd'", 'debug')
+    def wakeUpInterval = cmd.seconds
+    updateDataValue('wakeUpInterval', "$wakeUpInterval")
+    def checkInterval = wakeUpInterval.toDouble().multiply(2.2).round()
+    createEvent(name: 'checkInterval', value: checkInterval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // // 0x84=2, // Wake Up
-    def result = [createEvent(descriptionText: "${device.displayName} woke up", isStateChange: false)]
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // 0x84: 2, Wake Up
+    logger('WakeUpNotification: Device woke up.', 'info')
+    def result = []
     def cmds = []
-    /*
-    if (!configured()) {
-        logger("late configure", 'info')
-        result << response(configure())
-    } else {
-        logger("Device has been configured sending >> wakeUpNoMoreInformation()", 'trace')
-        cmds << zwave.wakeUpV1.wakeUpNoMoreInformation().format()
-        result << response(cmds)
+    if (listening()) {
+        powerlevelGet(cmds)
+        if (device.latestValue('syncPending') > 0) sync()
+        wakeUpNoMoreInformation(cmds)
     }
-    */
-    result
+    else {
+        if (state.queued != null) state.queued.each.call()
+        if (device.latestValue('syncPending') > 0) {
+            logger('updated: Sleepy device, queuing sync().', 'info')
+            state.queued.plus('sync()')
+        }
+        if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
+            batteryGet(cmds)
+            powerlevelGet(cmds)
+            wakeUpNoMoreInformation(cmds)
+        }
+        else {
+            wakeUpNoMoreInformation(cmds)
+            result << createEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
+        }
+    }
+    logger("WakeUpNotification: Returning '$cmds', '$result'", 'debug')
+    [response(cmds), result]
 }
 
 /*****************************************************************************************************************
  *  Zwave Network Protocol Events Handlers
 *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) { // 0x73=1, // Powerlevel
-    logger("Powerlevel Report: $cmd", 'info')
+    logger("PowerlevelReport: '$cmd'", 'debug')
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
-    logger("Processing Powerlevel Report: $powerLevel dBm", 'info')
+    logger("PowerlevelReport: $powerLevel dBm", 'info')
     updateDataValue('powerLevel', "$powerLevel")
 }
 
@@ -486,18 +497,18 @@ private selectEncapsulation(physicalgraph.zwave.Command cmd) {
         crc16Encapsulate(cmd)
     }
     else {
-        logger("noEncapsulation: none $cmd", 'trace')
+        logger("noEncapsulation: '$cmd'", 'trace')
         cmd.format()
     }
 }
 
 private secureEncapsulate(physicalgraph.zwave.Command cmd) {
-    logger("secureEncapsulation: $cmd", 'trace')
+    logger("secureEncapsulation: '$cmd'", 'trace')
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
 private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
-    logger("crc16Encapsulation: $cmd", 'trace')
+    logger("crc16Encapsulation: '$cmd'", 'trace')
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
@@ -546,19 +557,9 @@ def test() {
 private testNow() {
     logger('testRun: Called', 'info')
     def cmds = []
-
-    if (commandClassVersions().containsKey(0x73)) {
-        logger('testRun: Requesting Powerlevel Report.', 'debug')
-        cmds << zwave.powerlevelV1.powerlevelGet()
-    }
-
-    logger('testRun: Requesting Command Class Report.', 'debug')
-    state.commandClassVersionsBuffer = [:]
-    commandClassesQuery().each {
-        cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
-    }
-
-    if ('testNow()' in state.queued) state.queued.minus('testNow()')
+    powerlevelGet(cmds)
+    versionCommandClassGet(cmds)
+    if ('testNow()' in state?.queued) state.queued.minus('testNow()')
     sendCommandSequence(cmds)
 }
 
@@ -591,17 +592,20 @@ def installed() {
 
 def configure() {
     logger('configure: Setting configuration targets to default/specified values.', 'info')
+
     logger('configure: Setting autoResetTamperDelay preference to 30', 'debug')
     device.updateSetting('configAutoResetTamperDelay', 30); state.autoResetTamperDelay = 30
+
     logger('configure: Setting configLogLevelIDE preference to 4', 'debug')
     device.updateSetting('configLogLevelIDE', 5); state.logLevelIDE = 5 // set to 3 when finished debugging
+
     logger('configure: Setting configLogLevelDevice preference to 2', 'debug')
     device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
 
-    if (!listening()) {
-        def interval = (configIntervals()?.specifiedWakeUpInterval) ?: configIntervals().defaultWakeUpInterval
-        state.wakeUpIntervalTarget = interval
-        device.updateSetting('configWakeUpInterval', interval)
+    if (commandClassesVersions().containsKey(0x84)) {
+        def interval = (configIntervals()?.specifiedWakeUpInterval) ? configIntervals().specifiedWakeUpInterval : configIntervals().defaultWakeUpInterval
+        logger("configure: Setting configWakeUpInterval preference to $interval", 'debug')
+        device.updateSetting('configWakeUpInterval', interval); state.wakeUpIntervalTarget = interval
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
@@ -652,10 +656,18 @@ def updated() {
 
         state.autoResetTamperDelay = (settings?.configAutoResetTamperDelay != null) ? settings.configAutoResetTamperDelay : 30
         logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+
         state.logLevelIDE = (settings?.configLogLevelIDE != null) ? settings.configLogLevelIDE.toInteger() : 3
         logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+
         state.logLevelDevice = (settings?.configLogLevelDevice != null) ? settings.configLogLevelDevice.toInteger() : 2
         logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+
+        if (commandClassesVersions().containsKey(0x84)) {
+            def interval = (configIntervals()?.specifiedWakeUpInterval) ? configIntervals().specifiedWakeUpInterval : configIntervals().defaultWakeUpInterval
+            state.wakeUpIntervalTarget = (settings?.configWakeUpInterval != null) ? settings.configWakeUpInterval : interval
+            logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
+        }
 
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
             def id = it.id.toString().padLeft(3, "0")
@@ -693,7 +705,6 @@ def updated() {
             logger('updated: Sleepy device, queuing sync().', 'info')
             state.queued = [] as Set
             state.queued.plus('sync()')
-            if (settings.configWakeUpInterval) state.wakeUpIntervalTarget = settings.configWakeUpInterval
         }
     }
     else { logger('updated: Ran within last 2 seconds so aborting update.', 'trace') }
@@ -711,30 +722,37 @@ private sync() {
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
     }
-    if (!listening() && state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
-        syncPending++
+    if (state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         logger("sync: Syncing Wake Up Interval with new value: ${state.wakeUpIntervalTarget}", 'debug')
-        cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
-        cmds << zwave.wakeUpV1.wakeUpIntervalGet()
+        // cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
+        wakeUpIntervalSet(cmds, state.wakeUpIntervalTarget, zwaveHubNodeId)
+        // cmds << zwave.wakeUpV1.wakeUpIntervalGet()
+        wakeUpIntervalGet(cmds)
+        syncPending++
     }
     paramsMetadata().each {
         if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
-            syncPending++
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
-            cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            // cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
+            configurationSet(cmds, it.id, it.size, state."paramTarget${it.id}")
+            // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            configurationGet(cmds, it.id)
+            syncPending++
         }
         else if (state.syncAll && it.id in configParameters()) {
-            cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
+            configurationGet(cmds, it.id)
         }
     }
     if (getDataValue('serialNumber') == null) {
         logger('sync: Requesting device serial number.', 'debug')
-        cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+        // cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+        deviceSpecificGet(cmds)
         syncPending++
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
     state.syncAll = false
+    if ('sync()' in state?.queued) state.queued.minus('sync()')
     if (cmds) sendCommandSequence(cmds)
 }
 
@@ -764,8 +782,9 @@ private updateSyncPending() {
     }
     if (getDataValue('serialNumber') == null) syncPending++
     logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
-    // if ((syncPending == 0) && (device.latestValue('syncPending') > 0)) { // ??? is this needed to stop this triggering when not needed?
+    // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
     if (syncPending == 0) {
+        if ('sync()' in state.queued) state.queued.minus('sync()')
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
@@ -805,6 +824,81 @@ private logger(msg, level = 'debug') {
     }
 }
 
+
+/*****************************************************************************************************************
+* Zwave Command Helpers
+*****************************************************************************************************************/
+private association(commands) {
+    sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
+    commands << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+}
+
+private batteryGet(cmds) {
+    logger('batteryGet: Requesting Battery report', 'debug')
+    cmds << zwave.batteryV1.batteryGet()
+}
+
+private configurationGet(cmds, id) {
+    cmds << zwave.configurationV1.configurationGet(parameterNumber: id)
+}
+
+private configurationSet(cmds, id, size, target) {
+    cmds << zwave.configurationV1.configurationSet(parameterNumber: id, size: size, scaledConfigurationValue: target)
+}
+
+private deviceSpecificGet(cmds) {
+    cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+}
+
+private manufacturerSpecific(commands) {
+    sendEvent(descriptionText: "Requesting Device Specific Report", displayed: false)
+    commands << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+}
+
+private powerlevelGet(cmds) {
+    if (commandClassesVersions()?.containsKey(0x73)) {
+        logger('powerlevelGet: Requesting Powerlevel report.', 'debug')
+        cmds << zwave.powerlevelV1.powerlevelGet()
+    }
+    cmds
+}
+
+private sensorBinary(commands) {
+    sendEvent(descriptionText: "Requesting Binary Sensor Report", displayed: false)
+    commands << zwave.sensorBinaryV2.sensorBinaryGet()
+}
+
+private versionCommandClassGet(cmds) {
+    logger('testRun: Requesting Command Class report.', 'debug')
+    state.commandClassVersionsBuffer = [:]
+    commandClassesQuery().each {
+        cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+    }
+    cmds
+}
+
+private wakeup(commands) {
+    sendEvent(descriptionText: "Setting Wake Up Interval", displayed: false)
+    commands << zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeUpInterval(), nodeid: zwaveHubNodeId)
+    sendEvent(descriptionText: "Requesting Wake Up Interval Report", displayed: false)
+    commands << zwave.wakeupV2.wakeUpIntervalGet()
+    sendEvent(name: "checkInterval", value: checkInterval(), displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+    commands
+}
+
+private wakeUpIntervalGet(cmds) {
+    cmds << zwave.wakeUpV1.wakeUpIntervalGet()
+}
+
+private wakeUpIntervalSet(cmds, seconds, nodeid) {
+    cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: seconds, nodeid: nodeid)
+}
+
+private wakeUpNoMoreInformation(cmds) {
+    logger('wakeUpNoMoreInformation: Sending Wake Up No More Information.', 'debug')
+    cmds << zwave.wakeUpV2.wakeUpNoMoreInformation()
+}
+
 /*****************************************************************************************************************
  *  Device Specific Helper Methods
 *****************************************************************************************************************/
@@ -821,7 +915,7 @@ private deviceUseStates() {
 }
 
 private motionEvent(value) {
-    logger('motionEvent: Creating Motion Event', 'debug')
+    logger('motionEvent: Creating motion event', 'debug')
     def map = [name: 'motion', displayed: true, isStateChange: true]
     if (value) {
         map.value = 'active'
@@ -898,7 +992,7 @@ private configUseStates() { [
 private configIntervals() { [
     defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
     specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
-    batteryRefresh: 604_800
+    batteryRefreshInterval: 604_800
 ] }
 
 private configParameters() { [

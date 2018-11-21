@@ -368,7 +368,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x
     }
     else {
         map.value = cmd.batteryLevel
-        map.isStateChange = true // force propogation of event
+        map.isStateChange = true
     }
     state.timeLastBatteryReport = new Date().time
     createEvent(map)
@@ -416,23 +416,21 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
     logger('WakeUpNotification: Device woke up.', 'info')
     def cmds = []
     if (listening()) {
-        powerlevelGet(cmds) // *** need to redo this (and others) - don't neet to send cmds except for loops i.e. should be:
-        // cmds << powerlevelGet()
+        cmds << powerlevelGet()
         if (device.latestValue('syncPending') > 0) cmds << sync()
     }
     else {
         if (state.queued != null) {
             state.queued.each {
-                cmds << call(it)
+                cmds << it.call()
             }
         }
-        if (device.latestValue('syncPending') > 0) {
-            logger('updated: Sleepy device, queuing sync().', 'info')
-            state.queued.plus('sync()')
+        else if (device.latestValue('syncPending') > 0) {
+            cmds << sync()
         }
         if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
-            batteryGet(cmds)
-            powerlevelGet(cmds)
+            cmds << batteryGet()
+            cmds << powerlevelGet()
         }
         else {
             sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
@@ -450,6 +448,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
     logger("PowerlevelReport: $powerLevel dBm", 'info')
     updateDataValue('powerLevel', "$powerLevel")
+    // ??? could create event - so that have a "pulse" for listening devices
 }
 
 /*****************************************************************************************************************

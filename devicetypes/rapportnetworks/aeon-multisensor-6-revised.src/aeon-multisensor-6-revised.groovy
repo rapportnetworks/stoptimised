@@ -270,7 +270,10 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                 break
             case 0x03:
                 result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
-                if (state.autoResetTamperDelay > 0) runIn(state.autoResetTamperDelay, "resetTamper")
+                if (state.autoResetTamperDelay > 0) {
+                    unschedule(resetTamper)
+                    runIn(state.autoResetTamperDelay, resetTamper)
+                }
                 break
             case 0x07:
                 result << motionEvent(1)
@@ -289,33 +292,36 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31: 5, Sensor Multilevel
     logger("SensorMultilevelReport: $cmd", 'debug')
-    def map = [:]
+    def map = [displayed: true, isStateChange: true]
     switch (cmd.sensorType) {
         case 0x01:
             map.name = 'temperature'
             def cmdScale = (cmd.scale == 1) ? 'F' : 'C'
             map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
             map.unit = getTemperatureScale()
+            map.descriptionText = "$device.displayName temperature is $map.value $map.scale"
             break
         case 0x03:
             map.name = 'illuminance'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = 'lux'
+            map.descriptionText = "$device.displayName illuminance is $map.value $map.scale"
             break
         case 0x05:
             map.name = 'humidity'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = '%'
+            map.descriptionText = "$device.displayName humidity is $map.value $map.scale"
             break
         case 0x1B:
             map.name = 'ultravioletIndex'
             map.value = cmd.scaledSensorValue.toInteger()
+            map.descriptionText = "$device.displayName ultravioletIndex is $map.value"
             break
         default:
             logger("SensorMultilevelReport: Unhandled sensor report '$cmd'", 'warn')
             break
     }
-    map.isStateChange = true
     logger("SensorMultilevelReport: '$map'", 'info')
     createEvent(map)
 }
@@ -484,7 +490,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  * Send Zwave Commands to Device
 *****************************************************************************************************************/
 private sendCommandSequence(commands, delay = 1200) {
-    if (!listening()) commands << zwave.wakeUpV1.wakeUpNoMoreInformation()
+    if (!listening()) wakeUpNoMoreInformation(commands)
     delayBetween(commands.collect { selectEncapsulation(it) }, delay)
     // sendHubCommand(commands.collect { response(it) }, delay)
 }
@@ -569,6 +575,7 @@ private testNow() {
 def installed() {
     state.logLevelIDE = 5; state.logLevelDevice = 2
     logger('installed: setting initial state of device attributes', 'info')
+
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
@@ -603,7 +610,7 @@ def configure() {
     device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
 
     if (commandClassesVersions().containsKey(0x84)) {
-        def interval = (configIntervals()?.specifiedWakeUpInterval) ? configIntervals().specifiedWakeUpInterval : configIntervals().defaultWakeUpInterval
+        def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Setting configWakeUpInterval preference to $interval", 'debug')
         device.updateSetting('configWakeUpInterval', interval); state.wakeUpIntervalTarget = interval
     }
@@ -645,7 +652,6 @@ def configure() {
     state.syncAll = true
     state.configReportBuffer = [:]
     updateDataValue('serialNumber', null)
-    // runIn(60, updated()) // ??? should this be delayed (e.g. 30s or longer 60s) to make sure that preferences are reset, before being read into configTargets in updated() ???
     updated()
 }
 
@@ -664,7 +670,7 @@ def updated() {
         logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
 
         if (commandClassesVersions().containsKey(0x84)) {
-            def interval = (configIntervals()?.specifiedWakeUpInterval) ? configIntervals().specifiedWakeUpInterval : configIntervals().defaultWakeUpInterval
+            def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
             state.wakeUpIntervalTarget = (settings?.configWakeUpInterval != null) ? settings.configWakeUpInterval : interval
             logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
         }
@@ -828,10 +834,12 @@ private logger(msg, level = 'debug') {
 /*****************************************************************************************************************
 * Zwave Command Helpers
 *****************************************************************************************************************/
+/*
 private association(commands) {
     sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
     commands << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
 }
+*/
 
 private batteryGet(cmds) {
     logger('batteryGet: Requesting Battery report', 'debug')
@@ -850,11 +858,6 @@ private deviceSpecificGet(cmds) {
     cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
 }
 
-private manufacturerSpecific(commands) {
-    sendEvent(descriptionText: "Requesting Device Specific Report", displayed: false)
-    commands << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
-}
-
 private powerlevelGet(cmds) {
     if (commandClassesVersions()?.containsKey(0x73)) {
         logger('powerlevelGet: Requesting Powerlevel report.', 'debug')
@@ -863,10 +866,12 @@ private powerlevelGet(cmds) {
     cmds
 }
 
+/*
 private sensorBinary(commands) {
     sendEvent(descriptionText: "Requesting Binary Sensor Report", displayed: false)
     commands << zwave.sensorBinaryV2.sensorBinaryGet()
 }
+*/
 
 private versionCommandClassGet(cmds) {
     logger('testRun: Requesting Command Class report.', 'debug')
@@ -875,15 +880,6 @@ private versionCommandClassGet(cmds) {
         cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
     cmds
-}
-
-private wakeup(commands) {
-    sendEvent(descriptionText: "Setting Wake Up Interval", displayed: false)
-    commands << zwave.wakeUpV2.wakeUpIntervalSet(seconds: wakeUpInterval(), nodeid: zwaveHubNodeId)
-    sendEvent(descriptionText: "Requesting Wake Up Interval Report", displayed: false)
-    commands << zwave.wakeupV2.wakeUpIntervalGet()
-    sendEvent(name: "checkInterval", value: checkInterval(), displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
-    commands
 }
 
 private wakeUpIntervalGet(cmds) {

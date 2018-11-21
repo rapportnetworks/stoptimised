@@ -299,19 +299,19 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
             def cmdScale = (cmd.scale == 1) ? 'F' : 'C'
             map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
             map.unit = getTemperatureScale()
-            map.descriptionText = "$device.displayName temperature is $map.value $map.scale"
+            map.descriptionText = "$device.displayName temperature is $map.value $map.unit"
             break
         case 0x03:
             map.name = 'illuminance'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = 'lux'
-            map.descriptionText = "$device.displayName illuminance is $map.value $map.scale"
+            map.descriptionText = "$device.displayName illuminance is $map.value $map.unit"
             break
         case 0x05:
             map.name = 'humidity'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = '%'
-            map.descriptionText = "$device.displayName humidity is $map.value $map.scale"
+            map.descriptionText = "$device.displayName humidity is $map.value $map.unit"
             break
         case 0x1B:
             map.name = 'ultravioletIndex'

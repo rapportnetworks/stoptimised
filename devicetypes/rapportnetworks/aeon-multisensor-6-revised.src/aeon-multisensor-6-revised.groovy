@@ -846,8 +846,10 @@ private association(commands) {
 */
 
 private batteryGet() {
-    logger('batteryGet: Requesting Battery report', 'debug')
-    zwave.batteryV1.batteryGet()
+    if (commandClassesVersions()?.containsKey(0x80)) {
+        logger('batteryGet: Requesting Battery report', 'debug')
+        zwave.batteryV1.batteryGet()
+    }
 }
 
 private configurationGet(id) {

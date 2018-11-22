@@ -417,22 +417,25 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
     logger('WakeUpNotification: Device woke up.', 'info')
     def cmds = []
     if (listening()) {
-        cmds << powerlevelGet()
-        if (device.latestValue('syncPending') > 0) sync().each { cmds << it }
+        cmds += powerlevelGet()
+        if (device.latestValue('syncPending') > 0) cmds += sync()
+        // ?? send mock battery event as a device "pulse"??
     }
     else {
         if (state.queued != null) {
             def queue = state.queued as Set
             logger("WakeUpNotification: Queue '$queue'", 'trace')
-            queue.each { "$it"().each { qc -> cmds << qc } }
+            // queue.each { "$it"().each { qc -> cmds << qc } }
+            queue.each { cmds += "$it"() }
             state.queued = []
         }
         else if (device.latestValue('syncPending') > 0) {
-            sync().each { cmds << it }
+            // sync().each { cmds << it }
+            cmds += sync()
         }
         if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
-            cmds << batteryGet()
-            cmds << powerlevelGet()
+            cmds += batteryGet()
+            cmds += powerlevelGet()
         }
         else {
             sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)

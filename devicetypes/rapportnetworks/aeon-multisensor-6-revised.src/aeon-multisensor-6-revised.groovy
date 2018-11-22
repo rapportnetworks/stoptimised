@@ -436,7 +436,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
             sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
         }
     }
-    logger("WakeUpNotification: Returning '$cmds', '$result'", 'debug')
+    logger("WakeUpNotification: Returning '$cmds'", 'debug')
     response(sendCommandSequence(cmds))
 }
 

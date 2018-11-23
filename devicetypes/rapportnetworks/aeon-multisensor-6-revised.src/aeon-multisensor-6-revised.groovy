@@ -734,42 +734,41 @@ def updated() {
 private sync() {
     def cmds = []
     def syncPending = 0
+
     if (state.syncAll) {
         logger('sync: Deleting all cached configuration values.', 'debug')
         state.wakeUpIntervalCache = null
         paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
+        state.syncAll = false
     }
+
     if (state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         logger("sync: Syncing Wake Up Interval with new value: ${state.wakeUpIntervalTarget}", 'debug')
-        // cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
         cmds += wakeUpIntervalSet(state.wakeUpIntervalTarget, zwaveHubNodeId)
-        // cmds << zwave.wakeUpV1.wakeUpIntervalGet()
         cmds += wakeUpIntervalGet()
         syncPending++
     }
+
     paramsMetadata().each {
         if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
-            // cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
             cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
-            // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             cmds += configurationGet(it.id)
             syncPending++
         }
         else if (state.syncAll && it.id in configParameters()) {
-            // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
             cmds += configurationGet(it.id)
         }
     }
+
     if (getDataValue('serialNumber') == null) {
         logger('sync: Requesting device serial number.', 'debug')
-        // cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
         cmds += deviceSpecificGet()
         syncPending++
     }
+
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
-    state.syncAll = false
     logger("sync: Returning '$cmds'", 'debug')
     cmds
 }
@@ -777,6 +776,7 @@ private sync() {
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
+
     if (state.syncAll) {
         logger('updateSyncPending: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
@@ -784,11 +784,13 @@ private updateSyncPending() {
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
+
     if (!listening()) {
         def target = state.wakeUpIntervalTarget
         if (target != null && target != state.wakeUpIntervalCache) syncPending++
         if (target != configIntervals().specifiedWakeUpInterval) userConfig++
     }
+
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
@@ -798,9 +800,11 @@ private updateSyncPending() {
             }
         }
     }
+
     if (getDataValue('serialNumber') == null) syncPending++
     logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
     // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
+
     if (syncPending == 0) {
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
@@ -821,24 +825,24 @@ private listening() {
 private logger(msg, level = 'debug') {
     switch(level) {
         case 'error':
-            if (state.logLevelIDE >= 1) log.error msg; sendEvent descriptionText: "Error: $msg", displayed: false, isStateChange: true
-            if (state.logLevelDevice >= 1) sendEvent name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: $msg", displayed: false, isStateChange: true)
+            if (state.logLevelDevice >= 1) sendEvent(name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true)
             break
         case 'warn':
-            if (state.logLevelIDE >= 2) log.warn msg; sendEvent descriptionText: "Warning: $msg", displayed: false, isStateChange: true
-            if (state.logLevelDevice >= 2) sendEvent name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: $msg", displayed: false, isStateChange: true)
+            if (state.logLevelDevice >= 2) sendEvent(name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true)
             break
         case 'info':
-            if (state.logLevelIDE >= 3) log.info msg; sendEvent descriptionText: "Info: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: $msg", displayed: false, isStateChange: true)
             break
         case 'debug':
-            if (state.logLevelIDE >= 4) log.debug msg; sendEvent descriptionText: "Debug: $msg", displayed: false, isStateChange: true
+            if (state.logLevelIDE >= 4) log.debug(msg); sendEvent(descriptionText: "Debug: $msg", displayed: false, isStateChange: true)
             break
         case 'trace':
-            if (state.logLevelIDE >= 5) log.trace msg
+            if (state.logLevelIDE >= 5) log.trace(msg)
             break
         default:
-            log.debug msg; sendEvent descriptionText: "Log: $msg", displayed: false, isStateChange: true
+            log.debug(msg); sendEvent(descriptionText: "Log: $msg", displayed: false, isStateChange: true)
     }
 }
 

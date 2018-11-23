@@ -226,7 +226,7 @@ def parse(String description) {
     if (description.startsWith('Err')) {
         if (description.startsWith('Err 106')) {
             logger('parse: Error 106', 'error')
-            result << createEvent(name: 'secureInclusion', value: 'failed', isStateChange: true, descriptionText: 'Sensor failed to complete the network security key exchange. You must remove it from your network and add it again.')
+            result += createEvent(name: 'secureInclusion', value: 'failed', isStateChange: true, descriptionText: 'Sensor failed to complete the network security key exchange. You must remove it from your network and add it again.')
         } else {
             logger("parse: Unknown Error. raw message '$description'", 'error')
         }
@@ -234,10 +234,10 @@ def parse(String description) {
     else if (description != 'updated') {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
-            result << zwaveEvent(cmd)
+            result += zwaveEvent(cmd)
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
                 logger('parse: sync() called', 'debug')
-                result << response(sendCommandSequence(sync()))
+                result += response(sendCommandSequence(sync()))
             }
         } else {
             logger("parse: Could not parse.  raw message '$description'", 'error')
@@ -266,21 +266,21 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     if (cmd.notificationType == 0x07) {
         switch (cmd.event) {
             case 0x00:
-                result << motionEvent(0)
+                result += motionEvent(0)
                 // result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
                 break
             case 0x03:
-                result << createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
+                result += createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
                 if (state.autoResetTamperDelay > 0) {
                     unschedule(resetTamper)
                     runIn(state.autoResetTamperDelay, resetTamper)
                 }
                 break
             case 0x07:
-                result << motionEvent(1)
+                result += motionEvent(1)
                 break
             case 0x08:
-                result << motionEvent(1)
+                result += motionEvent(1)
                 break
         }
         logger("NotificationReport: '$result'", 'info')
@@ -347,11 +347,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     def result = []
     if (cmd.parameterNumber == 9) {
         if (cmd.configurationValue[0] == 0) {
-            result << createEvent(name: 'powerSource', value: 'dc', displayed: false)
-            result << createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
+            result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
+            result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
         }
         else if (cmd.configurationValue[0] == 1) {
-            result << createEvent(name: 'powerSource', value: 'battery', displayed: false)
+            result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
         }
     }
     result
@@ -497,7 +497,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  * Send Zwave Commands to Device
 *****************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
-    if (!listening()) cmds << wakeUpNoMoreInformation()
+    if (!listening()) cmds += wakeUpNoMoreInformation()
     delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
     // sendHubCommand(commands.collect { response(it) }, delay)
 }
@@ -570,8 +570,8 @@ def test() {
 private testNow() {
     logger('testRun: Called', 'info')
     def cmds = []
-    cmds << powerlevelGet()
-    versionCommandClassGet().each { cmds << it }
+    cmds += powerlevelGet()
+    cmds += versionCommandClassGet()
     cmds
 }
 
@@ -604,20 +604,20 @@ def installed() {
 }
 
 def configure() {
-    logger('configure: Setting configuration targets to default/specified values.', 'info')
+    logger('configure: Setting/Resetting configuration targets to default/specified values.', 'info')
 
-    logger('configure: Setting autoResetTamperDelay preference to 30', 'debug')
+    logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
     device.updateSetting('configAutoResetTamperDelay', 30); state.autoResetTamperDelay = 30
 
-    logger('configure: Setting configLogLevelIDE preference to 4', 'debug')
+    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
     device.updateSetting('configLogLevelIDE', 5); state.logLevelIDE = 5 // set to 3 when finished debugging
 
-    logger('configure: Setting configLogLevelDevice preference to 2', 'debug')
+    logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
     device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
-        logger("configure: Setting configWakeUpInterval preference to $interval", 'debug')
+        logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
         device.updateSetting('configWakeUpInterval', interval); state.wakeUpIntervalTarget = interval
     }
 
@@ -666,18 +666,23 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        state.autoResetTamperDelay = (settings?.configAutoResetTamperDelay != null) ? settings.configAutoResetTamperDelay : 30
-        logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+        if (settings?.configAutoResetTamperDelay != null) {
+            state.autoResetTamperDelay = settings.configAutoResetTamperDelay
+            logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+        }
 
-        state.logLevelIDE = (settings?.configLogLevelIDE != null) ? settings.configLogLevelIDE.toInteger() : 3
-        logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+        if (settings?.configLogLevelIDE != null) {
+            state.logLevelIDE = settings.configLogLevelIDE.toInteger()
+            logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+        }
 
-        state.logLevelDevice = (settings?.configLogLevelDevice != null) ? settings.configLogLevelDevice.toInteger() : 2
-        logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+        if (settings?.configLogLevelDevice != null) {
+            state.logLevelDevice =  settings.configLogLevelDevice.toInteger()
+            logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+        }
 
-        if (commandClassesVersions().containsKey(0x84)) {
-            def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
-            state.wakeUpIntervalTarget = (settings?.configWakeUpInterval != null) ? settings.configWakeUpInterval : interval
+        if (settings?.configWakeUpInterval != null) {
+            state.wakeUpIntervalTarget =  settings.configWakeUpInterval
             logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
         }
 
@@ -738,29 +743,29 @@ private sync() {
     if (state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
         logger("sync: Syncing Wake Up Interval with new value: ${state.wakeUpIntervalTarget}", 'debug')
         // cmds << zwave.wakeUpV1.wakeUpIntervalSet(seconds: state.wakeUpIntervalTarget, nodeid: zwaveHubNodeId)
-        cmds << wakeUpIntervalSet(state.wakeUpIntervalTarget, zwaveHubNodeId)
+        cmds += wakeUpIntervalSet(state.wakeUpIntervalTarget, zwaveHubNodeId)
         // cmds << zwave.wakeUpV1.wakeUpIntervalGet()
-        cmds << wakeUpIntervalGet()
+        cmds += wakeUpIntervalGet()
         syncPending++
     }
     paramsMetadata().each {
         if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
             // cmds << zwave.configurationV1.configurationSet(parameterNumber: it.id, size: it.size, scaledConfigurationValue: state."paramTarget${it.id}")
-            cmds << configurationSet(it.id, it.size, state."paramTarget${it.id}")
+            cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
             // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
-            cmds << configurationGet(it.id)
+            cmds += configurationGet(it.id)
             syncPending++
         }
         else if (state.syncAll && it.id in configParameters()) {
             // cmds << zwave.configurationV1.configurationGet(parameterNumber: it.id)
-            cmds << configurationGet(it.id)
+            cmds += configurationGet(it.id)
         }
     }
     if (getDataValue('serialNumber') == null) {
         logger('sync: Requesting device serial number.', 'debug')
         // cmds << zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
-        cmds << deviceSpecificGet()
+        cmds += deviceSpecificGet()
         syncPending++
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
@@ -886,7 +891,7 @@ private versionCommandClassGet() {
     state.commandClassVersionsBuffer = [:]
     def cmds = []
     commandClassesQuery().each {
-        cmds << zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+        cmds += zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
     }
     cmds
 }

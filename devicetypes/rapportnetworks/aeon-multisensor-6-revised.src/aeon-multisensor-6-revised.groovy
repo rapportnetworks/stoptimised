@@ -109,6 +109,34 @@ metadata {
         details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "test"])
     }
 
+    simulator {
+        status "no motion": "command: 9881, payload: 00300300"
+        status "motion": "command: 9881, payload: 003003FF"
+
+        for (int i = 0; i <= 100; i += 20) {
+            status "temperature ${i}F": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().sensorMultilevelV2.sensorMultilevelReport(scaledSensorValue: i, precision: 1, sensorType: 1, scale: 1)).incomingMessage()
+        }
+
+        for (int i = 0; i <= 100; i += 20) {
+            status "humidity ${i}%": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().sensorMultilevelV2.sensorMultilevelReport(scaledSensorValue: i, sensorType: 5)).incomingMessage()
+        }
+
+        for (int i in [0, 20, 89, 100, 200, 500, 1000]) {
+            status "illuminance ${i} lux": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().sensorMultilevelV2.sensorMultilevelReport(scaledSensorValue: i, sensorType: 3)).incomingMessage()
+        }
+
+        for (int i in [0, 5, 10, 15, 50, 99, 100]) {
+            status "battery ${i}%": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().batteryV1.batteryReport(batteryLevel: i)).incomingMessage()
+        }
+
+        status "low battery alert": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().batteryV1.batteryReport(batteryLevel: 255)).incomingMessage()
+
+        status "wake up": "command: 8407, payload: "
+
+        // reply "2001FF,delay 100,2502": "command: 2503, payload: FF"
+        // reply "200100,delay 100,2502": "command: 2503, payload: 00"
+    }
+
     preferences {
         if (configHandler()) input(name: 'paraGeneral', title: 'GENERAL', description: 'Device handler settings.', type: 'paragraph', element: 'paragraph')
 
@@ -170,7 +198,7 @@ private generatePrefsParams() {
                         title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
                         description: it.description,
                         type: it.type,
-                        defaultValue: ((prefDefaultValue == it.trueValue) ? true : false),
+                        defaultValue: (prefDefaultValue == it.trueValue),
                         required: it.required
                     )
                     break
@@ -188,7 +216,7 @@ private generatePrefsParams() {
                             name: "configParam${id}${f.id}",
                             title: "${f.id}) ${f.description}",
                             type: 'bool',
-                            defaultValue: ((prefFlagValue == f.flagValue) ? true : false),
+                            defaultValue: (prefFlagValue == f.flagValue),
                             required: it.required
                         )
                     }
@@ -639,7 +667,7 @@ def configure() {
                 device.updateSetting("configParam$id", resetValue)
                 break
             case 'bool':
-                def resetBool = (resetValue == it.trueValue) ? true : false
+                def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
                 device.updateSetting("configParam$id", resetBool)
                 break
@@ -647,7 +675,7 @@ def configure() {
                 def resetFlags = (specified?.flags) ?: it.flags
                 resetFlags.each { rf ->
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
-                    def resetBool = (resetFlagValue == rf.flagValue) ? true : false
+                    def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
                     device.updateSetting("configParam$id$rf.id", resetBool)
                 }

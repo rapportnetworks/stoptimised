@@ -105,6 +105,7 @@ metadata {
         standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
             state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
+        //noinspection GroovyAssignabilityCheck
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
         details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "test"])
     }
@@ -221,6 +222,8 @@ private generatePrefsParams() {
                         )
                     }
                     break
+                default:
+                    logger('preferences: Unhandled preference type.', 'warining')
             }
         }
     }
@@ -238,7 +241,7 @@ private getTimeOptionValueMap() { [
     "8 minutes": 8 * 60,
     "15 minutes": 15 * 60,
     "30 minutes": 30 * 60,
-    "1 hour": 1 * 60 * 60,
+    "1 hour": 60 * 60,
     "6 hours": 6 * 60 * 60,
     "12 hours": 12 * 60 * 60,
     "18 hours": 18 * 60 * 60,
@@ -310,6 +313,8 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
             case 0x08:
                 result += motionEvent(1)
                 break
+            default:
+                logger("NotificationReport: Unhandled notification event '$cmd.event", 'warn')
         }
         logger("NotificationReport: '$result'", 'info')
     }
@@ -525,7 +530,8 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  * Send Zwave Commands to Device
 *****************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
-    if (!listening()) cmds += wakeUpNoMoreInformation()
+    if (!listening()) //noinspection GroovyAssignmentToMethodParameter
+        cmds += wakeUpNoMoreInformation()
     delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
     // sendHubCommand(commands.collect { response(it) }, delay)
 }
@@ -680,6 +686,8 @@ def configure() {
                     device.updateSetting("configParam$id$rf.id", resetBool)
                 }
                 break
+            default:
+                logger('configure: Unhandled preference type.', 'warn')
         }
     }
 
@@ -739,6 +747,8 @@ def updated() {
                         logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
                         state."paramTarget$it.id" = target
                         break
+                    default:
+                        logger('updated: Unhandled configuration type.', 'warn')
                 }
             }
         }
@@ -783,6 +793,7 @@ private sync() {
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
             cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
             cmds += configurationGet(it.id)
+            //noinspection GroovyResultOfIncrementOrDecrementUsed
             syncPending++
         }
         else if (state.syncAll && it.id in configParameters()) {
@@ -801,6 +812,7 @@ private sync() {
     cmds
 }
 
+@SuppressWarnings("GroovyResultOfIncrementOrDecrementUsed")
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0

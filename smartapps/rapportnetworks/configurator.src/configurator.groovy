@@ -34,9 +34,9 @@ definition (
         author: "Alasdair Thin",
         description: "Configure SmartThings Devices",
         category: "My Apps",
-        // iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-        // iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-        // iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+        iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
+        iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
+        iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
 )
 
 preferences {
@@ -45,23 +45,30 @@ preferences {
 }
 
 def mainPage() {
-    dynamicPage(name:"mainPage", uninstall:true, install:true) {
+    dynamicPage(name:"mainPage", uninstall:true, install:true, refreshInterval: 5) {
 
         section("General") {
             input (
                     name: "configLoggingLevelIDE",
-                    title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
+                    title: "IDE Live Logging Level. Messages with this level and higher will be logged to the IDE.",
                     type: "enum",
                     options: [ "0" : "None", "1" : "Error", "2" : "Warning", "3" : "Info", "4" : "Debug", "5" : "Trace" ],
                     defaultValue: "3",
                     displayDuringSetup: true,
                     required: false,
             )
-            // input name: "clearSelections" - type: 'bool', defaultValue: true - needed as switch to trigger clearing selections
+            input(
+                    name: 'clearSelections',
+                    title: 'Clear device selections after sending configure command.',
+                    type: 'bool',
+                    defaultValue: true,
+                    displayDuringSetup: true,
+                    required: false,
+            )
         }
 
 
-        if (state.devicesConfigured) {
+        if (state.devicesConfigured && !settings.clearSelections) {
             section("Selected Devices") {
                 getPageLink("devicesPageLink", "Tap to change", "devicesPage", null, buildSummary(selectedDeviceNames))
             }
@@ -80,9 +87,7 @@ def devicesPage() {
 
 private getDevicesPageContent() {
     section("Choose Devices") {
-        paragraph '''Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\n
-                    Each device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\n
-                    There's a field below for every capability, but you should be able to locate most of your devices in either the 'Actuators' or 'Sensors' fields at the top.'''
+        paragraph '''Each device only needs to be selected once and which field you select it from has no effect on which events will be logged for it. There's a field below for every capability, but you should be able to locate most of your devices in either the 'Actuators' or 'Sensors' fields at the top.'''
 
         capabilities.each {
             if (it.cap != 'bridge') {
@@ -92,7 +97,7 @@ private getDevicesPageContent() {
                             multiple: true,
                             hideWhenEmpty: true,
                             required: false,
-                            submitOnChange: true,
+                            submitOnChange: true
                 }
                 catch (final e) {
                     logTrace "Failed to create input for ${it}: ${e.message}"
@@ -105,7 +110,7 @@ private getDevicesPageContent() {
 
 private getSelectedDeviceNames() {
     try {
-        return selectedDevices?.collect { "${it?.displayName}" }?.sort() // check this works first then add ${(it.hasCapability('Configuration')) ? '+' : '-'}
+        return selectedDevices?.collect { "${it?.displayName}" + "${(it.hasCapability('Configuration')) ? '+' : '-'}" + "${(it.hasCommand('configure')) ? '+' : '-'}" }?.sort() // check this works first then add ${(it.hasCapability('Configuration')) ? '+' : '-'}
     }
     catch (final e) {
         logWarn "Error while getting selected device names: ${e.message}"
@@ -171,12 +176,15 @@ def updated() { // runs when app settings are changed
         state.devicesConfigured = true
     }
     else {
-        logDebug "Unconfigured - Choose Devices"
+        logger('Unconfigured - Choose Devices', 'debug')
     }
 
     if (state.devicesConfigured) configureCommand()
 
-    // if (settings.clearSelections) runIn(60, resetPreferences())
+    if (settings.clearSelections) {
+        runIn(30, resetPrefs)
+        state.devicesConfigured = false
+    }
 }
 
 /*****************************************************************************************************************
@@ -193,18 +201,18 @@ def configureCommand() {
     selectedDevices?.each  { final dev ->
         if (!dev.displayName.startsWith("~")) {
             if (dev.hasCapability("Configuration")) {
-                log.debug "${dev.deviceLabel} has Configuration Capability"
+                log.debug "${dev.displayName} has Configuration Capability"
                 if (dev.hasCommand("configure")) {
-                    log.debug "${dev.deviceLabel} has configure Command"
-                    // dev.configure() TODO
-                    log.debug "configure Command sent to ${dev.deviceLabel}"
+                    log.debug "${dev.displayName} has configure Command"
+                    dev.configure()
+                    log.debug "configure Command sent to ${dev.displayName}"
                 }
                 else {
-                    log.debug "${dev.deviceLabel} does not have configure Command"
+                    log.debug "${dev.displayName} does not have configure Command"
                 }
             }
             else {
-                log.debug "${dev.deviceLabel} does not have Configuration Capability"
+                log.debug "${dev.displayName} does not have Configuration Capability"
             }
         }
     }
@@ -214,9 +222,14 @@ def configureCommand() {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-private resetPreferences() {
+def resetPrefs() {
     // app.updateSetting(inputName, [type: type, value: value])
-    // app.updateSetting(inputName, value)
+    capabilities?.each {
+        if (settings?."${it.cap}Pref") {
+            app.updateSetting("${it.cap}Pref", [])
+            logger('Resetting preferences.', 'info')
+        }
+    }
 }
 
 private logger(final msg, final level = "debug") { // Wrapper function for all logging

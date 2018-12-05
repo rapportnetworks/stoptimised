@@ -45,7 +45,7 @@ preferences {
 }
 
 def mainPage() {
-    dynamicPage(name:"mainPage", uninstall:true, install:true, refreshInterval: 5) {
+    dynamicPage(name:"mainPage", uninstall:true, install:true) {
 
         section("General") {
             input (
@@ -87,7 +87,7 @@ def devicesPage() {
 
 private getDevicesPageContent() {
     section("Choose Devices") {
-        paragraph '''Each device only needs to be selected once and which field you select it from has no effect on which events will be logged for it. There's a field below for every capability, but you should be able to locate most of your devices in either the 'Actuators' or 'Sensors' fields at the top.'''
+        paragraph 'Each device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.'
 
         capabilities.each {
             if (it.cap != 'bridge') {

@@ -119,7 +119,7 @@ private getDevicesPageContent() {
 private getSelectedDeviceNames() {
     try {
         selectedDevices?.collect {
-            "${it?.displayName}${(it.hasCapability('Configuration')) ? '+' : '-'}${(it.hasCommand('configure')) ? '+' : '-'}"
+            "${(it.hasCapability('Configuration')) ? '+' : '-'}${(it.hasCommand('configure')) ? '+' : '-'}${it?.displayName}"
         }?.sort()
     }
     catch (e) {
@@ -263,6 +263,7 @@ private logger(final msg, final level = 'debug') {
 }
 
 private static getCapabilities() { [
+        [title: 'Configurable', cap: 'configuration'],
+        [title: 'Sensors', cap: 'sensor'],
         [title: 'Actuators', cap: 'actuator'],
-        [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
 ] }

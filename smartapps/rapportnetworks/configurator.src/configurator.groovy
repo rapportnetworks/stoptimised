@@ -75,10 +75,9 @@ def mainPage() {
             )
         }
 
-
         if (state.devicesConfigured && !settings.clearSelections) {
             section('Selected Devices') {
-                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames))
+                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, createSummary(selectedDeviceNames))
             }
         }
         else {
@@ -143,7 +142,7 @@ private getSelectedDevices() {
     devices?.flatten()?.unique { it.id }
 }
 
-private getPageLink(final linkName, final linkText, final pageName, final args=null, final desc="", final image=null) {
+private getPageLink(linkName, linkText, pageName, args=null, desc='', image=null) {
     def map = [
             name: "$linkName",
             title: "$linkText",
@@ -156,11 +155,11 @@ private getPageLink(final linkName, final linkText, final pageName, final args=n
     href(map)
 }
 
-private static buildSummary(final items) {
-    def summary = ""
+private static createSummary(items) {
+    def summary = ''
     items?.each {
-        summary += summary ? "\n" : ""
-        summary += "   ${it}"
+        summary += summary ? '\n' : ''
+        summary += "   $it"
     }
     summary
 }
@@ -168,26 +167,17 @@ private static buildSummary(final items) {
 /*****************************************************************************************************************
  *  SmartThings System Commands:
  *****************************************************************************************************************/
-def installed() { // runs when the app is first installed
+def installed() {
+    logger("Installed App: ${app.label}. Installed with settings: ${settings}", 'trace')
     state.loggingLevelIDE = 5
-    logger("Installed App: ${app.label}: Installed with settings: ${settings}", 'trace')
 }
 
-def uninstalled() { // runs when the app is uninstalled
-    logger("Uninstalled App: ${app.label}.",'trace')
-}
-
-def updated() { // runs when app settings are changed
-    if (settings.enableTouch) {
-        subscribe(app, handleAppTouch)
-    }
-    else {
-        unsubscribe()
-    }
-
-    logger("Updated App: ${app.label}.", 'trace')
+def updated() {
+    logger("Updated App: ${app.label}. Updated with settings: ${settings}", 'trace')
 
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
+
+    (settings.enableTouch) ? subscribe(app, handleAppTouch) : unsubscribe()
 
     (selectedDevices) ? state.devicesConfigured = true : logger('Unconfigured - Choose Devices', 'debug')
 
@@ -196,11 +186,15 @@ def updated() { // runs when app settings are changed
     if (settings.clearSelections) runIn(15, resetPrefs)
 }
 
+def uninstalled() {
+    logger("Uninstalled App: ${app.label}.", 'trace')
+}
+
 /*****************************************************************************************************************
  *  Event Handlers:
  *****************************************************************************************************************/
 def handleAppTouch(evt) { // SmartApp Touch event
-    logger('handleAppTouch: event triggered','trace')
+    logger("handleAppTouch: Event triggered: $evt", 'trace')
     if (state.devicesConfigured) configureCommand()
 }
 
@@ -208,23 +202,28 @@ def handleAppTouch(evt) { // SmartApp Touch event
  *  Main Commands:
  *****************************************************************************************************************/
 def configureCommand() {
-    selectedDevices?.each  {
-        if (it.hasCapability('Configuration')) {
-            logger("${it.displayName} has Configuration Capability.", 'debug')
-            if (it.hasCommand('configure')) {
-                logger("Configure Command sent to ${it.displayName}.", 'info')
-                it.configure()
+    if (!state.configureLastSentAt || now() >= state.configureLastSentAt + 300_000) {
+        state.configureLastSentAt = now()
+        selectedDevices?.each  {
+            if (it.hasCapability('Configuration')) {
+                logger("${it.displayName} has Configuration Capability.", 'debug')
+                if (it.hasCommand('configure')) {
+                    logger("Configure Command sent to ${it.displayName}.", 'info')
+                    it.configure()
+                }
+                else {
+                    logger("${it.displayName} does not have Configure Command.", 'info')
+                }
             }
             else {
-                logger("${it.displayName} does not have Configure Command.", 'info')
+                logger("${it.displayName} does not have Configuration Capability.", 'debug')
             }
         }
-        else {
-            logger("${it.displayName} does not have Configuration Capability.", 'debug')
-        }
+    }
+    else {
+        logger('configureCommand: Configure command sent within last 5 minutes so aborting.', 'trace')
     }
 }
-
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
@@ -239,8 +238,8 @@ def resetPrefs() {
     }
 }
 
-private logger(final msg, final level = 'debug') {
-    switch(level) {
+private logger(msg, level = 'debug') {
+    switch (level) {
         case 'error':
             if (state.loggingLevelIDE >= 1) log.error msg
             break

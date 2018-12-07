@@ -203,18 +203,12 @@ def configureCommand() {
     if (!state.configureLastSentAt || now() >= state.configureLastSentAt + 10_000) { // 300_000
         state.configureLastSentAt = now()
         selectedDevices?.each  {
-            if (it.hasCapability('Configuration')) {
-                logger("${it.displayName} has Configuration Capability.", 'debug')
-                if (it.hasCommand('configure')) {
-                    logger("Configure Command sent to ${it.displayName}.", 'info')
-                    it.configure()
-                }
-                else {
-                    logger("${it.displayName} does not have Configure Command.", 'info')
-                }
+            if (it.hasCommand('configure')) {
+                logger("Configure Command sent to ${it.displayName}.", 'info')
+                it.configure()
             }
             else {
-                logger("${it.displayName} does not have Configuration Capability.", 'debug')
+                logger("${it.displayName} does not have Configure Command.", 'info')
             }
         }
     }
@@ -232,15 +226,12 @@ def resetPrefs() {
             if (!cs || cs?.date?.time < state?.configureLastSentAt) {
                 if (it.hasCommand('configure')) it.configure() // resending configure command to device
             }
-            else if (cs?.value == 'completed') {
+            else if (cs?.value != 'completed') { // temp change to != for testing purposes
                 logger("resetPrefs: Resetting preference: ${it.id} : ${it.displayName}", 'info')
                 removalList += it
             }
-            else if (it?.currentState('syncPending')?.date?.time > state?.configureLastSentAt) {
-                if (it.hasCommand('syncRemaining')) it.syncRemaining() // sending syncRemaining command to device
-            }
         }
-        if (removalList && removalList in settings.configurationPref) {
+        if (removalList) {
             def newDeviceList = settings.configurationPref - removalList
             app.updateSetting('configurationPref', newDeviceList)
         }

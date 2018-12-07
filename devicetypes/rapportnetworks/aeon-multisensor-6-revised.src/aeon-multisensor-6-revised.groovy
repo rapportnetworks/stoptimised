@@ -29,6 +29,7 @@ metadata {
 
         // Custom Attributes
         attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
+        attribute 'configure', 'string' // Reports on configuration command status.
         attribute "logMessage", "string"        // Important log messages.
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
 
@@ -640,6 +641,8 @@ def installed() {
 def configure() {
     logger('configure: Setting/Resetting configuration targets to default/specified values.', 'info')
 
+    sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
+
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
     device.updateSetting('configAutoResetTamperDelay', 30); state.autoResetTamperDelay = 30
 
@@ -849,6 +852,8 @@ private updateSyncPending() {
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
+        sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
+
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 }

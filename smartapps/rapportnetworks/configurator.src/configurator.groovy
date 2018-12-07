@@ -45,7 +45,7 @@ preferences {
 }
 
 def mainPage() {
-    dynamicPage(name: 'mainPage', uninstall:true, install:true) {
+    dynamicPage(name: 'mainPage', uninstall:true, install:true, refreshInterval: 5) {
 
         section('Options') {
             input (
@@ -58,10 +58,10 @@ def mainPage() {
                     required: false
             )
             input(
-                    name: 'clearSelections',
-                    title: 'Clear device selections after sending Configure command.',
+                    name: 'sendConfigureCommand',
+                    title: 'Sending Configure command.',
                     type: 'bool',
-                    defaultValue: true,
+                    defaultValue: false,
                     displayDuringSetup: true,
                     required: false
             )
@@ -75,13 +75,20 @@ def mainPage() {
             )
         }
 
-        if (state.devicesConfigured && !settings.clearSelections) {
+        /*
+        // if (state.devicesConfigured && !settings.clearSelections) {
+        if (state.devicesConfigured) {
             section('Selected Devices') {
                 getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, createSummary(selectedDeviceNames))
             }
         }
         else {
             devicesPageContent
+        }
+        */
+        section('Select devices to Configure') {
+            input(name: "configurationPref", type: "capability.configuration", title: "Configuration:", multiple: true, required: false, submitOnChange: true) // hideWhenEmpty: true,
+            paragraph(title: 'Selected Devices', "${createSummary(selectedDeviceNames)}")
         }
     }
 }
@@ -95,30 +102,21 @@ def devicesPage() {
 private getDevicesPageContent() {
     section('Choose Devices') {
         paragraph 'Select devices to send Configure command to. Only devices with Configuration capability will receive the command.'
-
-        capabilities.each {
-            try {
-                input(
-                        "${it.cap}Pref",
-                        "capability.${it.cap}",
-                        title: "${it.title}:",
-                        multiple: true,
-                        hideWhenEmpty: true,
-                        required: false,
-                        submitOnChange: true)
-            }
-            catch (e) {
-                logger("Preferences: Failed to create input for ${it}: ${e.message}", 'trace')
-            }
+        try {
+            input(name: "configurationPref", type: "capability.configuration", title: "Configurable:", multiple: true, hideWhenEmpty: false, required: false, submitOnChange: true
+            )
         }
-
+        catch (e) {
+            logger("Preferences: Failed to create input for configuration capability: ${e.message}", 'trace')
+        }
     }
 }
 
 private getSelectedDeviceNames() {
     try {
         selectedDevices?.collect {
-            "${(it.hasCapability('Configuration')) ? '+' : '-'}${(it.hasCommand('configure')) ? '+' : '-'}${it?.displayName}"
+            def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
+            "${it?.displayName.padRight(25, ' ')} (${it?.getZwaveInfo()?.zw?.take(1)}) Configure ${it?.currentState('configure')?.value} on ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}. [$sp]"
         }?.sort()
     }
     catch (e) {
@@ -129,15 +127,13 @@ private getSelectedDeviceNames() {
 
 private getSelectedDevices() {
     def devices = []
-    capabilities?.each {
-        try {
-            if (settings?."${it.cap}Pref") {
-                devices << settings?."${it.cap}Pref"
-            }
+    try {
+        if (settings?.configurationPref) {
+            devices << settings?.configurationPref
         }
-        catch (e) {
-            logger("Preferences: Error while getting selected devices for capability ${it}: ${e.message}", 'warn')
-        }
+    }
+    catch (e) {
+        logger("Preferences: Error while getting selected devices for configuration capability: ${e.message}", 'warn')
     }
     devices?.flatten()?.unique { it.id }
 }
@@ -181,9 +177,11 @@ def updated() {
 
     (selectedDevices) ? state.devicesConfigured = true : logger('Unconfigured - Choose Devices', 'debug')
 
-    if (state.devicesConfigured) configureCommand()
-
-    if (settings.clearSelections) runIn(15, resetPrefs)
+    if (state.devicesConfigured && settings.sendConfigureCommand) {
+        configureCommand()
+        runIn(30, resetPrefs) // 120
+        runEvery10Minutes(check) // runEvery3Hours
+    }
 }
 
 def uninstalled() {
@@ -202,7 +200,7 @@ def handleAppTouch(evt) { // SmartApp Touch event
  *  Main Commands:
  *****************************************************************************************************************/
 def configureCommand() {
-    if (!state.configureLastSentAt || now() >= state.configureLastSentAt + 300_000) {
+    if (!state.configureLastSentAt || now() >= state.configureLastSentAt + 10_000) { // 300_000
         state.configureLastSentAt = now()
         selectedDevices?.each  {
             if (it.hasCapability('Configuration')) {
@@ -225,19 +223,37 @@ def configureCommand() {
     }
 }
 
-/*****************************************************************************************************************
- *  Private Helper Functions:
- *****************************************************************************************************************/
 def resetPrefs() {
-    state.devicesConfigured = false
-    capabilities?.each {
-        if (settings?."${it.cap}Pref") {
-            logger('resetPrefs: Resetting preferences.', 'info')
-            app.updateSetting("${it.cap}Pref", [])
+    // state.devicesConfigured = false
+    if (settings?.configurationPref) {
+        def removalList = []
+        settings.configurationPref.each {
+            def cs = it?.currentState('configure')
+            if (!cs || cs?.date?.time < state?.configureLastSentAt) {
+                if (it.hasCommand('configure')) it.configure() // resending configure command to device
+            }
+            else if (cs?.value == 'completed') {
+                logger("resetPrefs: Resetting preference: ${it.id} : ${it.displayName}", 'info')
+                removalList += it
+            }
+            else if (it?.currentState('syncPending')?.date?.time > state?.configureLastSentAt) {
+                if (it.hasCommand('syncRemaining')) it.syncRemaining() // sending syncRemaining command to device
+            }
+        }
+        if (removalList && removalList in settings.configurationPref) {
+            def newDeviceList = settings.configurationPref - removalList
+            app.updateSetting('configurationPref', newDeviceList)
         }
     }
 }
 
+def check() {
+    if (now() >= state.configureLastSentAt + 180_000) resetPrefs() // 180_000_000
+}
+
+/*****************************************************************************************************************
+ *  Private Helper Functions:
+ *****************************************************************************************************************/
 private logger(msg, level = 'debug') {
     switch (level) {
         case 'error':

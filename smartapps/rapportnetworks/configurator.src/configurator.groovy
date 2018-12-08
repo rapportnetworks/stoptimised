@@ -116,7 +116,7 @@ private getSelectedDeviceNames() {
     try {
         selectedDevices?.collect {
             def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-            "${it?.displayName.padRight(25, ' ')} (${it?.getZwaveInfo()?.zw?.take(1)}) Configure ${it?.currentState('configure')?.value} on ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}. [$sp]"
+            "${it?.displayName?.padRight(25, ' ')} (${it?.getZwaveInfo()?.zw?.take(1)}) Configure ${it?.currentState('configure')?.value} on ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}. [$sp]"
         }?.sort()
     }
     catch (e) {
@@ -129,7 +129,7 @@ private getSelectedDevices() {
     def devices = []
     try {
         if (settings?.configurationPref) {
-            devices << settings?.configurationPref
+            devices << settings.configurationPref
         }
     }
     catch (e) {
@@ -155,7 +155,7 @@ private static createSummary(items) {
     def summary = ''
     items?.each {
         summary += summary ? '\n' : ''
-        summary += "   $it"
+        summary += "$it"
     }
     summary
 }
@@ -223,11 +223,14 @@ def resetPrefs() {
         def removalList = []
         settings.configurationPref.each {
             def cs = it?.currentState('configure')
-            if (!cs || cs?.date?.time < state?.configureLastSentAt) {
-                if (it.hasCommand('configure')) it.configure() // resending configure command to device
-            }
-            else if (cs?.value != 'completed') { // temp change to != for testing purposes
+            if (cs?.value == 'completed') {
                 logger("resetPrefs: Resetting preference: ${it.id} : ${it.displayName}", 'info')
+                removalList += it
+            }
+            else if (cs && cs?.date?.time < state.configureLastSentAt) {
+                it.configure()
+            }
+            else {
                 removalList += it
             }
         }

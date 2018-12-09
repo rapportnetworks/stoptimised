@@ -41,7 +41,6 @@ definition (
 
 preferences {
     page(name: 'mainPage')
-    page(name: 'devicesPage')
 }
 
 def mainPage() {
@@ -50,42 +49,15 @@ def mainPage() {
         section('Options') {
             input (
                     name: 'configLoggingLevelIDE',
-                    title: 'IDE Live Logging Level. Messages with this level and higher will be logged to the IDE.',
+                    title: 'IDE Live Logging Level.',
                     type: 'enum',
                     options: [ '0': 'None', '1': 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace' ],
                     defaultValue: '3',
                     displayDuringSetup: true,
                     required: false
             )
-            input(
-                    name: 'sendConfigureCommand',
-                    title: 'Sending Configure command.',
-                    type: 'bool',
-                    defaultValue: false,
-                    displayDuringSetup: true,
-                    required: false
-            )
-            input(
-                    name: 'enableTouch',
-                    title: 'Enable App Touch to send Configure command.',
-                    type: 'bool',
-                    defaultValue: false,
-                    displayDuringSetup: true,
-                    required: false
-            )
         }
 
-        /*
-        // if (state.devicesConfigured && !settings.clearSelections) {
-        if (state.devicesConfigured) {
-            section('Selected Devices') {
-                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, createSummary(selectedDeviceNames))
-            }
-        }
-        else {
-            devicesPageContent
-        }
-        */
         section('Select devices to Configure') {
             input(name: "configurationPref", type: "capability.configuration", title: "Configuration:", multiple: true, required: false, submitOnChange: true) // hideWhenEmpty: true,
             paragraph(title: 'Selected Devices', "${createSummary(selectedDeviceNames)}")
@@ -93,36 +65,32 @@ def mainPage() {
     }
 }
 
-def devicesPage() {
-    dynamicPage(name: 'devicesPage') {
-        devicesPageContent
-    }
+private getSelectedDeviceIds() {
+    settings?.configurationPref?.collect { it.id }
 }
 
-private getDevicesPageContent() {
-    section('Choose Devices') {
-        paragraph 'Select devices to send Configure command to. Only devices with Configuration capability will receive the command.'
-        try {
-            input(name: "configurationPref", type: "capability.configuration", title: "Configurable:", multiple: true, hideWhenEmpty: false, required: false, submitOnChange: true
-            )
-        }
-        catch (e) {
-            logger("Preferences: Failed to create input for configuration capability: ${e.message}", 'trace')
-        }
-    }
-}
-
+/*
 private getSelectedDeviceNames() {
     try {
         selectedDevices?.collect {
             def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-            "${it?.displayName?.padRight(25, ' ')} (${it?.getZwaveInfo()?.zw?.take(1)}) Configure ${it?.currentState('configure')?.value} on ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}. [$sp]"
+            "${it?.displayName} (${it?.getZwaveInfo()?.zw?.take(1)})\n ->${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$sp]"
         }?.sort()
     }
     catch (e) {
         logger("Preferences: Error while getting selected device names: ${e.message}", 'warn')
         []
     }
+}
+*/
+
+private getSelectedDeviceNames() {
+    def devices = []
+    settings?.configurationPref?.each {
+        def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
+        devices << "${it?.displayName} (${it?.getZwaveInfo()?.zw?.take(1)})\n ->${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$sp]"
+    }
+    devices
 }
 
 private getSelectedDevices() {
@@ -136,19 +104,6 @@ private getSelectedDevices() {
         logger("Preferences: Error while getting selected devices for configuration capability: ${e.message}", 'warn')
     }
     devices?.flatten()?.unique { it.id }
-}
-
-private getPageLink(linkName, linkText, pageName, args=null, desc='', image=null) {
-    def map = [
-            name: "$linkName",
-            title: "$linkText",
-            description: "$desc",
-            page: "$pageName",
-            required: false,
-    ]
-    if (args) map.params = args
-    if (image) map.image = image
-    href(map)
 }
 
 private static createSummary(items) {
@@ -165,7 +120,7 @@ private static createSummary(items) {
  *****************************************************************************************************************/
 def installed() {
     logger("Installed App: ${app.label}. Installed with settings: ${settings}", 'trace')
-    state.loggingLevelIDE = 5
+    state.loggingLevelIDE = 5 // change to 3 when finished
 }
 
 def updated() {
@@ -173,15 +128,11 @@ def updated() {
 
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
-    (settings.enableTouch) ? subscribe(app, handleAppTouch) : unsubscribe()
+    subscribe(app, handleAppTouch)
 
-    (selectedDevices) ? state.devicesConfigured = true : logger('Unconfigured - Choose Devices', 'debug')
+    state.devicesSelected = getSelectedDeviceIds()
 
-    if (state.devicesConfigured && settings.sendConfigureCommand) {
-        configureCommand()
-        runIn(30, resetPrefs) // 120
-        runEvery10Minutes(check) // runEvery3Hours
-    }
+    state.sendCounter = 2
 }
 
 def uninstalled() {
@@ -193,56 +144,46 @@ def uninstalled() {
  *****************************************************************************************************************/
 def handleAppTouch(evt) { // SmartApp Touch event
     logger("handleAppTouch: Event triggered: $evt", 'trace')
-    if (state.devicesConfigured) configureCommand()
+    // app.updateSetting('configurationPref', [])
+    controller()
+    unsubscribe()
 }
 
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
+def controller() {
+    logger('controller: Called', 'trace')
+    if (state.sendCounter > 0) {
+        configureCommand()
+        runIn(30, checkReceived)
+        runIn(60, controller)
+        state.sendCounter = state.sendCounter - 1
+    }
+
+}
+
 def configureCommand() {
-    if (!state.configureLastSentAt || now() >= state.configureLastSentAt + 10_000) { // 300_000
-        state.configureLastSentAt = now()
-        selectedDevices?.each  {
-            if (it.hasCommand('configure')) {
-                logger("Configure Command sent to ${it.displayName}.", 'info')
-                it.configure()
-            }
-            else {
-                logger("${it.displayName} does not have Configure Command.", 'info')
-            }
-        }
-    }
-    else {
-        logger('configureCommand: Configure command sent within last 5 minutes so aborting.', 'trace')
-    }
-}
-
-def resetPrefs() {
-    // state.devicesConfigured = false
-    if (settings?.configurationPref) {
-        def removalList = []
-        settings.configurationPref.each {
-            def cs = it?.currentState('configure')
-            if (cs?.value == 'completed') {
-                logger("resetPrefs: Resetting preference: ${it.id} : ${it.displayName}", 'info')
-                removalList += it
-            }
-            else if (cs && cs?.date?.time < state.configureLastSentAt) {
-                it.configure()
-            }
-            else {
-                removalList += it
-            }
-        }
-        if (removalList) {
-            def newDeviceList = settings.configurationPref - removalList
-            app.updateSetting('configurationPref', newDeviceList)
+    logger('configureCommand: Called', 'trace')
+    settings?.configurationPref?.each {
+        if (it.id in state?.devicesSelected) {
+            logger("configureCommand: Sending Configure Command to $it", 'info')
+            it.configure()
         }
     }
 }
 
-def check() {
-    if (now() >= state.configureLastSentAt + 180_000) resetPrefs() // 180_000_000
+def checkReceived() {
+    def removalList = []
+    settings?.configurationPref?.each {
+        if (it.id in state?.devicesSelected) {
+            if (it?.currentState('configure')?.value == 'received') {
+                logger("checkReceived: Deselecting: ${it.id} : ${it.displayName}", 'info')
+                removalList << it.id
+            }
+        }
+    }
+    if (removalList) state.devicesSelected = state.devicesSelected - removalList
 }
 
 /*****************************************************************************************************************
@@ -270,9 +211,3 @@ private logger(msg, level = 'debug') {
             break
     }
 }
-
-private static getCapabilities() { [
-        [title: 'Configurable', cap: 'configuration'],
-        [title: 'Sensors', cap: 'sensor'],
-        [title: 'Actuators', cap: 'actuator'],
-] }

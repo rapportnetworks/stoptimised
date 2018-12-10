@@ -13,10 +13,6 @@
  *
  *  Description: A SmartApp to Send Configure Command to selected SmartThings Devices with the Configuration Capability.
  *
- *  Acknowledgements: Includes code originally developed by David Lomas (codersaur) and Kevin LaFramboise (krlaframboise).
- *
- *  Original Source: https://github.com/codersaur/SmartThings/tree/master/smartapps/influxdb-logger
- *
  *  License:
  *   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *   in compliance with the License. You may obtain a copy of the License at:
@@ -40,73 +36,32 @@ definition (
 )
 
 preferences {
-    page(name: 'mainPage')
+    page(name: 'mainPage', install: true, uninstall: true)
+
 }
 
 def mainPage() {
-    dynamicPage(name: 'mainPage', uninstall:true, install:true, refreshInterval: 5) {
-
-        section('Options') {
-            input (
-                    name: 'configLoggingLevelIDE',
-                    title: 'IDE Live Logging Level.',
-                    type: 'enum',
-                    options: [ '0': 'None', '1': 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace' ],
-                    defaultValue: '3',
-                    displayDuringSetup: true,
-                    required: false
-            )
+    dynamicPage(name: 'mainPage') {
+        section {
+            input(name: 'configurationPref', type: 'capability.configuration', title: 'Select Devices with Configuration capability:', multiple: true, required: false, submitOnChange: true)
         }
-
-        section('Select devices to Configure') {
-            input(name: "configurationPref", type: "capability.configuration", title: "Configuration:", multiple: true, required: false, submitOnChange: true) // hideWhenEmpty: true,
-            paragraph(title: 'Selected Devices', "${createSummary(selectedDeviceNames)}")
+        section {
+            paragraph(title: 'Details of Selected Devices:', "${createSummary(selectedDeviceNames)}")
+        }
+        section {
+            input(name: 'loggingPref', title: 'Log Smart App activity.', type: 'bool', defaultValue: false, required: false)
         }
     }
 }
-
-private getSelectedDeviceIds() {
-    settings?.configurationPref?.collect { it.id }
-}
-
-/*
-private getSelectedDeviceNames() {
-    try {
-        selectedDevices?.collect {
-            def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-            "${it?.displayName} (${it?.getZwaveInfo()?.zw?.take(1)})\n ->${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$sp]"
-        }?.sort()
-    }
-    catch (e) {
-        logger("Preferences: Error while getting selected device names: ${e.message}", 'warn')
-        []
-    }
-}
-*/
 
 private getSelectedDeviceNames() {
-    def devices = []
-    settings?.configurationPref?.each {
-        def sp = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-        devices << "${it?.displayName} (${it?.getZwaveInfo()?.zw?.take(1)})\n ->${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$sp]"
+    settings?.configurationPref?.collect {
+        def items = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
+        "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) >${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}[$items]"
     }
-    devices
 }
 
-private getSelectedDevices() {
-    def devices = []
-    try {
-        if (settings?.configurationPref) {
-            devices << settings.configurationPref
-        }
-    }
-    catch (e) {
-        logger("Preferences: Error while getting selected devices for configuration capability: ${e.message}", 'warn')
-    }
-    devices?.flatten()?.unique { it.id }
-}
-
-private static createSummary(items) {
+private createSummary(items) {
     def summary = ''
     items?.each {
         summary += summary ? '\n' : ''
@@ -119,43 +74,36 @@ private static createSummary(items) {
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() {
-    logger("Installed App: ${app.label}. Installed with settings: ${settings}", 'trace')
-    state.loggingLevelIDE = 5 // change to 3 when finished
+    logger("installed: ${app.label} installed with settings: ${settings}.", 'trace')
 }
 
 def updated() {
-    logger("Updated App: ${app.label}. Updated with settings: ${settings}", 'trace')
-
-    state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
-
+    logger("updated: ${app.label} updated with settings: ${settings}.", 'trace')
+    state.selectedDevices = selectedDeviceIds
     subscribe(app, handleAppTouch)
-
-    state.devicesSelected = getSelectedDeviceIds()
-
     state.sendCounter = 2
 }
 
 def uninstalled() {
-    logger("Uninstalled App: ${app.label}.", 'trace')
+    logger("uninstalled: ${app.label} uninstalled.", 'trace')
 }
 
 /*****************************************************************************************************************
  *  Event Handlers:
  *****************************************************************************************************************/
-def handleAppTouch(evt) { // SmartApp Touch event
-    logger("handleAppTouch: Event triggered: $evt", 'trace')
-    // app.updateSetting('configurationPref', [])
-    controller()
+def handleAppTouch(event) { // SmartApp Touch event
+    logger("handleAppTouch: App trigger event: $event", 'trace')
     unsubscribe()
+    controller()
 }
 
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
 def controller() {
-    logger('controller: Called', 'trace')
+    logger("controller: Called. sendCounter = $state.sendCounter", 'trace')
     if (state.sendCounter > 0) {
-        configureCommand()
+        sendCommand()
         runIn(30, checkReceived)
         runIn(60, controller)
         state.sendCounter = state.sendCounter - 1
@@ -163,11 +111,11 @@ def controller() {
 
 }
 
-def configureCommand() {
-    logger('configureCommand: Called', 'trace')
+def sendCommand() {
+    logger('sendCommand: Called.', 'trace')
     settings?.configurationPref?.each {
-        if (it.id in state?.devicesSelected) {
-            logger("configureCommand: Sending Configure Command to $it", 'info')
+        if (it.id in state?.selectedDevices) {
+            logger("sendCommand: Sending Configure command to ${it?.displayName} [${it.id}]", 'info')
             it.configure()
         }
     }
@@ -176,38 +124,26 @@ def configureCommand() {
 def checkReceived() {
     def removalList = []
     settings?.configurationPref?.each {
-        if (it.id in state?.devicesSelected) {
+        if (it.id in state?.selectedDevices) {
             if (it?.currentState('configure')?.value == 'received') {
-                logger("checkReceived: Deselecting: ${it.id} : ${it.displayName}", 'info')
+                logger("checkReceived: Deselecting device ${it?.displayName} [${it.id}].", 'info')
                 removalList << it.id
+            }
+            else {
+                logger("checkReceived: Configure command not received by ${it?.displayName} [${it.id}].", 'info')
             }
         }
     }
-    if (removalList) state.devicesSelected = state.devicesSelected - removalList
+    if (removalList) state.selectedDevices = state.selectedDevices - removalList
 }
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-private logger(msg, level = 'debug') {
-    switch (level) {
-        case 'error':
-            if (state.loggingLevelIDE >= 1) log.error msg
-            break
-        case 'warn':
-            if (state.loggingLevelIDE >= 2) log.warn msg
-            break
-        case 'info':
-            if (state.loggingLevelIDE >= 3) log.info msg
-            break
-        case 'debug':
-            if (state.loggingLevelIDE >= 4) log.debug msg
-            break
-        case 'trace':
-            if (state.loggingLevelIDE >= 5) log.trace msg
-            break
-        default:
-            log.debug msg
-            break
-    }
+private getSelectedDeviceIds() {
+    settings?.configurationPref?.collect { it.id }
+}
+
+private logger(message, level = 'debug') {
+    if (loggingPref) log."$level" message
 }

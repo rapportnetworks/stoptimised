@@ -339,6 +339,61 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
     logger("handleAppTouch()", 'trace')
 }
 
+def measurements() { [
+        acceleration: 'states',
+        temperature: 'values'
+] }
+
+def tags() { [
+        [name: 'area', eventClass: ['enum'], closure: locationName.memoize()],
+        [name: 'areaId', eventClass: ['enum'], closure: locationId.memoize()],
+        [name: 'building', eventClass: ['enum'], closure: hubName.memoize()],
+        [name: 'buildingId', eventClass: ['enum'], closure: hubId.memoize()],
+        [name: 'chamber', eventClass: ['enum'], closure: group],
+        [name: 'chamberId', eventClass: ['enum'], closure: groupId],
+        [name: 'deviceCode', eventClass: ['enum'], closure: deviceName],
+        [name: 'deviceId', eventClass: ['enum'], closure: deviceId],
+        [name: 'deviceLabel', eventClass: ['enum'], closure: deviceDisplayName],
+        [name: 'event', eventClass: ['enum'], closure: eventName],
+        [name: 'eventType', eventClass: ['enum'], closure: eventClass],
+        [name: 'isChange', eventClass: ['enum'], closure: isStateChange],
+        [name: 'source', eventClass: ['enum'], closure: eventSource],
+]}
+
+def fields() { [
+        [name: 'nValue', eventClass: ['all'], closure: currentValue],
+        [name: 'pValue', eventClass: ['value'], closure: previousValue],
+        [name: 'rChange', eventClass: ['all'], closure: difference]
+] }
+
+// tags closures
+locationName = { location.name.replaceAll(' ', '\\\\ ') }
+locationId = { location.id}
+
+locationText = { "At ${location.name}, in ${location.hubs[0].name}," }
+
+hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }
+hubId = { location.hubs[0].id }
+
+group = { (it?.device?.device?.groupId && state?.groupNames?."${it.device.device.groupId}") ? state.groupNames."${it.device.device.groupId}" : 'unassigned' }
+groupId = { (it?.device?.device?.groupId) ? it.device.device.groupId : 'unassigned' }
+
+deviceName = { (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned' }
+deviceId = { it.deviceId }
+deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') }
+
+eventName = { it.name }
+eventClass = { ??eventClass?? }
+
+isStateChange =  { it?.isStateChange } // ??Handle null values? or does it always have a value?
+eventSource = { it.source }
+
+
+// values closures
+currentValue = { it.nValue / 2 }
+previousValue = { it.pValue * 2 }
+difference = { '"' + "${(it.nValue - it.pValue).toString()}" + '"' }
+
 
 def handleEnumEvent(evt) {
     def eventType = 'state'
@@ -346,25 +401,25 @@ def handleEnumEvent(evt) {
     logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
 
     def tags = new StringBuilder() // Create InfluxDB line protocol
-    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-    def deviceGroup = 'unassigned'
-    def deviceGroupId = 'unassigned'
-    if (evt.device.device?.groupId) {
-        deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?."${deviceGroupId}"
-    }
+    // def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
+    // def deviceGroup = 'unassigned'
+    // def deviceGroupId = 'unassigned'
+    // if (evt.device.device?.groupId) {
+        // deviceGroupId = evt.device.device.groupId
+        // deviceGroup = state?.groupNames?."${deviceGroupId}"
+    // }
     def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
-    tags.append(state.hubLocationDetails) // Add hub tags
-    tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-    tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
-    tags.append(",event=${evt.name}")
-    tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
+    // tags.append(state.hubLocationDetails) // Add hub tags
+    // tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
+    // tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
+    // tags.append(",event=${evt.name}")
+    // tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
     tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
     // global identifier
     tags.append(",identifierLocal=${identifier}")
-    tags.append(",isChange=${evt?.isStateChange}")
-    tags.append(",source=${evt.source}")
+    // tags.append(",isChange=${evt?.isStateChange}")
+    // tags.append(",source=${evt.source}")
 
     def fields = new StringBuilder() // populate initial fields set
     def eventTime = evt.date.time // get event time
@@ -861,10 +916,10 @@ def removeUnit(stringUnit) {
  *****************************************************************************************************************/
 
 def hubLocationDetails() {
-    state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}"
+    // state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}"
     // tags: area,areaId,building,buildingId
-    state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
-    state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
+    // state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
+    // state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
 }
 
 def postToInfluxDB(data, rp = 'autogen') {

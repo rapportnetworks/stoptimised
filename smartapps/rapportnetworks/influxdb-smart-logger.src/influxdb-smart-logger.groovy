@@ -345,7 +345,7 @@ def measurements() { [
 ] }
 
 def tags() { [
-        [name: 'area', eventClass: ['enum'], closure: locationName.memoize()],
+        [name: 'area', eventClass: ['enum'], closure: locationName.memoize()], // ??What does memoize() mean in terms of caching between executions?
         [name: 'areaId', eventClass: ['enum'], closure: locationId.memoize()],
         [name: 'building', eventClass: ['enum'], closure: hubName.memoize()],
         [name: 'buildingId', eventClass: ['enum'], closure: hubId.memoize()],
@@ -404,8 +404,19 @@ attributeStates = { getAttributeDetail().find { attribute -> attribute.key == it
 currentState = { "\"${it.value}\"" }
 currentStateLevel = { attributeStates(it).find { level -> level.key == it.value }.value }
 currentStateBinary = { (currentStateLevel(it) > 0) ? 'true' : 'false' }
-currentStateDescriptionRaw = { "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentValue(it)} in the ${group(it)}.\"" }
+currentStateDescriptionRaw = { "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\"" }
 currentStateDescription = { "${currentStateDescriptionRaw(it).replaceAll('\\\\', '')}" }
+
+previousEvent = {
+    def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
+    def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it.device.latestState("${it.name}")
+    historySorted.find { previous -> previous.date.time < it.date.time }
+}
+previousState = { "\"${previousEvent(it).value}\"" }
+previousStateLevel = { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }
+previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }
+
+
 
 timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" }
 
@@ -426,16 +437,16 @@ def handleEnumEvent(evt) {
         // deviceGroupId = evt.device.device.groupId
         // deviceGroup = state?.groupNames?."${deviceGroupId}"
     // }
-    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
+    // def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
 
     // tags.append(state.hubLocationDetails) // Add hub tags
     // tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
     // tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
     // tags.append(",event=${evt.name}")
     // tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
+    // tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
     // global identifier
-    tags.append(",identifierLocal=${identifier}")
+    // tags.append(",identifierLocal=${identifier}")
     // tags.append(",isChange=${evt?.isStateChange}")
     // tags.append(",source=${evt.source}")
 
@@ -443,10 +454,10 @@ def handleEnumEvent(evt) {
     def eventTime = evt.date.time // get event time
     def midnight = evt.date.clone().clearTime().time
     def writeTime = new Date() // time of processing event
-    def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5])
+    // def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5])
     // get list of previous events (5 most recent)
-    def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
-    def pEvent = pEvents.find { it.date.time < evt.date.time }
+    // def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
+    // def pEvent = pEvents.find { it.date.time < evt.date.time }
     def pEventTime = pEvent.date.time
 
     def offsetTime = 1000 * 10 / 2

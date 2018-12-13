@@ -356,43 +356,61 @@ def tags() { [
         [name: 'deviceLabel', eventClass: ['enum'], closure: deviceDisplayName],
         [name: 'event', eventClass: ['enum'], closure: eventName],
         [name: 'eventType', eventClass: ['enum'], closure: eventClass],
+        [name: 'identifierGlobal', eventClass: ['enum'], closure: identifierGlobal],
+        [name: 'identifierLocal', eventClass: ['enum'], closure: identifierLocal],
         [name: 'isChange', eventClass: ['enum'], closure: isStateChange],
         [name: 'source', eventClass: ['enum'], closure: eventSource],
+
 ]}
 
 def fields() { [
+        [name: 'eventDescription', eventClass: ['enum'], closure: eventDescription],
+        [name: 'eventId', eventClass: ['enum'], closure: eventId],
+        [name: 'nBinary', eventClass: ['enum'], closure: currentStateBinary],
+        [name: 'nLevel', eventClass: ['enum'], closure: currentStateLevel],
+        [name: 'nState', eventClass: ['enum'], closure: currentState],
+        [name: 'nText', eventClass: ['enum'], closure: currentStateDescription],
+
         [name: 'nValue', eventClass: ['all'], closure: currentValue],
         [name: 'pValue', eventClass: ['value'], closure: previousValue],
         [name: 'rChange', eventClass: ['all'], closure: difference]
+
+        [name: 'tDay', eventClass: ['all'], closure: timeOfDay]
+
 ] }
 
 // tags closures
 locationName = { location.name.replaceAll(' ', '\\\\ ') }
 locationId = { location.id}
-
-locationText = { "At ${location.name}, in ${location.hubs[0].name}," }
-
 hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }
 hubId = { location.hubs[0].id }
-
-group = { (it?.device?.device?.groupId && state?.groupNames?."${it.device.device.groupId}") ? state.groupNames."${it.device.device.groupId}" : 'unassigned' }
-groupId = { (it?.device?.device?.groupId) ? it.device.device.groupId : 'unassigned' }
-
-deviceName = { (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned' }
+group = { (state?.groupNames?."${groupId(it)}") ?: '' }
+groupId = { (it?.device?.device?.groupId) ?: '' }
+deviceName = { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ') ?: '' }
 deviceId = { it.deviceId }
 deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') }
-
 eventName = { it.name }
 eventClass = { ??eventClass?? }
-
+identifierGlobal = { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" }
+identifierLocal = { "${group(it)}\\ .\\ ${deviceDisplayName(it)}" }
 isStateChange =  { it?.isStateChange } // ??Handle null values? or does it always have a value?
 eventSource = { it.source }
 
-
 // values closures
-currentValue = { it.nValue / 2 }
-previousValue = { it.pValue * 2 }
-difference = { '"' + "${(it.nValue - it.pValue).toString()}" + '"' }
+eventDescription = { "\"${it?.descriptionText}\"" }
+eventId = { "\"${it.id}\"" }
+
+attributeStates = { getAttributeDetail().find { attribute -> attribute.key == it.name }.value.levels } // Lookup array for event state levels
+currentState = { "\"${it.value}\"" }
+currentStateLevel = { attributeStates(it).find { level -> level.key == it.value }.value }
+currentStateBinary = { (currentStateLevel(it) > 0) ? 'true' : 'false' }
+currentStateDescriptionRaw = { "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentValue(it)} in the ${group(it)}.\"" }
+currentStateDescription = { "${currentStateDescriptionRaw(it).replaceAll('\\\\', '')}" }
+
+timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" }
+
+fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"")
+
 
 
 def handleEnumEvent(evt) {
@@ -441,15 +459,15 @@ def handleEnumEvent(evt) {
     def timeElapsed = (eventTime - pEventTime)
     def timeElapsedText = timeElapsedText(timeElapsed)
 
-    fields.append("eventDescription=\"${evt?.descriptionText}\"")
-    fields.append(",eventId=\"${evt.id}\"")
+    // fields.append("eventDescription=\"${evt?.descriptionText}\"")
+    // fields.append(",eventId=\"${evt.id}\"")
 
-    def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
+    // def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
 
-    def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
-    def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
-    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
-    fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in the ${deviceGroup.replaceAll('\\\\', '')}.\"")
+    // def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
+    // def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
+    // fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
+    // fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in the ${deviceGroup.replaceAll('\\\\', '')}.\"")
 
     def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
     def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'

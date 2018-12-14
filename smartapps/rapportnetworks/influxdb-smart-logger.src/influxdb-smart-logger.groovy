@@ -345,56 +345,70 @@ def measurements() { [
 ] }
 
 def tags() { [
-        [name: 'area', eventClass: ['enum'], closure: locationName.memoize()], // ??What does memoize() mean in terms of caching between executions?
-        [name: 'areaId', eventClass: ['enum'], closure: locationId.memoize()],
-        [name: 'building', eventClass: ['enum'], closure: hubName.memoize()],
-        [name: 'buildingId', eventClass: ['enum'], closure: hubId.memoize()],
-        [name: 'chamber', eventClass: ['enum'], closure: group],
-        [name: 'chamberId', eventClass: ['enum'], closure: groupId],
-        [name: 'deviceCode', eventClass: ['enum'], closure: deviceName],
-        [name: 'deviceId', eventClass: ['enum'], closure: deviceId],
-        [name: 'deviceLabel', eventClass: ['enum'], closure: deviceDisplayName],
-        [name: 'event', eventClass: ['enum'], closure: eventName],
-        [name: 'eventType', eventClass: ['enum'], closure: eventClass],
-        [name: 'identifierGlobal', eventClass: ['enum'], closure: identifierGlobal],
-        [name: 'identifierLocal', eventClass: ['enum'], closure: identifierLocal],
-        [name: 'isChange', eventClass: ['enum'], closure: isStateChange],
-        [name: 'source', eventClass: ['enum'], closure: eventSource],
-
+        [name: 'area', type: ['all'], closure: locationName],
+        [name: 'areaId', type: ['all'], closure: locationId],
+        [name: 'building', type: ['all'], closure: hubName],
+        [name: 'buildingId', type: ['all'], closure: hubId],
+        [name: 'chamber', type: ['all'], closure: groupName],
+        [name: 'chamberId', type: ['enum', 'number'], closure: groupId],
+        [name: 'deviceCode', type: ['enum', 'number'], closure: deviceName],
+        [name: 'deviceId', type: ['enum', 'number'], closure: deviceId],
+        [name: 'deviceLabel', type: ['all'], closure: deviceDisplayName],
+        [name: 'event', type: ['all'], closure: eventName],
+        [name: 'eventType', type: ['all'], closure: eventType],
+        [name: 'identifierGlobal', type: ['all'], closure: identifierGlobal],
+        [name: 'identifierLocal', type: ['all'], closure: identifierLocal],
+        [name: 'isChange', type: ['all'], closure: isStateChange],
+        [name: 'source', type: ['all'], closure: eventSource],
+        [name: 'unit', type: ['number'], closure: eventUnit],
 ]}
 
-def fields() { [
-        [name: 'eventDescription', eventClass: ['enum'], closure: eventDescription],
-        [name: 'eventId', eventClass: ['enum'], closure: eventId],
-        [name: 'nBinary', eventClass: ['enum'], closure: currentStateBinary],
-        [name: 'nLevel', eventClass: ['enum'], closure: currentStateLevel],
-        [name: 'nState', eventClass: ['enum'], closure: currentState],
-        [name: 'nText', eventClass: ['enum'], closure: currentStateDescription],
-
-        [name: 'nValue', eventClass: ['all'], closure: currentValue],
-        [name: 'pValue', eventClass: ['value'], closure: previousValue],
-        [name: 'rChange', eventClass: ['all'], closure: difference]
-
-        [name: 'tDay', eventClass: ['all'], closure: timeOfDay]
-
-] }
-
 // tags closures
-locationName = { location.name.replaceAll(' ', '\\\\ ') }
-locationId = { location.id}
-hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }
-hubId = { location.hubs[0].id }
-group = { (state?.groupNames?."${groupId(it)}") ?: '' }
+locationName = { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
+locationId = { location.id}.memoizeAtMost(1)
+hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
+hubId = { location.hubs[0].id }.memoizeAtMost(1)
+groupName = { (state?.groupNames?."${groupId(it)}") ?: 'House' } // not assigned for hub and daylight events
 groupId = { (it?.device?.device?.groupId) ?: '' }
 deviceName = { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ') ?: '' }
 deviceId = { it.deviceId }
-deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') }
+deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') } // need value for hub and daylight
 eventName = { it.name }
-eventClass = { ??eventClass?? }
+eventType = { ??eventClass?? }
 identifierGlobal = { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" }
 identifierLocal = { "${group(it)}\\ .\\ ${deviceDisplayName(it)}" }
 isStateChange =  { it?.isStateChange } // ??Handle null values? or does it always have a value?
 eventSource = { it.source }
+eventUnit = { it.unit }
+
+def fields() { [
+        [name: 'eventDescription', type: ['all'], closure: eventDescription],
+        [name: 'eventId', type: ['all'], closure: eventId],
+        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: currentStateBinary],
+        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: currentStateLevel],
+        [name: 'nState', type: ['day', 'hub', 'enum'], closure: currentState],
+        [name: 'nText', type: ['all'], closure: currentStateDescription],
+        [name: 'nValue', type: ['number'], closure: currentValue],
+        [name: 'nValueDisplay', type: ['number'], closure: currentValueDisplay],
+        [name: 'nValueX', type: ['vector3'], closure: currentValueX],
+        [name: 'nValueY', type: ['vector3'], closure: currentValueY],
+        [name: 'nValueZ', type: ['vector3'], closure: currentValueZ],
+        [name: 'pBinary', type: ['enum'], closure: previousStateBinary],
+        [name: 'pLevel', type: ['enum'], closure: previousStateLevel],
+        [name: 'pState', type: ['enum'], closure: previousState],
+        [name: 'pText', type: ['enum', 'number'], closure: previousStateDescription],
+        [name: 'pValue', type: ['number'], closure: previousValue],
+        [name: 'rChange', type: ['number'], closure: difference],
+        [name: 'rChangeText', type: ['number'], closure: differenceText],
+        [name: 'tDay', type: ['enum', 'number'], closure: timeOfDay],
+        [name: 'tElapsed', type: ['enum', 'number'], closure: timeElapsed],
+        [name: 'tElapsedText', type: ['enum', 'number'], closure: timeElapsedText],
+        [name: 'tOffset', type: ['enum'], closure: timeOffset],
+        [name: 'timestamp', type: ['all'], closure: timestamp],
+        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: timeWrite],
+        [name: 'wLevel', type: ['enum'], closure: weightedLevel],
+        [name: 'wValue', type: ['number'], closure: weightedValue],
+] }
 
 // values closures
 eventDescription = { "\"${it?.descriptionText}\"" }
@@ -407,6 +421,12 @@ currentStateBinary = { (currentStateLevel(it) > 0) ? 'true' : 'false' }
 currentStateDescriptionRaw = { "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\"" }
 currentStateDescription = { "${currentStateDescriptionRaw(it).replaceAll('\\\\', '')}" }
 
+currentValue
+currentValueDisplay
+currentValueX
+currentValueY
+currentValueZ
+
 previousEvent = {
     def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
     def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it.device.latestState("${it.name}")
@@ -415,14 +435,20 @@ previousEvent = {
 previousState = { "\"${previousEvent(it).value}\"" }
 previousStateLevel = { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }
 previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }
-
-
+previousStateDescription
+previousValue
+difference
+differenceText
 
 timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" }
 
-fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"")
-
-
+timeElapsed = { "${timeElapsed}i" }
+timeElapsedText = { "\"${timeElapsedText}\"" }
+timeOffset
+timestamp
+timeWrite
+weightedLevel
+weightedValue
 
 def handleEnumEvent(evt) {
     def eventType = 'state'

@@ -418,8 +418,10 @@ attributeStates = { getAttributeDetail().find { attribute -> attribute.key == it
 currentState = { "\"${it.value}\"" }
 currentStateLevel = { attributeStates(it).find { level -> level.key == it.value }.value }
 currentStateBinary = { (currentStateLevel(it) > 0) ? 'true' : 'false' }
-currentStateDescriptionRaw = { "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\"" }
-currentStateDescription = { "${currentStateDescriptionRaw(it).replaceAll('\\\\', '')}" }
+currentStateDescription = {
+    def text = "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\""
+    text.replaceAll('\\\\', '')
+}
 
 currentValue
 currentValueDisplay
@@ -428,10 +430,16 @@ currentValueY
 currentValueZ
 
 previousEvent = {
-    def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
-    def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it.device.latestState("${it.name}")
-    historySorted.find { previous -> previous.date.time < it.date.time }
+    if (it?.data?.previous) {
+        [value: it?.data?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
+    }
+    else {
+        def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
+        def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it.device.latestState("${it.name}")
+        historySorted.find { previous -> previous.date.time < it.date.time }
+    }
 }
+
 previousState = { "\"${previousEvent(it).value}\"" }
 previousStateLevel = { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }
 previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }

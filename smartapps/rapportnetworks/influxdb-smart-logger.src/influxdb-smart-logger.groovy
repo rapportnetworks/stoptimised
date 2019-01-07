@@ -353,7 +353,7 @@ def tags() { [
         [name: 'chamberId', type: ['enum', 'number'], closure: groupId],
         [name: 'deviceCode', type: ['enum', 'number'], closure: deviceName],
         [name: 'deviceId', type: ['enum', 'number'], closure: deviceId],
-        [name: 'deviceLabel', type: ['all'], closure: deviceDisplayName],
+        [name: 'deviceLabel', type: ['all'], closure: deviceDisplayName], // ? deviceLabel ?
         [name: 'event', type: ['all'], closure: eventName],
         [name: 'eventType', type: ['all'], closure: eventType],
         [name: 'identifierGlobal', type: ['all'], closure: identifierGlobal],
@@ -363,22 +363,37 @@ def tags() { [
         [name: 'unit', type: ['number'], closure: eventUnit],
 ]}
 
-// tags closures
+// tags closures definitions
 locationName = { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
+
 locationId = { location.id}.memoizeAtMost(1)
+
 hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
+
 hubId = { location.hubs[0].id }.memoizeAtMost(1)
+
 groupName = { (state?.groupNames?."${groupId(it)}") ?: 'House' } // not assigned for hub and daylight events
+
 groupId = { (it?.device?.device?.groupId) ?: '' }
-deviceName = { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ') ?: '' }
+
+deviceName = { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' }
+
 deviceId = { it.deviceId }
+
 deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') } // need value for hub and daylight
+
 eventName = { it.name }
+
 eventType = { ??eventClass?? }
+
 identifierGlobal = { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" }
+
 identifierLocal = { "${group(it)}\\ .\\ ${deviceDisplayName(it)}" }
+
 isStateChange =  { it?.isStateChange } // ??Handle null values? or does it always have a value?
+
 eventSource = { it.source }
+
 eventUnit = { it.unit }
 
 def fields() { [
@@ -410,14 +425,19 @@ def fields() { [
         [name: 'wValue', type: ['number'], closure: weightedValue],
 ] }
 
-// values closures
+// values closures definitions
 eventDescription = { "\"${it?.descriptionText}\"" }
+
 eventId = { "\"${it.id}\"" }
 
 attributeStates = { getAttributeDetail().find { attribute -> attribute.key == it.name }.value.levels } // Lookup array for event state levels
+
 currentState = { "\"${it.value}\"" }
+
 currentStateLevel = { attributeStates(it).find { level -> level.key == it.value }.value }
+
 currentStateBinary = { (currentStateLevel(it) > 0) ? 'true' : 'false' }
+
 currentStateDescription = {
     def text = "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\""
     text.replaceAll('\\\\', '')
@@ -441,20 +461,42 @@ previousEvent = {
 }
 
 previousState = { "\"${previousEvent(it).value}\"" }
+
 previousStateLevel = { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }
+
 previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }
+
 previousStateDescription
+
 previousValue
 difference
 differenceText
 
-timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" }
+timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" } // calculate time of day in elapsed milliseconds
 
-timeElapsed = { "${timeElapsed}i" }
-timeElapsedText = { "\"${timeElapsedText}\"" }
-timeOffset
-timestamp
-timeWrite
+timeElapsed = { "${it.date.time - previousEvent(it).date.time}i" }
+
+timeElapsedText = { // converted elapsed time to textual description
+    def time = timeElapsed(it) / 1000
+    def phrase
+    if (time < 60) phrase = Math.round(time) + ' seconds ago'
+    else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
+    else if (time < 3600) phrase = Math.round(time / 60) + ' minutes ago'
+    else if (time < 5400) phrase = Math.round(time / 3600) + ' hour ago'
+    else if (time < 86400) phrase = Math.round(time / 3600) + ' hours ago'
+    else if (time < 129600) phrase = Math.round(time / 86400) + ' day ago'
+    else phrase = Math.round(time / 86400) + ' days ago'
+    "\"${phrase}\""
+}
+
+offset = { 1000 * 10 / 2 }
+
+timeOffset = { 1000 * 10 / 2 }
+
+timestamp = { "${it.date.time}i" }
+
+timeWrite = { new Date() } // time of processing the event
+
 weightedLevel
 weightedValue
 
@@ -463,7 +505,7 @@ def handleEnumEvent(evt) {
 
     logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
 
-    def tags = new StringBuilder() // Create InfluxDB line protocol
+    // def tags = new StringBuilder() // Create InfluxDB line protocol
     // def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
     // def deviceGroup = 'unassigned'
     // def deviceGroupId = 'unassigned'
@@ -484,10 +526,10 @@ def handleEnumEvent(evt) {
     // tags.append(",isChange=${evt?.isStateChange}")
     // tags.append(",source=${evt.source}")
 
-    def fields = new StringBuilder() // populate initial fields set
+    // def fields = new StringBuilder() // populate initial fields set
     def eventTime = evt.date.time // get event time
-    def midnight = evt.date.clone().clearTime().time
-    def writeTime = new Date() // time of processing event
+    // def midnight = evt.date.clone().clearTime().time
+    // def writeTime = new Date() // time of processing event
     // def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5])
     // get list of previous events (5 most recent)
     // def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
@@ -501,7 +543,7 @@ def handleEnumEvent(evt) {
         if (pEvent.value == 'inactive') pEventTime -= offsetTime
     }
 
-    def timeElapsed = (eventTime - pEventTime)
+    // def timeElapsed = (eventTime - pEventTime)
     def timeElapsedText = timeElapsedText(timeElapsed)
 
     // fields.append("eventDescription=\"${evt?.descriptionText}\"")
@@ -522,7 +564,7 @@ def handleEnumEvent(evt) {
     fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
     fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"")
     // append time of previous(p) state values
-    fields.append(",timestamp=${eventTime}i")
+    // fields.append(",timestamp=${eventTime}i")
     if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt.value == 'inactive') fields.append(",tOffset=${offsetTime}i")
     // append offsetTime for motion sensor
     fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost

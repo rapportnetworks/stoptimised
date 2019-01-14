@@ -3,9 +3,9 @@
  *
  *  Name: InfluxDB Smart Logger
  *
- *  Date: 2018-01-20
+ *  Date: 2019-01-14
  *
- *  Version: 1.1
+ *  Version: 2.0
  *
  *  Source:
  *
@@ -29,7 +29,7 @@
  *****************************************************************************************************************/
 
 definition(
-        name: 'InfluxDB Smart Logger',
+        name: 'InfluxDB Smart Logger V2',
         namespace: 'rapportnetworks',
         author: 'Alasdair Thin',
         description: 'Log SmartThings device states to InfluxDB',
@@ -305,7 +305,8 @@ def updated() { // runs when app settings are changed
     state.groupNames = [:] // Initialise map of Group Ids and Group Names
     state.hubLocationDetails = "" // Define state variable to hold location and hub details
     state.hubLocationText = ""
-    hubLocationDetails() // generate hub location details
+
+    // hubLocationDetails() // generate hub location details
 
     state.installed = true
 
@@ -323,12 +324,13 @@ def updated() { // runs when app settings are changed
 
     // Configure Subscriptions:
     manageSubscriptions()
-    manageSchedules()
 
-    runIn(100, pollLocation)
-    runIn(300, pollDevices)
-    runIn(600, pollAttributes)
-    runIn(900, pollDeviceChecks)
+    // manageSchedules()
+
+    // runIn(100, pollLocation)
+    // runIn(300, pollDevices)
+    // runIn(600, pollAttributes)
+    // runIn(900, pollDeviceChecks)
 }
 
 /*****************************************************************************************************************
@@ -339,9 +341,51 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
     logger("handleAppTouch()", 'trace')
 }
 
+def handleEnumEvent(evt) {
+    def eventType = 'state'
+    handleEvent(evt, eventType)
+}
+
+def handleNumberEvent(evt) {
+    def eventType = 'number'
+    handleEvent(evt, eventType)
+}
+
+def handleEvent(event, eventType) {
+    logger("handleEnumEvent(): $evt.displayName ($evt.name - $eventType) $evt.value", 'trace')
+
+    influxLP = new StringBuilder()
+
+    influxLP.append(measurements()."${event.name}")
+
+    tags().each { tag ->
+        influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
+        influxLP.append(tag.closure(event))
+    }
+
+    influxLP.append(' ')
+
+    def fieldCount = 0
+    fields().findAll { 'all' in it.eventType || type in it.eventType }.each { field ->
+        influxLP.append((fieldCount) ? ',' : '')
+        influxLP.append("${field.name}=") // ? What about getting name returned from closure ?
+        influxLP.append(field.closure(event))
+        fieldCount++
+    }
+
+    influxLP.append(' ')
+
+    influxLP.append(event.time)
+
+    logger ("${influxLP.toString()}", 'trace')
+}
+
+
+
 def measurements() { [
         acceleration: 'states',
-        temperature: 'values'
+        motion: 'states',
+        temperature: 'values',
 ] }
 
 def tags() { [
@@ -384,7 +428,7 @@ deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') } // need value fo
 
 eventName = { it.name }
 
-eventType = { ??eventClass?? }
+eventType = { eventType } // ? rename to eventClass ?
 
 identifierGlobal = { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" }
 
@@ -408,21 +452,21 @@ def fields() { [
         [name: 'nValueX', type: ['vector3'], closure: currentValueX],
         [name: 'nValueY', type: ['vector3'], closure: currentValueY],
         [name: 'nValueZ', type: ['vector3'], closure: currentValueZ],
-        [name: 'pBinary', type: ['enum'], closure: previousStateBinary],
-        [name: 'pLevel', type: ['enum'], closure: previousStateLevel],
-        [name: 'pState', type: ['enum'], closure: previousState],
-        [name: 'pText', type: ['enum', 'number'], closure: previousStateDescription],
-        [name: 'pValue', type: ['number'], closure: previousValue],
-        [name: 'rChange', type: ['number'], closure: difference],
-        [name: 'rChangeText', type: ['number'], closure: differenceText],
+        // [name: 'pBinary', type: ['enum'], closure: previousStateBinary],
+        // [name: 'pLevel', type: ['enum'], closure: previousStateLevel],
+        // [name: 'pState', type: ['enum'], closure: previousState],
+        // [name: 'pText', type: ['enum', 'number'], closure: previousStateDescription],
+        // [name: 'pValue', type: ['number'], closure: previousValue],
+        // [name: 'rChange', type: ['number'], closure: difference],
+        // [name: 'rChangeText', type: ['number'], closure: differenceText],
         [name: 'tDay', type: ['enum', 'number'], closure: timeOfDay],
-        [name: 'tElapsed', type: ['enum', 'number'], closure: timeElapsed],
-        [name: 'tElapsedText', type: ['enum', 'number'], closure: timeElapsedText],
+        // [name: 'tElapsed', type: ['enum', 'number'], closure: timeElapsed],
+        // [name: 'tElapsedText', type: ['enum', 'number'], closure: timeElapsedText],
         [name: 'tOffset', type: ['enum'], closure: timeOffset],
         [name: 'timestamp', type: ['all'], closure: timestamp],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: timeWrite],
-        [name: 'wLevel', type: ['enum'], closure: weightedLevel],
-        [name: 'wValue', type: ['number'], closure: weightedValue],
+        // [name: 'wLevel', type: ['enum'], closure: weightedLevel],
+        // [name: 'wValue', type: ['number'], closure: weightedValue],
 ] }
 
 // values closures definitions
@@ -443,12 +487,13 @@ currentStateDescription = {
     text.replaceAll('\\\\', '')
 }
 
-currentValue
-currentValueDisplay
-currentValueX
-currentValueY
-currentValueZ
+// currentValue
+// currentValueDisplay
+// currentValueX
+// currentValueY
+// currentValueZ
 
+/*
 previousEvent = {
     if (it?.data?.previous) {
         [value: it?.data?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
@@ -465,17 +510,19 @@ previousState = { "\"${previousEvent(it).value}\"" }
 previousStateLevel = { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }
 
 previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }
+*/
 
-previousStateDescription
+// previousStateDescription
 
-previousValue
-difference
-differenceText
+// previousValue
+// difference
+// differenceText
 
 timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" } // calculate time of day in elapsed milliseconds
 
-timeElapsed = { "${it.date.time - previousEvent(it).date.time}i" }
+// timeElapsed = { "${it.date.time - previousEvent(it).date.time}i" }
 
+/*
 timeElapsedText = { // converted elapsed time to textual description
     def time = timeElapsed(it) / 1000
     def phrase
@@ -488,8 +535,7 @@ timeElapsedText = { // converted elapsed time to textual description
     else phrase = Math.round(time / 86400) + ' days ago'
     "\"${phrase}\""
 }
-
-offset = { 1000 * 10 / 2 }
+*/
 
 timeOffset = { 1000 * 10 / 2 }
 
@@ -497,13 +543,14 @@ timestamp = { "${it.date.time}i" }
 
 timeWrite = { new Date() } // time of processing the event
 
-weightedLevel
-weightedValue
+// weightedLevel
+// weightedValue
 
+/*
 def handleEnumEvent(evt) {
-    def eventType = 'state'
+    // def eventType = 'state'
 
-    logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
+    // logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
 
     // def tags = new StringBuilder() // Create InfluxDB line protocol
     // def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
@@ -581,8 +628,9 @@ def handleEnumEvent(evt) {
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 }
+*/
 
-
+/*
 def handleNumberEvent(evt) {
     def eventType = 'value'
 
@@ -679,8 +727,9 @@ def handleNumberEvent(evt) {
         logger("handleNumberEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 }
+*/
 
-
+/*
 def handleVector3Event(evt) {
     def eventType = 'threeAxis'
 
@@ -726,8 +775,9 @@ def handleVector3Event(evt) {
     def rp = 'autogen' // set retention policy
     postToInfluxDB(tags.toString(), rp)
 }
+*/
 
-
+/*
 def handleHubStatus(evt) {
     if (evt.value == 'active' || evt.value == 'disconnected') {
         def eventType = 'hubStatus'
@@ -764,8 +814,8 @@ def handleHubStatus(evt) {
         postToInfluxDB(tags.toString(), rp)
     }
 }
-
-
+*/
+/*
 def handleDaylight(evt) {
     def eventType = 'daylight'
 
@@ -801,8 +851,8 @@ def handleDaylight(evt) {
     def rp = 'autogen' // set retention policy
     postToInfluxDB(tags.toString(), rp)
 }
-
-
+*/
+/*
 def pollAttributes() {
     logger("pollAttributes()", 'trace')
     def now = new Date()
@@ -851,8 +901,8 @@ def pollAttributes() {
         postToInfluxDB(data.toString(), rp)
     }
 }
-
-
+*/
+/*
 def pollDevices() {
     logger("pollDevices()", 'trace')
     def data = new StringBuilder()
@@ -924,8 +974,8 @@ def pollDevices() {
     def rp = 'metadata'
     postToInfluxDB(data.toString(), rp)
 }
-
-
+*/
+/*
 def pollLocation() {
     logger("pollLocation()", 'trace')
 
@@ -954,8 +1004,8 @@ def pollLocation() {
     def rp = 'metadata'
     postToInfluxDB(data.toString(), rp)
 }
-
-
+*/
+/*
 def pollDeviceChecks() {
     logger("pollDeviceChecks()", 'trace')
     def data = new StringBuilder()
@@ -988,7 +1038,7 @@ def pollDeviceChecks() {
     def rp = 'autogen'
     postToInfluxDB(data.toString(), rp)
 }
-
+*/
 
 // converted elapsed time to textual description
 def timeElapsedText(time) {
@@ -1019,13 +1069,14 @@ def removeUnit(stringUnit) {
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-
+/*
 def hubLocationDetails() {
     // state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}"
     // tags: area,areaId,building,buildingId
     // state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
     // state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
 }
+*/
 
 def postToInfluxDB(data, rp = 'autogen') {
 // need to update hubAction state variables and rewrite the hubAction function
@@ -1067,28 +1118,20 @@ def postToInfluxDB(data, rp = 'autogen') {
 
 def handleInfluxResponseHubAction(physicalgraph.device.HubResponse hubResponse) {
     def status = hubResponse.status
-    if (status == 204) {
-        logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}", 'trace')
-    }
-    if (status >= 400) {
-        logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
-    }
+    if (status == 204) logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}", 'trace')
+    if (status >= 400) logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
 def handleInfluxResponse(response, requestdata) {
     def status = response.status
-    if (status == 204) {
-        logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'trace')
-    }
-    if (status >= 400) {
-        logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'error')
-    }
+    if (status == 204) logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'trace')
+    if (status >= 400) logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'error')
 }
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-
+/*
 private manageSchedules() {
     logger("manageSchedules()", 'trace')
 
@@ -1132,6 +1175,7 @@ private manageSchedules() {
     }
     runEvery3Hours(pollDeviceChecks)
 }
+*/
 
 private manageSubscriptions() { // Configures subscriptions
     logger("manageSubscriptions()", 'trace')
@@ -1168,15 +1212,18 @@ private manageSubscriptions() { // Configures subscriptions
         }
     }
 
+    /*
     // subscribe to Sunrise and Sunset events
     subscribe(location, "sunrise", handleDaylight)
     subscribe(location, "sunset", handleDaylight)
     logger("manageSubscriptions(): Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events", 'info')
-
+    */
+    /*
     // subscribe to Hub status
     def hub = location.hubs[0]
     subscribe(hub, "hubStatus", handleHubStatus)
     logger("manageSubscriptions(): Subscribing 'handleHubStatus' listener to 'Hub Status' events", 'info')
+    */
 
     // build state maps of group Ids and group names
     if (state.roomNameCapture) {

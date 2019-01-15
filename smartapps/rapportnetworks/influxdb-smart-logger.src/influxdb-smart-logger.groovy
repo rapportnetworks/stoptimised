@@ -360,9 +360,10 @@ def handleEvent(event, eventType) {
 
     tags().each { tag ->
         influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-        influxLP.append("$tag.closure"(event))
+        // influxLP.append("$tag.closure"(event))
+        influxLP.append("$tag.closure"())
     }
-
+/*
     influxLP.append(' ')
 
     def fieldCount = 0
@@ -372,7 +373,7 @@ def handleEvent(event, eventType) {
         influxLP.append("$field.closure"(event))
         fieldCount++
     }
-
+*/
     influxLP.append(' ')
 
     influxLP.append(event.time)
@@ -390,6 +391,7 @@ def measurements() { [
 
 def tags() { [
         [name: 'area', type: ['all'], closure: 'locationName'],
+        /*
         [name: 'areaId', type: ['all'], closure: 'locationId'],
         [name: 'building', type: ['all'], closure: 'hubName'],
         [name: 'buildingId', type: ['all'], closure: 'hubId'],
@@ -405,9 +407,12 @@ def tags() { [
         [name: 'isChange', type: ['all'], closure: 'isStateChange'],
         [name: 'source', type: ['all'], closure: 'eventSource'],
         [name: 'unit', type: ['number'], closure: 'eventUnit'],
+        */
 ]}
 
 // tags closures definitions
+locationName = { 'locationNameClosure' }
+/*
 locationName = { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
 
 locationId = { location.id}.memoizeAtMost(1)
@@ -439,6 +444,7 @@ isStateChange =  { it?.isStateChange } // ??Handle null values? or does it alway
 eventSource = { it.source }
 
 eventUnit = { it.unit }
+*/
 
 def fields() { [
         [name: 'eventDescription', type: ['all'], closure: 'eventDescription'],

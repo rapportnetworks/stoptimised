@@ -53,7 +53,7 @@ def mainPage() {
         section('General:') {
             input(
                     name: 'configLoggingLevelIDE',
-                    title: 'IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.',
+                    title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
                     type: 'enum',
                     options: [0: 'None', 1: 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace'],
                     defaultValue: '3',
@@ -120,7 +120,7 @@ def mainPage() {
                 pageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames()))
             }
         } else {
-            devicesPageContent()
+            getDevicesPageContent()
         }
 
         if (state.attributesConfigured) {
@@ -146,7 +146,7 @@ def devicesPage() {
 private getDevicesPageContent() {
     section("Choose Devices") {
         paragraph(
-                'Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top.'
+                "Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top."
         )
 
         getCapabilities().each {
@@ -179,7 +179,7 @@ private getAttributesPageContent() {
     if (supportedAttr) {
         section('Choose Events') {
             paragraph(
-                    'Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included.'
+                    "Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included."
             )
             input(
                     name: 'allowedAttributes',
@@ -206,12 +206,12 @@ def attributeExclusionsPage() {
             def startTime = new Date().time
             if (settings?.allowedAttributes) {
                 paragraph(
-                        'If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them.\nYou can also use the fields below to see which devices support each event.'
+                        "If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them.\nYou can also use the fields below to see which devices support each event."
                 )
                 settings?.allowedAttributes?.sort()?.each { attr ->
                     if (startTime && (new Date().time - startTime) > 15000) {
                         paragraph(
-                                'The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes.'
+                                "The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes."
                         )
                         startTime = null
                     } else if (startTime) {
@@ -352,15 +352,15 @@ def handleNumberEvent(evt) {
 }
 
 def handleEvent(event, eventType) {
-    logger("handleEnumEvent(): $evt.displayName ($evt.name - $eventType) $evt.value", 'trace')
+    logger("handleEnumEvent(): $event.displayName ($event.name - $eventType) $event.value", 'trace')
 
-    influxLP = new StringBuilder()
+    def influxLP = new StringBuilder()
 
     influxLP.append(measurements()."${event.name}")
 
     tags().each { tag ->
         influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-        influxLP.append(tag.closure(event))
+        influxLP.append("$tag.closure"(event))
     }
 
     influxLP.append(' ')
@@ -369,7 +369,7 @@ def handleEvent(event, eventType) {
     fields().findAll { 'all' in it.eventType || type in it.eventType }.each { field ->
         influxLP.append((fieldCount) ? ',' : '')
         influxLP.append("${field.name}=") // ? What about getting name returned from closure ?
-        influxLP.append(field.closure(event))
+        influxLP.append("$field.closure"(event))
         fieldCount++
     }
 
@@ -389,22 +389,22 @@ def measurements() { [
 ] }
 
 def tags() { [
-        [name: 'area', type: ['all'], closure: locationName],
-        [name: 'areaId', type: ['all'], closure: locationId],
-        [name: 'building', type: ['all'], closure: hubName],
-        [name: 'buildingId', type: ['all'], closure: hubId],
-        [name: 'chamber', type: ['all'], closure: groupName],
-        [name: 'chamberId', type: ['enum', 'number'], closure: groupId],
-        [name: 'deviceCode', type: ['enum', 'number'], closure: deviceName],
-        [name: 'deviceId', type: ['enum', 'number'], closure: deviceId],
-        [name: 'deviceLabel', type: ['all'], closure: deviceDisplayName], // ? deviceLabel ?
-        [name: 'event', type: ['all'], closure: eventName],
-        [name: 'eventType', type: ['all'], closure: eventType],
-        [name: 'identifierGlobal', type: ['all'], closure: identifierGlobal],
-        [name: 'identifierLocal', type: ['all'], closure: identifierLocal],
-        [name: 'isChange', type: ['all'], closure: isStateChange],
-        [name: 'source', type: ['all'], closure: eventSource],
-        [name: 'unit', type: ['number'], closure: eventUnit],
+        [name: 'area', type: ['all'], closure: 'locationName'],
+        [name: 'areaId', type: ['all'], closure: 'locationId'],
+        [name: 'building', type: ['all'], closure: 'hubName'],
+        [name: 'buildingId', type: ['all'], closure: 'hubId'],
+        [name: 'chamber', type: ['all'], closure: 'groupName'],
+        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId'],
+        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceName'],
+        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId'],
+        [name: 'deviceLabel', type: ['all'], closure: 'deviceDisplayName'], // ? deviceLabel ?
+        [name: 'event', type: ['all'], closure: 'eventName'],
+        [name: 'eventType', type: ['all'], closure: 'eventType'],
+        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
+        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
+        [name: 'isChange', type: ['all'], closure: 'isStateChange'],
+        [name: 'source', type: ['all'], closure: 'eventSource'],
+        [name: 'unit', type: ['number'], closure: 'eventUnit'],
 ]}
 
 // tags closures definitions
@@ -441,32 +441,32 @@ eventSource = { it.source }
 eventUnit = { it.unit }
 
 def fields() { [
-        [name: 'eventDescription', type: ['all'], closure: eventDescription],
-        [name: 'eventId', type: ['all'], closure: eventId],
-        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: currentStateBinary],
-        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: currentStateLevel],
-        [name: 'nState', type: ['day', 'hub', 'enum'], closure: currentState],
-        [name: 'nText', type: ['all'], closure: currentStateDescription],
-        [name: 'nValue', type: ['number'], closure: currentValue],
-        [name: 'nValueDisplay', type: ['number'], closure: currentValueDisplay],
-        [name: 'nValueX', type: ['vector3'], closure: currentValueX],
-        [name: 'nValueY', type: ['vector3'], closure: currentValueY],
-        [name: 'nValueZ', type: ['vector3'], closure: currentValueZ],
-        // [name: 'pBinary', type: ['enum'], closure: previousStateBinary],
-        // [name: 'pLevel', type: ['enum'], closure: previousStateLevel],
-        // [name: 'pState', type: ['enum'], closure: previousState],
-        // [name: 'pText', type: ['enum', 'number'], closure: previousStateDescription],
-        // [name: 'pValue', type: ['number'], closure: previousValue],
-        // [name: 'rChange', type: ['number'], closure: difference],
-        // [name: 'rChangeText', type: ['number'], closure: differenceText],
-        [name: 'tDay', type: ['enum', 'number'], closure: timeOfDay],
-        // [name: 'tElapsed', type: ['enum', 'number'], closure: timeElapsed],
-        // [name: 'tElapsedText', type: ['enum', 'number'], closure: timeElapsedText],
-        [name: 'tOffset', type: ['enum'], closure: timeOffset],
-        [name: 'timestamp', type: ['all'], closure: timestamp],
-        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: timeWrite],
-        // [name: 'wLevel', type: ['enum'], closure: weightedLevel],
-        // [name: 'wValue', type: ['number'], closure: weightedValue],
+        [name: 'eventDescription', type: ['all'], closure: 'eventDescription'],
+        [name: 'eventId', type: ['all'], closure: 'eventId'],
+        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary'],
+        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel'],
+        [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState'],
+        [name: 'nText', type: ['all'], closure: 'currentStateDescription'],
+        [name: 'nValue', type: ['number'], closure: 'currentValue'],
+        [name: 'nValueDisplay', type: ['number'], closure: 'currentValueDisplay'],
+        [name: 'nValueX', type: ['vector3'], closure: 'currentValueX'],
+        [name: 'nValueY', type: ['vector3'], closure: 'currentValueY'],
+        [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ'],
+        // [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
+        // [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
+        // [name: 'pState', type: ['enum'], closure: 'previousState'],
+        // [name: 'pText', type: ['enum', 'number'], closure: 'previousStateDescription'],
+        // [name: 'pValue', type: ['number'], closure: 'previousValue'],
+        // [name: 'rChange', type: ['number'], closure: 'difference'],
+        // [name: 'rChangeText', type: ['number'], closure: 'differenceText'],
+        [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay'],
+        // [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed'],
+        // [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
+        [name: 'tOffset', type: ['enum'], closure: 'timeOffset'],
+        [name: 'timestamp', type: ['all'], closure: 'timestamp'],
+        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite'],
+        // [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
+        // [name: 'wValue', type: ['number'], closure: 'weightedValue'],
 ] }
 
 // values closures definitions
@@ -518,7 +518,7 @@ previousStateBinary = { (previousStateLevel(it) > 0) ? 'true' : 'false' }
 // difference
 // differenceText
 
-timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" } // calculate time of day in elapsed milliseconds
+def timeOfDay = { "${it.date.time - it.date.clone().clearTime().time}i" } // calculate time of day in elapsed milliseconds
 
 // timeElapsed = { "${it.date.time - previousEvent(it).date.time}i" }
 
@@ -537,11 +537,11 @@ timeElapsedText = { // converted elapsed time to textual description
 }
 */
 
-timeOffset = { 1000 * 10 / 2 }
+def timeOffset = { 1000 * 10 / 2 }
 
-timestamp = { "${it.date.time}i" }
+def timestamp = { "${it.date.time}i" }
 
-timeWrite = { new Date() } // time of processing the event
+def timeWrite = { new Date() } // time of processing the event
 
 // weightedLevel
 // weightedValue

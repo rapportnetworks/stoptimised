@@ -117,7 +117,7 @@ def mainPage() {
 
         if (state.devicesConfigured) {
             section('Selected Devices') {
-                pageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames()))
+                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(getSelectedDeviceNames()))
             }
         } else {
             getDevicesPageContent()
@@ -131,7 +131,7 @@ def mainPage() {
                 getPageLink('attributeExclusionsPageLink', 'Select devices to exclude for specific events.', 'attributeExclusionsPage')
             }
         } else {
-            attributesPageContent
+            getattributesPageContent()
         }
 
     }
@@ -342,7 +342,7 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 }
 
 def handleEnumEvent(evt) {
-    def eventType = 'state'
+    def eventType = 'enum'
     handleEvent(evt, eventType)
 }
 
@@ -359,16 +359,11 @@ def handleEvent(event, eventType) {
     influxLP.append(measurements()."${event.name}")
 
     tags().each { tag ->
-        influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-        influxLP.append(closures().find { closure -> closure.key == tag.closure }.value(event))
+        if ('all' in tag.type || eventType in tag.type) {
+            influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
+            influxLP.append("$tag.closure"(event))
+        }
     }
-
-    def tagsSet = [:]
-    tags().each { tag ->
-        tagsSet << [(tag.name): closures().find { closure -> closure.key == tag.closure }.value(event)]
-    }
-
-    logger("tagsSet: $tagsSet", 'trace')
 
 /*
     influxLP.append(' ')
@@ -399,28 +394,47 @@ def measurements() { [
 def tags() { [
         [name: 'building', type: ['all'], closure: 'locationName'],
         [name: 'buildingId', type: ['all'], closure: 'locationId'],
-        /* [name: 'chamber', type: ['all'], closure: 'groupName'],
-        [name: 'chamberId', type: ['enum', 'number'], closure: { (it?.device?.device?.groupId) ?: '' }],
-        [name: 'deviceCode', type: ['enum', 'number'], closure: { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' }],
-        [name: 'deviceId', type: ['enum', 'number'], closure: { it.deviceId }],
-        [name: 'deviceLabel', type: ['all'], closure: { it.displayName.replaceAll(' ', '\\\\ ') }], // ? deviceLabel ?
-        [name: 'event', type: ['all'], closure: { it.name }],
-        [name: 'eventType', type: ['all'], closure: { eventType }], // ? rename to eventClass ?
+        [name: 'chamber', type: ['all'], closure: 'groupName'],
+        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId'],
+        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceCode'],
+        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId'],
+        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel'], // ? deviceLabel ?
+        [name: 'event', type: ['all'], closure: 'eventName'],
+        [name: 'eventType', type: ['all'], closure: 'type'], // ? rename to eventClass ?
         // [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
         // [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
-        [name: 'isChange', type: ['all'], closure: { it?.isStateChange }], // ??Handle null values? or does it always have a value?
-        [name: 'source', type: ['all'], closure: { it.source }],
-        [name: 'unit', type: ['number'], closure: { it.unit }],
-        */
+        [name: 'isChange', type: ['all'], closure: 'isChange'], // ??Handle null values? or does it always have a value?
+        [name: 'source', type: ['all'], closure: 'source'],
+        [name: 'unit', type: ['number'], closure: 'unit'],
 ]}
 
-def closures() { [
-        locationName: { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
-        locationId: { this.locationName }
-        // locationId: { location.hubs[0].id }.memoizeAtMost(1)
-] }
+def getLocationName() { return { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
 
+def getLocationId() { return { location.id } }
 
+def getGroupName() { return { state?.groupNames?."${groupId(it)}" } }
+
+def getGroupId() { return { (it?.device?.device?.groupId) ?: '' } }
+
+def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' } }
+
+def getDeviceId() { return { it.deviceId } }
+
+def getDeviceLabel() { return { it.displayName.replaceAll(' ', '\\\\ ') } } // ? deviceLabel ?
+
+def getEventName() { return { it.name } }
+
+def getType() { return { owner.eventType } } // ? rename to eventClass ? TODO not sure how to get this to work - is it infact extra and not really required
+
+def getIdentifierGlobal() { return {} }
+
+def getIdentifierLocal() { return {} }
+
+def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
+
+def getSource() { return { it.source } }
+
+def getUnit() { return { it.unit } }
 
 
 /*

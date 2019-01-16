@@ -351,20 +351,8 @@ def handleNumberEvent(evt) {
     handleEvent(evt, eventType)
 }
 
-// groovy.lang.MissingPropertyException: No such property: closures for class: script_app_metadata_b7cf04f6_ab7e_4b9b_9fe0_e6cd25f77b67 @line 354 (run) ??? use @Field annotation?
-def closures() { [
-        locationName: { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
-        locationId: { location.id}.memoizeAtMost(1)
-] }
-
-
 def handleEvent(event, eventType) {
     logger("handleEnumEvent(): $event.displayName ($event.name - $eventType) $event.value", 'trace')
-
-    def closures = [
-            locationName: { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
-            locationId: { location.id}.memoizeAtMost(1)
-    ]
 
     def influxLP = new StringBuilder()
 
@@ -372,9 +360,16 @@ def handleEvent(event, eventType) {
 
     tags().each { tag ->
         influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-        // influxLP.append(closures."$tag.closure"(event))
         influxLP.append(closures().find { closure -> closure.key == tag.closure }.value(event))
     }
+
+    def tagsSet = [:]
+    tags().each { tag ->
+        tagsSet << [(tag.name): closures().find { closure -> closure.key == tag.closure }.value(event)]
+    }
+
+    logger("tagsSet: $tagsSet", 'trace')
+
 /*
     influxLP.append(' ')
 
@@ -402,12 +397,9 @@ def measurements() { [
 ] }
 
 def tags() { [
-        [name: 'area', type: ['all'], closure: 'locationName'],
-        [name: 'areaId', type: ['all'], closure: 'locationId'],
-        /*
-        [name: 'building', type: ['all'], closure: { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)],
-        [name: 'buildingId', type: ['all'], closure: { location.hubs[0].id }.memoizeAtMost(1)],
-        // [name: 'chamber', type: ['all'], closure: 'groupName'],
+        [name: 'building', type: ['all'], closure: 'locationName'],
+        [name: 'buildingId', type: ['all'], closure: 'locationId'],
+        /* [name: 'chamber', type: ['all'], closure: 'groupName'],
         [name: 'chamberId', type: ['enum', 'number'], closure: { (it?.device?.device?.groupId) ?: '' }],
         [name: 'deviceCode', type: ['enum', 'number'], closure: { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' }],
         [name: 'deviceId', type: ['enum', 'number'], closure: { it.deviceId }],
@@ -422,7 +414,11 @@ def tags() { [
         */
 ]}
 
-
+def closures() { [
+        locationName: { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
+        locationId: { this.locationName }
+        // locationId: { location.hubs[0].id }.memoizeAtMost(1)
+] }
 
 
 

@@ -351,8 +351,20 @@ def handleNumberEvent(evt) {
     handleEvent(evt, eventType)
 }
 
+// groovy.lang.MissingPropertyException: No such property: closures for class: script_app_metadata_b7cf04f6_ab7e_4b9b_9fe0_e6cd25f77b67 @line 354 (run) ??? use @Field annotation?
+def closures() { [
+        locationName: { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
+        locationId: { location.id}.memoizeAtMost(1)
+] }
+
+
 def handleEvent(event, eventType) {
     logger("handleEnumEvent(): $event.displayName ($event.name - $eventType) $event.value", 'trace')
+
+    def closures = [
+            locationName: { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1),
+            locationId: { location.id}.memoizeAtMost(1)
+    ]
 
     def influxLP = new StringBuilder()
 
@@ -360,8 +372,8 @@ def handleEvent(event, eventType) {
 
     tags().each { tag ->
         influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-        // influxLP.append("$tag.closure"(event))
-        influxLP.append("$tag.closure"())
+        // influxLP.append(closures."$tag.closure"(event))
+        influxLP.append(closures().find { closure -> closure.key == tag.closure }.value(event))
     }
 /*
     influxLP.append(' ')
@@ -376,7 +388,7 @@ def handleEvent(event, eventType) {
 */
     influxLP.append(' ')
 
-    influxLP.append(event.time)
+    influxLP.append(event.date.time)
 
     logger ("${influxLP.toString()}", 'trace')
 }
@@ -391,59 +403,36 @@ def measurements() { [
 
 def tags() { [
         [name: 'area', type: ['all'], closure: 'locationName'],
-        /*
         [name: 'areaId', type: ['all'], closure: 'locationId'],
-        [name: 'building', type: ['all'], closure: 'hubName'],
-        [name: 'buildingId', type: ['all'], closure: 'hubId'],
-        [name: 'chamber', type: ['all'], closure: 'groupName'],
-        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId'],
-        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceName'],
-        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId'],
-        [name: 'deviceLabel', type: ['all'], closure: 'deviceDisplayName'], // ? deviceLabel ?
-        [name: 'event', type: ['all'], closure: 'eventName'],
-        [name: 'eventType', type: ['all'], closure: 'eventType'],
-        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
-        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
-        [name: 'isChange', type: ['all'], closure: 'isStateChange'],
-        [name: 'source', type: ['all'], closure: 'eventSource'],
-        [name: 'unit', type: ['number'], closure: 'eventUnit'],
+        /*
+        [name: 'building', type: ['all'], closure: { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)],
+        [name: 'buildingId', type: ['all'], closure: { location.hubs[0].id }.memoizeAtMost(1)],
+        // [name: 'chamber', type: ['all'], closure: 'groupName'],
+        [name: 'chamberId', type: ['enum', 'number'], closure: { (it?.device?.device?.groupId) ?: '' }],
+        [name: 'deviceCode', type: ['enum', 'number'], closure: { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' }],
+        [name: 'deviceId', type: ['enum', 'number'], closure: { it.deviceId }],
+        [name: 'deviceLabel', type: ['all'], closure: { it.displayName.replaceAll(' ', '\\\\ ') }], // ? deviceLabel ?
+        [name: 'event', type: ['all'], closure: { it.name }],
+        [name: 'eventType', type: ['all'], closure: { eventType }], // ? rename to eventClass ?
+        // [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
+        // [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
+        [name: 'isChange', type: ['all'], closure: { it?.isStateChange }], // ??Handle null values? or does it always have a value?
+        [name: 'source', type: ['all'], closure: { it.source }],
+        [name: 'unit', type: ['number'], closure: { it.unit }],
         */
 ]}
 
-// tags closures definitions
-locationName = { 'locationNameClosure' }
+
+
+
+
+
 /*
-locationName = { location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
-
-locationId = { location.id}.memoizeAtMost(1)
-
-hubName = { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1)
-
-hubId = { location.hubs[0].id }.memoizeAtMost(1)
-
 groupName = { (state?.groupNames?."${groupId(it)}") ?: 'House' } // not assigned for hub and daylight events
-
-groupId = { (it?.device?.device?.groupId) ?: '' }
-
-deviceName = { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' }
-
-deviceId = { it.deviceId }
-
-deviceDisplayName = { it.displayName.replaceAll(' ', '\\\\ ') } // need value for hub and daylight
-
-eventName = { it.name }
-
-eventType = { eventType } // ? rename to eventClass ?
 
 identifierGlobal = { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" }
 
 identifierLocal = { "${group(it)}\\ .\\ ${deviceDisplayName(it)}" }
-
-isStateChange =  { it?.isStateChange } // ??Handle null values? or does it always have a value?
-
-eventSource = { it.source }
-
-eventUnit = { it.unit }
 */
 
 def fields() { [
@@ -476,6 +465,7 @@ def fields() { [
 ] }
 
 // values closures definitions
+/*
 eventDescription = { "\"${it?.descriptionText}\"" }
 
 eventId = { "\"${it.id}\"" }
@@ -492,7 +482,7 @@ currentStateDescription = {
     def text = "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\""
     text.replaceAll('\\\\', '')
 }
-
+*/
 // currentValue
 // currentValueDisplay
 // currentValueX

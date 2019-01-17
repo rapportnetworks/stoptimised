@@ -365,17 +365,18 @@ def handleEvent(event, eventType) {
         }
     }
 
-/*
     influxLP.append(' ')
 
     def fieldCount = 0
-    fields().findAll { 'all' in it.eventType || type in it.eventType }.each { field ->
-        influxLP.append((fieldCount) ? ',' : '')
-        influxLP.append("${field.name}=") // ? What about getting name returned from closure ?
-        influxLP.append("$field.closure"(event))
-        fieldCount++
+    fields().each { field ->
+        if ('all' in field.type || eventType in field.type) {
+            influxLP.append((fieldCount) ? ',' : '')
+            influxLP.append("${field.name}=") // ? What about getting name returned from closure ?
+            influxLP.append("$field.closure"(event))
+            fieldCount++
+        }
     }
-*/
+
     influxLP.append(' ')
 
     influxLP.append(event.date.time)
@@ -399,8 +400,8 @@ def tags() { [
         [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel'], // ? deviceLabel ?
         [name: 'event', type: ['all'], closure: 'eventName'],
         [name: 'eventType', type: ['all'], closure: 'type'], // ? rename to eventClass ?
-        // [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
-        // [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
+        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
+        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
         [name: 'isChange', type: ['all'], closure: 'isChange'], // ??Handle null values? or does it always have a value?
         [name: 'source', type: ['all'], closure: 'source'],
         [name: 'unit', type: ['number'], closure: 'unit'],
@@ -424,9 +425,9 @@ def getEventName() { return { it.name } }
 
 def getType() { return { owner.eventType } } // ? rename to eventClass ? TODO not sure how to get this to work - is it infact extra and not really required
 
-def getIdentifierGlobal() { return { "${locationName(it)}\\ .\\${hubName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
+def getIdentifierGlobal() { return { "${locationName(it)}\\ .\\${groupName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
-def getIdentifierLocal() { return { "${group(it)}\\ .\\ ${deviceDisplayName(it)}" } }
+def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
 
@@ -463,30 +464,30 @@ def fields() { [
         // [name: 'wValue', type: ['number'], closure: 'weightedValue'],
 ] }
 
-def eventDescription() { return { "\"${it?.descriptionText}\"" } }
+def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
-def eventId() { return { "\"${it.id}\"" } }
+def getEventId() { return { "\"${it.id}\"" } }
 
-def attributeStates() { return { getAttributeDetail().find { attribute -> attribute.key == it.name }.value.levels } } // Lookup array for event state levels
+def getAttributeStates() { return { getAttributeDetail().find { attribute -> attribute.key == it.name }.value.levels } } // Lookup array for event state levels
 
-def currentState() { return { "\"${it.value}\"" } }
+def getCurrentState() { return { "\"${it.value}\"" } }
 
-def currentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-def currentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def currentStateDescription() { return {
-    def text = "\"At ${locationName(it)}, in ${hubName(it)}, ${deviceDisplayName(it)} is ${currentState(it)} in the ${group(it)}.\""
+def getCurrentStateDescription() { return {
+    def text = "\"At ${locationName(it)}, in ${locationName(it)}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
 
-def currentValue() { return {   } }
-def currentValueDisplay() { return {   } }
-def currentValueX() { return {   } }
-def currentValueY() { return {   } }
-def currentValueZ() { return {   } }
+def getCurrentValue() { return {   } }
+def getCurrentValueDisplay() { return {   } }
+def getCurrentValueX() { return {   } }
+def getCurrentValueY() { return {   } }
+def getCurrentValueZ() { return {   } }
 
-def previousEvent() { return {
+def getPreviousEvent() { return {
     if (it?.data?.previous) {
         [value: it?.data?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
     }
@@ -497,23 +498,23 @@ def previousEvent() { return {
     }
 } }
 
-def previousState() { return { "\"${previousEvent(it).value}\"" } }
+def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def previousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
 
-def previousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
+def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def previousStateDescription() { return {   } }
+def getPreviousStateDescription() { return {   } }
 
-def previousValue() { return {   } }
-def difference() { return {   } }
-def differenceText() { return {   } }
+def getPreviousValue() { return {   } }
+def getDifference() { return {   } }
+def getDifferenceText() { return {   } }
 
-def timeOfDay() { return { "${it.date.time - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
+def getTimeOfDay() { return { "${it.date.time - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
 
-def timeElapsed() { return { "${it.date.time - previousEvent(it).date.time}i" } }
+def getTimeElapsed() { return { "${it.date.time - previousEvent(it).date.time}i" } }
 
-def timeElapsedText() { return {
+def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
     def phrase
     if (time < 60) phrase = Math.round(time) + ' seconds ago'
@@ -527,14 +528,14 @@ def timeElapsedText() { return {
     }
 }
 
-def timeOffset() { return { 1000 * 10 / 2 } }
+def getTimeOffset() { return { 1000 * 10 / 2 } }
 
-def timestamp() { return { "${it.date.time}i" } }
+def getTimestamp() { return { "${it.date.time}i" } }
 
-def timeWrite() { return { new Date() } } // time of processing the event
+def getTimeWrite() { return { "${new Date().time}i" } } // time of processing the event
 
-def weightedLevel() { return {   } }
-def weightedValue() { return {   } }
+def getWeightedLevel() { return {   } }
+def getWeightedValue() { return {   } }
 
 /*
 def handleEnumEvent(evt) {

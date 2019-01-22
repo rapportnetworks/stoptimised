@@ -531,7 +531,7 @@ def getDifferenceText() { return {   } }
 
 def getTimeOfDay() { return { "${timestamp(it) - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
 
-def getTimeElapsed() { return { timestamp(it) - timestamp(previousEvent(it)) } }
+def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
 
 def getTimeElapsedInt() { return { "${timeElapsed(it)}i" } }
 
@@ -549,11 +549,15 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? (1000 * 10 / 2) : 0 } }
+def getTimeOffset() { return { (1000 * 10 / 2) } }
 
-def getTimeOffsetInt() { return { if (timeOffset(it)) "${timeOffset(it)}i" } }
+def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffset(it) : 0 } }
 
-def getTimestamp() { return { it.date.time - timeOffset(it) } }
+def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffset(it) : 0 } }
+
+def getTimeOffsetInt() { return { "${currentTimeOffset(it)}i" } }
+
+def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
 def getTimestampInt() { return { "${timestamp(it)}i" } }
 

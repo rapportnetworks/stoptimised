@@ -549,19 +549,11 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffset() { return { (1000 * 10 / 2) } }
+def getTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? (1000 * 10 / 2) : 0 } }
 
-def getTimeOffsetInt() { return { "${timeOffset(it)}i" } }
+def getTimeOffsetInt() { return { if (timeOffset(it)) "${timeOffset(it)}i" } }
 
-def getTimestamp() {
-    return {
-        if (eventName(it) == 'motion' && currentState(it) == 'active') {
-            it.date.time
-        } else {
-            it.date.time - timeOffset(it)
-        }
-    }
-}
+def getTimestamp() { return { it.date.time - timeOffset(it) } }
 
 def getTimestampInt() { return { "${timestamp(it)}i" } }
 

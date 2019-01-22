@@ -342,7 +342,7 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 }
 
 def handleEnumEvent(evt) {
-    def eventType = 'enum'
+    def eventType = 'enum' // 'state'
     handleEvent(evt, eventType)
 }
 
@@ -361,7 +361,12 @@ def handleEvent(event, eventType) {
     tags().each { tag ->
         if ('all' in tag.type || eventType in tag.type) {
             influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
-            influxLP.append("$tag.closure"(event))
+            if (tag.name != 'eventType') {
+                influxLP.append("$tag.closure"(event))
+            }
+            else {
+                influxLP.append("$eventType")
+            }
         }
     }
 
@@ -379,9 +384,18 @@ def handleEvent(event, eventType) {
 
     influxLP.append(' ')
 
-    influxLP.append(event.date.time)
+    influxLP.append(timestamp(event))
 
     logger ("${influxLP.toString()}", 'trace')
+/*
+    def rp = 'autogen' // set retention policy
+    if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
+        // ignores repeated propagation of an event (time interval < 0.5 s)
+        postToInfluxDB(tags.toString(), rp)
+    } else {
+        logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
+    }
+*/
 }
 
 def measurements() { [
@@ -397,9 +411,9 @@ def tags() { [
         [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId'],
         [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceCode'],
         [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId'],
-        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel'], // ? deviceLabel ?
+        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel'], // ? TODO change to 'deviceName' ?
         [name: 'event', type: ['all'], closure: 'eventName'],
-        [name: 'eventType', type: ['all'], closure: 'type'], // ? rename to eventClass ?
+        [name: 'eventType', type: ['all'], closure: ''], // ? rename to eventClass ?
         [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
         [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
         [name: 'isChange', type: ['all'], closure: 'isChange'], // ??Handle null values? or does it always have a value?
@@ -413,9 +427,9 @@ def getLocationId() { return { location.id } }
 
 def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: 'House' } } // not assigned for hub and daylight events
 
-def getGroupId() { return { (it?.device?.device?.groupId) ?: '' } }
+def getGroupId() { return { (it?.device?.device?.groupId) ?: 'unassigned' } }
 
-def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: '' } }
+def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' } }
 
 def getDeviceId() { return { it.deviceId } }
 
@@ -447,21 +461,21 @@ def fields() { [
         [name: 'nValueX', type: ['vector3'], closure: 'currentValueX'],
         [name: 'nValueY', type: ['vector3'], closure: 'currentValueY'],
         [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ'],
-        // [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
-        // [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
-        // [name: 'pState', type: ['enum'], closure: 'previousState'],
+        [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
+        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
+        [name: 'pState', type: ['enum'], closure: 'previousState'],
         // [name: 'pText', type: ['enum', 'number'], closure: 'previousStateDescription'],
         // [name: 'pValue', type: ['number'], closure: 'previousValue'],
         // [name: 'rChange', type: ['number'], closure: 'difference'],
         // [name: 'rChangeText', type: ['number'], closure: 'differenceText'],
         [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay'],
-        // [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed'],
+        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsedInt'],
         // [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
         [name: 'tOffset', type: ['enum'], closure: 'timeOffset'],
-        [name: 'timestamp', type: ['all'], closure: 'timestamp'],
+        [name: 'timestamp', type: ['all'], closure: 'timestampInt'],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite'],
-        // [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
-        // [name: 'wValue', type: ['number'], closure: 'weightedValue'],
+        [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
+        [name: 'wValue', type: ['number'], closure: 'weightedValue'],
 ] }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
@@ -472,7 +486,7 @@ def getAttributeStates() { return { getAttributeDetail().find { attribute -> att
 
 def getCurrentState() { return { "\"${it.value}\"" } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevel() { return { "${attributeStates(it).find { level -> level.key == it.value }.value }i" } }
 
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
@@ -488,8 +502,9 @@ def getCurrentValueY() { return {   } }
 def getCurrentValueZ() { return {   } }
 
 def getPreviousEvent() { return {
-    if (it?.data?.previous) {
-        [value: it?.data?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
+    def eventData = parseJson(it?.data)
+    if (eventData?.previous) {
+        [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
     }
     else {
         def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
@@ -500,7 +515,7 @@ def getPreviousEvent() { return {
 
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevel() { return { "${attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }i" } }
 
 def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
@@ -510,9 +525,11 @@ def getPreviousValue() { return {   } }
 def getDifference() { return {   } }
 def getDifferenceText() { return {   } }
 
-def getTimeOfDay() { return { "${it.date.time - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
+def getTimeOfDay() { return { "${timestamp(it) - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
 
-def getTimeElapsed() { return { "${it.date.time - previousEvent(it).date.time}i" } }
+def getTimeElapsed() { return { timestamp(it) - timestamp(previousEvent(it)) } }
+
+def getTimeElapsedInt() { return { "${timeElapsed(it)}i" } }
 
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
@@ -530,96 +547,23 @@ def getTimeElapsedText() { return {
 
 def getTimeOffset() { return { 1000 * 10 / 2 } }
 
-def getTimestamp() { return { "${it.date.time}i" } }
+def getTimestamp() {
+    return {
+        if (eventName(it) == 'motion' && currentState(it) == 'active') {
+            it.date.time
+        } else {
+            it.date.time - timeOffset(it)
+        }
+    }
+}
+
+def getTimestampInt() { return { "${timestamp(it)}i" } }
 
 def getTimeWrite() { return { "${new Date().time}i" } } // time of processing the event
 
-def getWeightedLevel() { return {   } }
-def getWeightedValue() { return {   } }
+def getWeightedLevel() { return {  "${previousStateLevel(it) * timeElapsed(it)}i" } }
 
-/*
-def handleEnumEvent(evt) {
-    // def eventType = 'state'
-
-    // logger("handleEnumEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
-
-    // def tags = new StringBuilder() // Create InfluxDB line protocol
-    // def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-    // def deviceGroup = 'unassigned'
-    // def deviceGroupId = 'unassigned'
-    // if (evt.device.device?.groupId) {
-        // deviceGroupId = evt.device.device.groupId
-        // deviceGroup = state?.groupNames?."${deviceGroupId}"
-    // }
-    // def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
-
-    // tags.append(state.hubLocationDetails) // Add hub tags
-    // tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-    // tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
-    // tags.append(",event=${evt.name}")
-    // tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    // tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
-    // global identifier
-    // tags.append(",identifierLocal=${identifier}")
-    // tags.append(",isChange=${evt?.isStateChange}")
-    // tags.append(",source=${evt.source}")
-
-    // def fields = new StringBuilder() // populate initial fields set
-    def eventTime = evt.date.time // get event time
-    // def midnight = evt.date.clone().clearTime().time
-    // def writeTime = new Date() // time of processing event
-    // def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5])
-    // get list of previous events (5 most recent)
-    // def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
-    // def pEvent = pEvents.find { it.date.time < evt.date.time }
-    def pEventTime = pEvent.date.time
-
-    def offsetTime = 1000 * 10 / 2
-    if (state.adjustInactiveTimestamp && evt.name == 'motion') {
-        // adjust timestamp of "inactive" status to compensate for PIRresetTime
-        if (evt.value == 'inactive') eventTime -= offsetTime
-        if (pEvent.value == 'inactive') pEventTime -= offsetTime
-    }
-
-    // def timeElapsed = (eventTime - pEventTime)
-    def timeElapsedText = timeElapsedText(timeElapsed)
-
-    // fields.append("eventDescription=\"${evt?.descriptionText}\"")
-    // fields.append(",eventId=\"${evt.id}\"")
-
-    // def states = getAttributeDetail().find { it.key == evt.name }.value.levels // Lookup array for event state levels
-
-    // def nStateLevel = states.find { it.key == evt.value }.value // append current (now:n) state values
-    // def nStateBinary = (nStateLevel > 0) ? 'true' : 'false'
-    // fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel}i,nState=\"${evt.value}\"")
-    // fields.append(",nText=\"${state.hubLocationText} ${evt.displayName} is ${evt.value} in the ${deviceGroup.replaceAll('\\\\', '')}.\"")
-
-    def pStateLevel = states.find { it.key == pEvent.value }.value // append previous (p) state values
-    def pStateBinary = (pStateLevel > 0) ? 'true' : 'false'
-    fields.append(",pBinary=${pStateBinary},pLevel=${pStateLevel}i,pState=\"${pEvent.value}\"")
-    fields.append(",pText=\"This is a change from ${pEvent.value} ${timeElapsedText}.\"")
-
-    fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"")
-    // append time of previous(p) state values
-    // fields.append(",timestamp=${eventTime}i")
-    if (state.adjustInactiveTimestamp && evt.name == 'motion' && evt.value == 'inactive') fields.append(",tOffset=${offsetTime}i")
-    // append offsetTime for motion sensor
-    fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wLevel=${pStateLevel * timeElapsed}i")
-    // append time (seconds) weighted value - to facilate calculating mean value
-
-    tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
-    tags.insert(0, 'states')
-    def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
-        // ignores repeated propagation of an event (time interval < 0.5 s)
-        postToInfluxDB(tags.toString(), rp)
-    } else {
-        logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
-    }
-}
-*/
+def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
 /*
 def handleNumberEvent(evt) {

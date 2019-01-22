@@ -453,7 +453,7 @@ def fields() { [
         [name: 'eventDescription', type: ['all'], closure: 'eventDescription'],
         [name: 'eventId', type: ['all'], closure: 'eventId'],
         [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary'],
-        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel'],
+        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevelInt'],
         [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState'],
         [name: 'nText', type: ['all'], closure: 'currentStateDescription'],
         [name: 'nValue', type: ['number'], closure: 'currentValue'],
@@ -462,7 +462,7 @@ def fields() { [
         [name: 'nValueY', type: ['vector3'], closure: 'currentValueY'],
         [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ'],
         [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
-        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
+        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevelInt'],
         [name: 'pState', type: ['enum'], closure: 'previousState'],
         // [name: 'pText', type: ['enum', 'number'], closure: 'previousStateDescription'],
         // [name: 'pValue', type: ['number'], closure: 'previousValue'],
@@ -471,7 +471,7 @@ def fields() { [
         [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay'],
         [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsedInt'],
         // [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
-        [name: 'tOffset', type: ['enum'], closure: 'timeOffset'],
+        [name: 'tOffset', type: ['enum'], closure: 'timeOffsetInt'],
         [name: 'timestamp', type: ['all'], closure: 'timestampInt'],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite'],
         [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
@@ -486,7 +486,9 @@ def getAttributeStates() { return { getAttributeDetail().find { attribute -> att
 
 def getCurrentState() { return { "\"${it.value}\"" } }
 
-def getCurrentStateLevel() { return { "${attributeStates(it).find { level -> level.key == it.value }.value }i" } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+
+def getCurrentStateLevelInt() { return { "${currentStateLevel(it)}i" } }
 
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
@@ -515,7 +517,9 @@ def getPreviousEvent() { return {
 
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateLevel() { return { "${attributeStates(it).find { level -> level.key == previousEvent(it).value }.value }i" } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+
+def getPreviousStateLevelInt() { return { "${previousStateLevel(it)}i" } }
 
 def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
@@ -545,7 +549,9 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffset() { return { 1000 * 10 / 2 } }
+def getTimeOffset() { return { (1000 * 10 / 2) } }
+
+def getTimeOffsetInt() { return { "${timeOffset(it)}i" } }
 
 def getTimestamp() {
     return {

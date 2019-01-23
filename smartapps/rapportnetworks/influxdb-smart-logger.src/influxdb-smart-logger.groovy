@@ -360,9 +360,13 @@ def handleEvent(event, eventType) {
 
     tags().each { tag ->
         if ('all' in tag.type || eventType in tag.type) {
-            influxLP.append(",${tag.name}=") // ?What about getting name returned from closure?
+            influxLP.append(",${tag.name}=")
             if (tag.name != 'eventType') {
-                influxLP.append("$tag.closure"(event))
+                if (tag.arguments) {
+                    influxLP.append("$tag.closure"(event))
+                } else {
+                    influxLP.append("$tag.closure"())
+                }
             }
             else {
                 influxLP.append("$eventType")
@@ -376,8 +380,13 @@ def handleEvent(event, eventType) {
     fields().each { field ->
         if ('all' in field.type || eventType in field.type) {
             influxLP.append((fieldCount) ? ',' : '')
-            influxLP.append("${field.name}=") // ? What about getting name returned from closure ?
-            influxLP.append("$field.closure"(event))
+            influxLP.append("${field.name}=")
+            if (field.arguments) {
+                influxLP.append("$field.closure"(event))
+            } else {
+                influxLP.append("$field.closure"())
+            }
+            if (field.valueType == 'integer') influxLP.append('i')
             fieldCount++
         }
     }
@@ -405,25 +414,31 @@ def measurements() { [
 ] }
 
 def tags() { [
-        [name: 'building', type: ['all'], closure: 'locationName'],
-        [name: 'buildingId', type: ['all'], closure: 'locationId'],
-        [name: 'chamber', type: ['all'], closure: 'groupName'],
-        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId'],
-        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceCode'],
-        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId'],
-        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel'], // ? TODO change to 'deviceName' ?
-        [name: 'event', type: ['all'], closure: 'eventName'],
+        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
+        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
+        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
+        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
+        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel', arguments: 1],
+        [name: 'event', type: ['all'], closure: 'eventName', arguments: 1],
         [name: 'eventType', type: ['all'], closure: ''], // ? rename to eventClass ?
-        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal'],
-        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
-        [name: 'isChange', type: ['all'], closure: 'isChange'], // ??Handle null values? or does it always have a value?
-        [name: 'source', type: ['all'], closure: 'source'],
-        [name: 'unit', type: ['number', 'vector3'], closure: 'unit'],
+        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal', arguments: 1],
+        [name: 'isChange', type: ['all'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
+        [name: 'source', type: ['all'], closure: 'source', arguments: 1],
+        [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
 ]}
 
-def getLocationName() { return { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
+def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
 
-def getLocationId() { return { location.id } }
+def getLocationId() { return { -> location.id }.memoizeAtMost(1) }
+
+def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
+
+def getHubId() { return { -> location.hubs[0].id }.memoizeAtMost(1) }
 
 def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: 'House' } } // not assigned for hub and daylight events
 
@@ -433,13 +448,11 @@ def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ 
 
 def getDeviceId() { return { it.deviceId } }
 
-def getDeviceLabel() { return { it.displayName.replaceAll(' ', '\\\\ ') } } // ? deviceLabel ?
+def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' } }
 
 def getEventName() { return { it.name } }
 
-def getType() { return { owner.eventType } } // ? rename to eventClass ? TODO not sure how to get this to work - is it infact extra and not really required
-
-def getIdentifierGlobal() { return { "${locationName(it)}\\ .\\${groupName(it)}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
+def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
 def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
 
@@ -453,33 +466,33 @@ def getUnit() { return {
 } }
 
 def fields() { [
-        [name: 'eventDescription', type: ['all'], closure: 'eventDescription'],
-        [name: 'eventId', type: ['all'], closure: 'eventId'],
-        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary'],
-        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel'],
-        [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState'],
-        [name: 'nText', type: ['all'], closure: 'currentStateDescription'],
-        [name: 'nValue', type: ['number'], closure: 'currentValue'],
-        [name: 'nValueDisplay', type: ['number'], closure: 'currentValueDisplay'],
-        [name: 'nValueX', type: ['vector3'], closure: 'currentValueX'],
-        [name: 'nValueY', type: ['vector3'], closure: 'currentValueY'],
-        [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ'],
-        [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
-        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
-        [name: 'pState', type: ['enum'], closure: 'previousState'],
-        // [name: 'pText', type: ['enum'], closure: 'previousStateDescription'],
-        [name: 'pText', type: ['number'], closure: 'previousValueDescription'],
-        [name: 'pValue', type: ['number'], closure: 'previousValue'],
-        [name: 'rChange', type: ['number'], closure: 'difference'],
-        [name: 'rChangeText', type: ['number'], closure: 'differenceText'],
-        [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay'],
-        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed'],
-        [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
-        [name: 'tOffset', type: ['enum'], closure: 'timeOffset'],
-        [name: 'timestamp', type: ['all'], closure: 'timestamp'],
-        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite'],
-        [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
-        [name: 'wValue', type: ['number'], closure: 'weightedValue'],
+        [name: 'eventDescription', type: ['all'], closure: 'eventDescription', valueType: 'string', arguments: 1],
+        [name: 'eventId', type: ['all'], closure: 'eventId', valueType: 'string', arguments: 1],
+        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary', valueType: 'boolean', arguments: 1],
+        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel', valueType: 'integer', arguments: 1],
+        [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState', valueType: 'string', arguments: 1],
+        [name: 'nText', type: ['all'], closure: 'currentStateDescription', valueType: 'string', arguments: 1],
+        [name: 'nValue', type: ['number'], closure: 'currentValue', valueType: 'float', arguments: 1],
+        [name: 'nValueDisplay', type: ['number'], closure: 'currentValueDisplay', valueType: 'float', arguments: 1],
+        [name: 'nValueX', type: ['vector3'], closure: 'currentValueX', valueType: 'float', arguments: 1],
+        [name: 'nValueY', type: ['vector3'], closure: 'currentValueY', valueType: 'float', arguments: 1],
+        [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ', valueType: 'float', arguments: 1],
+        [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary', valueType: 'boolean', arguments: 1],
+        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel', valueType: 'integer', arguments: 1],
+        [name: 'pState', type: ['enum'], closure: 'previousState', valueType: 'string', arguments: 1],
+        // [name: 'pText', type: ['enum'], closure: 'previousStateDescription', valueType: 'string', arguments: 1],
+        [name: 'pText', type: ['number'], closure: 'previousValueDescription', valueType: 'string', arguments: 1],
+        [name: 'pValue', type: ['number'], closure: 'previousValue', valueType: 'float', arguments: 1],
+        [name: 'rChange', type: ['number'], closure: 'difference', valueType: 'float', arguments: 1],
+        [name: 'rChangeText', type: ['number'], closure: 'differenceText', valueType: 'string', arguments: 1],
+        [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay', valueType: 'integer', arguments: 1],
+        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed', valueType: 'integer', arguments: 1],
+        [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText', valueType: 'string', arguments: 1],
+        [name: 'tOffset', type: ['enum'], closure: 'currentTimeOffset', valueType: 'integer', arguments: 1],
+        [name: 'timestamp', type: ['all'], closure: 'timestamp', valueType: 'integer', arguments: 1],
+        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite', valueType: 'integer', arguments: 0],
+        [name: 'wLevel', type: ['enum'], closure: 'weightedLevel', valueType: 'integer', arguments: 1],
+        [name: 'wValue', type: ['number'], closure: 'weightedValue', valueType: 'float', arguments: 1],
 ] }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
@@ -490,14 +503,12 @@ def getAttributeStates() { return { getAttributeDetail().find { attribute -> att
 
 def getCurrentState() { return { "\"${it.value}\"" } }
 
-def getCurrentStateLevelRaw() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-def getCurrentStateLevel() { return { "${currentStateLevelRaw(it)}i" } }
-
-def getCurrentStateBinary() { return { (currentStateLevelRaw(it) > 0) ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
 def getCurrentStateDescription() { return {
-    def text = "\"At ${locationName(it)}, in ${locationName(it)}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
+    def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
 
@@ -519,20 +530,16 @@ def getPreviousEvent() { return {
 
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateLevelRaw() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
 
-def getPreviousStateLevel() { return { "${previousStateLevelRaw(it)}i" } }
+def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getPreviousStateBinary() { return { (previousStateLevelRaw(it) > 0) ? 'true' : 'false' } }
+def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 
-def getTimeOfDay() { return { "${timestamp(it) - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
-
-def getTimeElapsedRaw() { return { timestampRaw(it) - previousEvent(it).date.time - previousTimeOffsetRaw(it) } }
-
-def getTimeElapsed() { return { "${timeElapsedRaw(it)}i" } }
+def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
 
 def getTimeElapsedText() { return {
-    def time = timeElapsedRaw(it) / 1000
+    def time = timeElapsed(it) / 1000
     def phrase
     if (time < 60) phrase = Math.round(time) + ' seconds ago'
     else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
@@ -545,40 +552,24 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffsetAmount() { return { (1000 * 10 / 2) } }
+def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) }.memoizeAtMost(1) }
 
-def getCurrentTimeOffsetRaw() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount(it) : 0 } }
+def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
 
-def getPreviousTimeOffsetRaw() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount(it) : 0 } }
+def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
 
-def getTimeOffset() { return { "${currentTimeOffsetRaw(it)}i" } }
+def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
-def getTimestampRaw() { return { it.date.time - currentTimeOffsetRaw(it) } }
+def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getTimestamp() { return { "${timestampRaw(it)}i" } }
+def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
-def getTimeWrite() { return { "${new Date().time}i" } } // time of processing the event
-
-def getWeightedLevel() { return {  "${previousStateLevelRaw(it) * timeElapsedRaw(it)}i" } }
-
-def getWeightedValue() { return {  previousValue(it) * timeElapsedRaw(it) } }
+def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
 
-def getCurrentValue() { return {
-    try {
-        return it.numberValue.toBigDecimal()
-    } catch (e) {
-        return removeUnit(it)
-    }
-} }
+def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
 
-def getPreviousValue() { return {
-    try {
-        return previousEvent(it).numberValue.toBigDecimal()
-    } catch (e) {
-        return removeUnit(previousEvent(it))
-    }
-} }
+def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
 
 def removeUnit() { return { // remove any units appending to end of event value
     def length = it.value.length()
@@ -598,10 +589,7 @@ def removeUnit() { return { // remove any units appending to end of event value
 
 def getDecimalPlaces() { return { getAttributeDetail().find { ad -> ad.key == it.name }?.value.decimalPlaces } }
 
-def getDifference() { return {
-
-    (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)
-} }
+def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 def getDifferenceText() { return {
     def changeText = 'unchanged' // text description of change

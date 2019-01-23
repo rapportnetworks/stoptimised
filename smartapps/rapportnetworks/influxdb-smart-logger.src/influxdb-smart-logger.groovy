@@ -480,7 +480,7 @@ def fields() { [
         [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary', valueType: 'boolean', arguments: 1],
         [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel', valueType: 'integer', arguments: 1],
         [name: 'pState', type: ['enum'], closure: 'previousState', valueType: 'string', arguments: 1],
-        // [name: 'pText', type: ['enum'], closure: 'previousStateDescription', valueType: 'string', arguments: 1],
+        [name: 'pText', type: ['enum'], closure: 'previousStateDescription', valueType: 'string', arguments: 1],
         [name: 'pText', type: ['number'], closure: 'previousValueDescription', valueType: 'string', arguments: 1],
         [name: 'pValue', type: ['number'], closure: 'previousValue', valueType: 'float', arguments: 1],
         [name: 'rChange', type: ['number'], closure: 'difference', valueType: 'float', arguments: 1],
@@ -566,7 +566,6 @@ def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-
 def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
 
 def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
@@ -600,11 +599,12 @@ def getDifferenceText() { return {
 
 def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
 
+def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
+
 def getPreviousValueDescription() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
 } }
-
 
 /*
 def handleVector3Event(evt) {

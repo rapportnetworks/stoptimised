@@ -418,7 +418,7 @@ def tags() { [
         [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal'],
         [name: 'isChange', type: ['all'], closure: 'isChange'], // ??Handle null values? or does it always have a value?
         [name: 'source', type: ['all'], closure: 'source'],
-        [name: 'unit', type: ['number'], closure: 'unit'],
+        [name: 'unit', type: ['number', 'vector3'], closure: 'unit'],
 ]}
 
 def getLocationName() { return { location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
@@ -447,13 +447,16 @@ def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or d
 
 def getSource() { return { it.source } }
 
-def getUnit() { return { it.unit } }
+def getUnit() { return {
+    def unit = (it?.unit) ?: attributeDetail().find { ad -> ad.key == it.name }.value.unit
+    unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
+} }
 
 def fields() { [
         [name: 'eventDescription', type: ['all'], closure: 'eventDescription'],
         [name: 'eventId', type: ['all'], closure: 'eventId'],
         [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary'],
-        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevelInt'],
+        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel'],
         [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState'],
         [name: 'nText', type: ['all'], closure: 'currentStateDescription'],
         [name: 'nValue', type: ['number'], closure: 'currentValue'],
@@ -462,17 +465,18 @@ def fields() { [
         [name: 'nValueY', type: ['vector3'], closure: 'currentValueY'],
         [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ'],
         [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary'],
-        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevelInt'],
+        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel'],
         [name: 'pState', type: ['enum'], closure: 'previousState'],
-        // [name: 'pText', type: ['enum', 'number'], closure: 'previousStateDescription'],
-        // [name: 'pValue', type: ['number'], closure: 'previousValue'],
-        // [name: 'rChange', type: ['number'], closure: 'difference'],
-        // [name: 'rChangeText', type: ['number'], closure: 'differenceText'],
+        // [name: 'pText', type: ['enum'], closure: 'previousStateDescription'],
+        [name: 'pText', type: ['number'], closure: 'previousValueDescription'],
+        [name: 'pValue', type: ['number'], closure: 'previousValue'],
+        [name: 'rChange', type: ['number'], closure: 'difference'],
+        [name: 'rChangeText', type: ['number'], closure: 'differenceText'],
         [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay'],
-        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsedInt'],
-        // [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
-        [name: 'tOffset', type: ['enum'], closure: 'timeOffsetInt'],
-        [name: 'timestamp', type: ['all'], closure: 'timestampInt'],
+        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed'],
+        [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText'],
+        [name: 'tOffset', type: ['enum'], closure: 'timeOffset'],
+        [name: 'timestamp', type: ['all'], closure: 'timestamp'],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite'],
         [name: 'wLevel', type: ['enum'], closure: 'weightedLevel'],
         [name: 'wValue', type: ['number'], closure: 'weightedValue'],
@@ -486,19 +490,17 @@ def getAttributeStates() { return { getAttributeDetail().find { attribute -> att
 
 def getCurrentState() { return { "\"${it.value}\"" } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevelRaw() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-def getCurrentStateLevelInt() { return { "${currentStateLevel(it)}i" } }
+def getCurrentStateLevel() { return { "${currentStateLevelRaw(it)}i" } }
 
-def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { (currentStateLevelRaw(it) > 0) ? 'true' : 'false' } }
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName(it)}, in ${locationName(it)}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
 
-def getCurrentValue() { return {   } }
-def getCurrentValueDisplay() { return {   } }
 def getCurrentValueX() { return {   } }
 def getCurrentValueY() { return {   } }
 def getCurrentValueZ() { return {   } }
@@ -517,26 +519,20 @@ def getPreviousEvent() { return {
 
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevelRaw() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
 
-def getPreviousStateLevelInt() { return { "${previousStateLevel(it)}i" } }
+def getPreviousStateLevel() { return { "${previousStateLevelRaw(it)}i" } }
 
-def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
-
-def getPreviousStateDescription() { return {   } }
-
-def getPreviousValue() { return {   } }
-def getDifference() { return {   } }
-def getDifferenceText() { return {   } }
+def getPreviousStateBinary() { return { (previousStateLevelRaw(it) > 0) ? 'true' : 'false' } }
 
 def getTimeOfDay() { return { "${timestamp(it) - it.date.clone().clearTime().time}i" } } // calculate time of day in elapsed milliseconds
 
-def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
+def getTimeElapsedRaw() { return { timestampRaw(it) - previousEvent(it).date.time - previousTimeOffsetRaw(it) } }
 
-def getTimeElapsedInt() { return { "${timeElapsed(it)}i" } }
+def getTimeElapsed() { return { "${timeElapsedRaw(it)}i" } }
 
 def getTimeElapsedText() { return {
-    def time = timeElapsed(it) / 1000
+    def time = timeElapsedRaw(it) / 1000
     def phrase
     if (time < 60) phrase = Math.round(time) + ' seconds ago'
     else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
@@ -549,122 +545,78 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffset() { return { (1000 * 10 / 2) } }
+def getTimeOffsetAmount() { return { (1000 * 10 / 2) } }
 
-def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffset(it) : 0 } }
+def getCurrentTimeOffsetRaw() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount(it) : 0 } }
 
-def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffset(it) : 0 } }
+def getPreviousTimeOffsetRaw() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount(it) : 0 } }
 
-def getTimeOffsetInt() { return { "${currentTimeOffset(it)}i" } }
+def getTimeOffset() { return { "${currentTimeOffsetRaw(it)}i" } }
 
-def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
+def getTimestampRaw() { return { it.date.time - currentTimeOffsetRaw(it) } }
 
-def getTimestampInt() { return { "${timestamp(it)}i" } }
+def getTimestamp() { return { "${timestampRaw(it)}i" } }
 
 def getTimeWrite() { return { "${new Date().time}i" } } // time of processing the event
 
-def getWeightedLevel() { return {  "${previousStateLevel(it) * timeElapsed(it)}i" } }
+def getWeightedLevel() { return {  "${previousStateLevelRaw(it) * timeElapsedRaw(it)}i" } }
 
-def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
+def getWeightedValue() { return {  previousValue(it) * timeElapsedRaw(it) } }
 
-/*
-def handleNumberEvent(evt) {
-    def eventType = 'value'
 
-    logger("handleNumberEvent(): $evt.displayName ($evt.name) $evt.value", 'info')
-
-    def tags = new StringBuilder() // Create InfluxDB line protocol
-    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-    def deviceGroup = 'unassigned'
-    def deviceGroupId = 'unassigned'
-    if (evt.device.device?.groupId) {
-        deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?."${deviceGroupId}"
-    }
-    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
-
-    tags.append(state.hubLocationDetails) // Add hub tags
-    tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-    tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
-    tags.append(",event=${evt.name}")
-    tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
-    // global identifier
-    tags.append(",identifierLocal=${identifier}")
-    tags.append(",isChange=${evt?.isStateChange}")
-    tags.append(",source=${evt.source}")
-    def unit = (evt?.unit) ? evt.unit : getAttributeDetail().find { it.key == evt.name }.value.unit
-    // set here, but included in tag set
-    if (evt.name == 'temperature') unit = unit.replaceAll('\u00B0', '') // remove circle from C unit
-    if (unit) tags.append(",unit=${unit}") // Add unit tag
-
-    def fields = new StringBuilder() // populate initial fields set
-    def eventTime = evt.date.time // get event time
-    def midnight = evt.date.clone().clearTime().time
-    def writeTime = new Date() // time of processing event
-    def pEventsUnsorted = evt.device.statesSince("${evt.name}", evt.date - 7, [max: 5])
-    // get list of previous events (5 most recent)
-    def pEvents = (pEventsUnsorted) ? pEventsUnsorted.sort { a, b -> b.date.time <=> a.date.time } : evt.device.latestState("${evt.name}")
-    def pEvent = pEvents.find { it.date.time < evt.date.time }
-    def pEventTime = pEvent.date.time
-
-    def timeElapsed = (eventTime - pEventTime)
-    def timeElapsedText = timeElapsedText(timeElapsed)
-
-    def description = "${evt?.descriptionText}"
-    if (evt.name == 'temperature' && description) description = description.replaceAll('\u00B0', ' ')
-    // remove circle from C unit
-    fields.append("eventDescription=\"${description}\"")
-    fields.append(",eventId=\"${evt.id}\"")
-
-    def nValue
-    def pValue
-    def decimalPlaces = getAttributeDetail().find { it.key == evt.name }?.value.decimalPlaces
-    def trimLength
+def getCurrentValue() { return {
     try {
-        nValue = evt.numberValue.toBigDecimal()
-        pValue = pEvent.numberValue.toBigDecimal()
+        return it.numberValue.toBigDecimal()
     } catch (e) {
-        trimLength = removeUnit(evt.value)
-        def nLength = evt.value.length()
-        def pLength = pEvent.value.length()
-        nValue = evt.value.substring(0, nLength - trimLength).toBigDecimal()
-        pValue = pEvent.value.substring(0, pLength - trimLength).toBigDecimal()
+        return removeUnit(it)
     }
+} }
 
-    fields.append(",nText=\"${state.hubLocationText} ${evt.name} is ${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)} ${unit} in the ${deviceGroup.replaceAll('\\\\', '')}.\"")
-    // append current (now:n) event value
-    fields.append(",nValue=${nValue}")
-    fields.append(",nValueDisplay=${nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)}")
-    def change = (nValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN) - pValue.setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces, BigDecimal.ROUND_HALF_EVEN)
-    // calculate change from previous value
-    def changeText = 'unchanged' // text description of change
-    if (change > 0) changeText = 'increased'
-    else if (change < 0) changeText = 'decreased'
-    fields.append(",pText=\"This is ${changeText}") // append previous(p) event value
-    if (changeText != 'unchanged') fields.append(" by ${change.abs()} ${unit}")
-    fields.append(" compared to ${timeElapsedText}.\"")
-    fields.append(",pValue=${pValue}")
-    fields.append(",rChange=${change},rChangeText=\"${changeText}\"")
-    // append change compared to previous(p) event value
-    fields.append(",tDay=${eventTime - midnight}i") // calculate time of day in elapsed milliseconds
-    fields.append(",tElapsed=${timeElapsed}i,tElapsedText=\"${timeElapsedText}\"")
-    // append time of previous event value
-    fields.append(",timestamp=${eventTime}i")
-    fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-    fields.append(",wValue=${pValue * timeElapsed}")
-    // append time (seconds) weighted value - to facilate calculating mean value
+def getPreviousValue() { return {
+    try {
+        return previousEvent(it).numberValue.toBigDecimal()
+    } catch (e) {
+        return removeUnit(previousEvent(it))
+    }
+} }
 
-    tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
-    tags.insert(0, 'values')
-    def rp = 'autogen' // set retention policy
-    if (!(timeElapsed < 500 && nValue == pValue)) { // ignores repeated propagation of an event (time interval < 0.5 s)
-        postToInfluxDB(tags.toString(), rp)
+def removeUnit() { return { // remove any units appending to end of event value
+    def length = it.value.length()
+    def value
+    def i = 2
+    while (i < (length - 1)) {
+        value = it.value.substring(0, length - i)
+        if (value.isNumber()) break
+        i++
+    }
+    if (i == length) {
+        return 0
     } else {
-        logger("handleNumberEvent(): Ignoring duplicate event or rounded unchanged value $evt.displayName ($evt.name) $evt.value", 'warn')
+        return value.toBigDecimal()
     }
-}
-*/
+} }
+
+def getDecimalPlaces() { return { getAttributeDetail().find { ad -> ad.key == it.name }?.value.decimalPlaces } }
+
+def getDifference() { return {
+
+    (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)
+} }
+
+def getDifferenceText() { return {
+    def changeText = 'unchanged' // text description of change
+    if (difference(it) > 0) changeText = 'increased'
+    else if (difference(it) < 0) changeText = 'decreased'
+    changeText
+} }
+
+def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
+
+def getPreviousValueDescription() { return {
+    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
+} }
+
 
 /*
 def handleVector3Event(evt) {
@@ -976,32 +928,6 @@ def pollDeviceChecks() {
     postToInfluxDB(data.toString(), rp)
 }
 */
-
-// converted elapsed time to textual description
-def timeElapsedText(time) {
-    def phrase
-    time /= 1000
-    if (time < 60) phrase = Math.round(time) + ' seconds ago'
-    else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
-    else if (time < 3600) phrase = Math.round(time / 60) + ' minutes ago'
-    else if (time < 5400) phrase = Math.round(time / 3600) + ' hour ago'
-    else if (time < 86400) phrase = Math.round(time / 3600) + ' hours ago'
-    else if (time < 129600) phrase = Math.round(time / 86400) + ' day ago'
-    else phrase = Math.round(time / 86400) + ' days ago'
-    return phrase
-}
-
-// remove any units appending to end of event value
-def removeUnit(stringUnit) {
-    def valueString = stringUnit
-    def length = valueString.length()
-    def i = 0
-    while (i < length) {
-        if (valueString.substring(0, length - i).isNumber()) break
-        i++
-    }
-    return i
-}
 
 /*****************************************************************************************************************
  *  Main Commands:

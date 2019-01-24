@@ -384,7 +384,7 @@ def handleEvent(event, eventType) {
     tags().each { tag ->
         if ('all' in tag.type || eventType in tag.type) {
             influxLP.append(",${tag.name}=")
-            if (tag.name != 'eventType') {
+            if (tag.name) { // != 'eventType') {
                 if (tag.arguments) {
                     influxLP.append("$tag.closure"(event))
                 } else {
@@ -476,7 +476,7 @@ def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\
 
 def getEventName() { return { it.name }.memoizeAtMost(1) }
 
-def getEventDetails() { return { attributeDetail().find { ad -> ad.key == it.name }.value } }
+def getEventDetails() { return { attributeDetail().find { ad -> ad.key == eventName(it) }.value }.memoizeAtMost(1) }
 
 def getEventType() { return { eventDetails(it).type } }
 
@@ -500,7 +500,7 @@ def getSource() { return {
 } }
 
 def getUnit() { return {
-    def unit = (it?.unit) ?: attributeDetail().find { ad -> ad.key == it.name }.value.unit
+    def unit = (it?.unit) ?: eventDetails(it).unit
     // threeaxes unit is 'g'
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
@@ -546,7 +546,7 @@ def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'f
 
     def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-    def getAttributeStates() { return { attributeDetail().find { attribute -> attribute.key == eventName(it) }.value.levels }.memoizeAtMost(1) } // Lookup array for event state levels
+    def getAttributeStates() { return { eventDetails(it).levels }.memoizeAtMost(1) } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
@@ -573,7 +573,7 @@ def removeUnit() { return { // remove any units appending to end of event value
 
 def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
 
-    def getDecimalPlaces() { return { getAttributeDetail().find { ad -> ad.key == it.name }?.value.decimalPlaces } }
+    def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
 def getCurrentValueDescription() { return {
     def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} in the ${groupName(it)}.\""
@@ -710,73 +710,72 @@ def pollDevices() {
     def data = new StringBuilder()
     def info
     getSelectedDevices()?.each { dev ->
-        info = dev?.getZwaveInfo().clone()
-        if (info.containsKey("zw")) {
+         if (info.containsKey("zw")) {
             logger("pollDevices(): zWave report for device ${dev}", 'info')
-
             data.append('devices') // measurement name
-            data.append(state.hubLocationDetails) // Add hub tags
-
-            def deviceGroup = 'unassigned'
-            def deviceGroupId = 'unassigned'
-            if (state?.groupNames?.(dev.device?.groupId)) {
-                deviceGroupId = dev.device.groupId
-                deviceGroup = state.groupNames."${deviceGroupId}"
-            }
-            def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
-
-            data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-
-            data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
-            data.append(",deviceId=${dev.id}")
-            data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
-            data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
-
-            data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
-            data.append(",identifierLocal=${identifier}")
-
-            def power = info.zw.take(1)
-            switch (power) {
-                case "L":
-                    power = 'Listening'
-                    break
-                case "S":
-                    power = 'Sleepy'
-                    break
-                case "B":
-                    power = 'Beamable'
-                    break
-            }
-            def secure = (info.zw.endsWith("s")) ? 'true' : 'false'
-            data.append(",power=${power},secure=${secure}") // set as tag values to enable filtering
-            data.append(",status=${dev?.status}")
-            data.append(',type=zwave')
-
-            data.append(' ')
-            if (dev?.device.getDataValue("configuredParameters")) data.append(dev.device.getDataValue("configuredParameters")).append(',')
-
-            def checkInterval = dev.latestState('checkInterval')?.value
-            if (checkInterval) data.append("checkInterval=${checkInterval}i").append(',')
-
-            def cc = info.cc
-            if (info?.ccOut) cc.addAll(info.ccOut)
-            if (info?.sec) cc.addAll(info.sec)
-            def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
-            info.remove('zw')
-            info.remove('cc')
-            info.remove('ccOut')
-            info.remove('sec')
-            info = info.sort()
-            def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-            info = toKeyValue(info) + ',' + "${ccList}"
-            data.append(info)
-            data.append('\n')
-        }
-    }
-    def rp = 'metadata'
-    postToInfluxDB(data.toString(), rp)
-}
 */
+def tagsDeviceChecks() { [
+        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
+        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
+        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
+        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
+        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
+        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
+        [name: 'power', type: ['enum', 'number', 'threeaxes'], closure: 'power', arguments: 1],
+        [name: 'secure', type: ['enum', 'number', 'threeaxes'], closure: 'secure', arguments: 1],
+        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
+        [name: 'type', type: ['location'], closure: 'zwType', arguments: 0],
+] }
+
+def getZwInfo() { return { it?.zwaveInfo() } }
+
+def getPower() { return {
+    switch (zwInfo(it)?.zw.take(1)) {
+        case 'L':
+            return 'Listening'; break
+        case 'S':
+            return 'Sleepy'; break
+        case 'B':
+            return 'Beamable'; break
+    }
+} }
+
+def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
+
+def getZwType() { return { 'zwave' } }
+
+def fieldsPollDevices() { [
+        [name: '', type: ['location'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
+        [name: 'checkInterval', type: ['location'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
+        [name: '', type: ['location'], closure: 'ccList', valueType: 'string', arguments: 1],
+] }
+
+def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
+
+def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
+
+def getCcList() { return {
+    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def cc = info.cc
+    if (info?.ccOut) cc.addAll(info.ccOut)
+    if (info?.sec) cc.addAll(info.sec)
+    def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
+    info.remove('zw')
+    info.remove('cc')
+    info.remove('ccOut')
+    info.remove('sec')
+    info = info.sort()
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    info = toKeyValue(info) + ',' + "${ccList}"
+    info
+} }
+
 
 def pollLocation() {
     def rp = 'metadata'

@@ -306,6 +306,8 @@ def updated() { // runs when app settings are changed
     state.hubLocationDetails = "" // Define state variable to hold location and hub details
     state.hubLocationText = ""
 
+    state.houseType = 'House'
+
     // hubLocationDetails() // generate hub location details
 
     state.installed = true
@@ -349,6 +351,27 @@ def handleEnumEvent(evt) {
 def handleNumberEvent(evt) {
     def eventType = 'number'
     handleEvent(evt, eventType)
+}
+
+def handleNumberThreeaxes(evt) {
+    def eventType = 'threeaxes'
+    handleEvent(evt, eventType)
+}
+
+def handleDaylight(evt) {
+    def eventType = 'daylight'
+    def event = evt.clone()
+    def value = "${event.name}"
+    event.name = 'daylight'
+    event.value = value
+    handleEvent(event, eventType)
+}
+
+def handleHubStatus(evt) {
+    if (evt.value == 'active' || evt.value == 'disconnected') {
+        def eventType = 'hubStatus'
+        handleEvent(evt, eventType)
+    }
 }
 
 def handleEvent(event, eventType) {
@@ -419,14 +442,14 @@ def tags() { [
         [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
         [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
         [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['all'], closure: 'deviceLabel', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
         [name: 'event', type: ['all'], closure: 'eventName', arguments: 1],
         [name: 'eventType', type: ['all'], closure: ''], // ? rename to eventClass ?
-        [name: 'identifierGlobal', type: ['all'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['all'], closure: 'identifierLocal', arguments: 1],
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
         [name: 'isChange', type: ['all'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
         [name: 'source', type: ['all'], closure: 'source', arguments: 1],
         [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
@@ -440,28 +463,40 @@ def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') }.
 
 def getHubId() { return { -> location.hubs[0].id }.memoizeAtMost(1) }
 
-def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: 'House' } } // not assigned for hub and daylight events
+def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: state.houseType }.memoizeAtMost(1) } // not assigned for hub and daylight events
 
-def getGroupId() { return { (it?.device?.device?.groupId) ?: 'unassigned' } }
+def getGroupId() { return { it?.device?.device?.groupId }.memoizeAtMost(1) }
 
 def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' } }
 
 def getDeviceId() { return { it.deviceId } }
 
-def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' } }
+def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' }.memoizeAtMost(1) }
 
-def getEventName() { return { it.name } }
+def getEventName() { return { it.name }.memoizeAtMost(1) }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
-def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
+def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" }.memoizeAtMost(1) }
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
 
-def getSource() { return { it.source } }
+def getSource() { return {
+    switch(it.source) {
+        case 'DEVICE':
+            return 'device'; break
+        case 'LOCATION':
+            return 'location'; break
+        case 'HUB':
+            return 'hub'; break
+        default:
+            return it.source; break
+    }
+} }
 
 def getUnit() { return {
     def unit = (it?.unit) ?: attributeDetail().find { ad -> ad.key == it.name }.value.unit
+    // threeaxes unit is 'g'
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
 
@@ -471,7 +506,8 @@ def fields() { [
         [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary', valueType: 'boolean', arguments: 1],
         [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel', valueType: 'integer', arguments: 1],
         [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState', valueType: 'string', arguments: 1],
-        [name: 'nText', type: ['all'], closure: 'currentStateDescription', valueType: 'string', arguments: 1],
+        [name: 'nText', type: ['enum'], closure: 'currentStateDescription', valueType: 'string', arguments: 1],
+        [name: 'nText', type: ['number'], closure: 'currentValueDescription', valueType: 'string', arguments: 1],
         [name: 'nValue', type: ['number'], closure: 'currentValue', valueType: 'float', arguments: 1],
         [name: 'nValueDisplay', type: ['number'], closure: 'currentValueDisplay', valueType: 'float', arguments: 1],
         [name: 'nValueX', type: ['vector3'], closure: 'currentValueX', valueType: 'float', arguments: 1],
@@ -499,22 +535,51 @@ def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
 def getEventId() { return { "\"${it.id}\"" } }
 
-def getAttributeStates() { return { getAttributeDetail().find { attribute -> attribute.key == it.name }.value.levels } } // Lookup array for event state levels
-
 def getCurrentState() { return { "\"${it.value}\"" } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
-
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
+
+    def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+
+    def getAttributeStates() { return { attributeDetail().find { attribute -> attribute.key == eventName(it) }.value.levels }.memoizeAtMost(1) } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
 
-def getCurrentValueX() { return {   } }
-def getCurrentValueY() { return {   } }
-def getCurrentValueZ() { return {   } }
+def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
+
+def removeUnit() { return { // remove any units appending to end of event value
+    def length = it.value.length()
+    def value
+    def i = 2
+    while (i < (length - 1)) {
+        value = it.value.substring(0, length - i)
+        if (value.isNumber()) break
+        i++
+    }
+    if (i == length) {
+        return 0
+    } else {
+        return value.toBigDecimal()
+    }
+} }
+
+def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
+
+    def getDecimalPlaces() { return { getAttributeDetail().find { ad -> ad.key == it.name }?.value.decimalPlaces } }
+
+def getCurrentValueDescription() { return {
+    def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} in the ${groupName(it)}.\""
+    text.replaceAll('\\\\', '')
+} }
+
+def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
+def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
+def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
+
+    def getGravityFactor() { return { -> (1024) }.memoizeAtMost(1) }
 
 def getPreviousEvent() { return {
     def eventData = parseJson(it?.data)
@@ -530,9 +595,35 @@ def getPreviousEvent() { return {
 
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
-
 def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
+
+    def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+
+def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
+
+def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
+
+def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+
+def getPreviousValueDescription() { return {
+    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
+} }
+
+def getDifferenceText() { return {
+    def changeText = 'unchanged' // text description of change
+    if (difference(it) > 0) changeText = 'increased'
+    else if (difference(it) < 0) changeText = 'decreased'
+    changeText
+} }
+
+def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
+
+    def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) }.memoizeAtMost(1) }
+
+    def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+
+    def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
 
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 
@@ -552,183 +643,13 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) }.memoizeAtMost(1) }
-
-def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
-
-def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
-
-def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
-
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
 
-def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
-
-def removeUnit() { return { // remove any units appending to end of event value
-    def length = it.value.length()
-    def value
-    def i = 2
-    while (i < (length - 1)) {
-        value = it.value.substring(0, length - i)
-        if (value.isNumber()) break
-        i++
-    }
-    if (i == length) {
-        return 0
-    } else {
-        return value.toBigDecimal()
-    }
-} }
-
-def getDecimalPlaces() { return { getAttributeDetail().find { ad -> ad.key == it.name }?.value.decimalPlaces } }
-
-def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
-
-def getDifferenceText() { return {
-    def changeText = 'unchanged' // text description of change
-    if (difference(it) > 0) changeText = 'increased'
-    else if (difference(it) < 0) changeText = 'decreased'
-    changeText
-} }
-
-def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
-
-def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
-
-def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
-    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
-} }
-
-/*
-def handleVector3Event(evt) {
-    def eventType = 'threeAxis'
-
-    logger("handleVector3Event(): $evt.displayName ($evt.name) $evt.value", 'info')
-
-    def deviceName = (evt?.device.device.name) ? evt.device.device.name : 'unassigned'
-    def deviceGroup = 'unassigned'
-    def deviceGroupId = 'unassigned'
-    if (evt.device.device?.groupId) {
-        deviceGroupId = evt.device.device.groupId
-        deviceGroup = state?.groupNames?."${deviceGroupId}"
-    }
-    def identifier = "${deviceGroup}\\ .\\ ${evt.displayName.replaceAll(' ', '\\\\ ')}" // create local identifier
-
-    def tags = new StringBuilder() // Create InfluxDB line protocol
-    tags.append(state.hubLocationDetails) // Add hub tags
-    tags.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-    tags.append(",deviceCode=${deviceName.replaceAll(' ', '\\\\ ')},deviceId=${evt.deviceId},deviceLabel=${evt.displayName.replaceAll(' ', '\\\\ ')}")
-    tags.append(",event=${evt.name}")
-    tags.append(",eventType=${eventType}") // Add type (state|value|threeAxis) of measurement tag
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${evt.name}")
-    // global identifier
-    tags.append(",identifierLocal=${identifier}")
-    tags.append(",isChange=${evt?.isStateChange}")
-    tags.append(",source=${evt.source}")
-    def unit = 'g'
-    if (unit) tags.append(",unit=${unit}") // Add unit tag
-
-    def fields = new StringBuilder() // populate initial fields set
-    def eventTime = evt.date.time // get event time
-    def writeTime = new Date() // time of processing event
-
-    fields.append("eventDescription=\"${evt?.descriptionText}\"")
-    fields.append(",eventId=\"${evt.id}\"")
-    fields.append(",nText=\"threeAxis event\"")
-    def factor = 1024 // convert to g's
-    fields.append(",nValueX=${evt.xyzValue.x / factor},nValueY=${evt.xyzValue.y / factor},nValueZ=${evt.xyzValue.z / factor}")
-    fields.append(",timestamp=${eventTime}i")
-    fields.append(",tWrite=${writeTime.time}i") // time of writing event to databaseHost
-
-    tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
-    tags.insert(0, 'threeaxes')
-    def rp = 'autogen' // set retention policy
-    postToInfluxDB(tags.toString(), rp)
-}
-*/
-
-/*
-def handleHubStatus(evt) {
-    if (evt.value == 'active' || evt.value == 'disconnected') {
-        def eventType = 'hubStatus'
-
-        logger("handleHubStatus(): $evt.displayName ($evt.name) $evt.value", 'info')
-
-        def identifier = "House\\ .\\ Hub" // create local identifier
-
-        def tags = new StringBuilder() // Create InfluxDB line protocol
-        tags.append(state.hubLocationDetails) // Add hub tags
-        tags.append(',chamber=House')
-        tags.append(',deviceLabel=Hub')
-        tags.append(',event=hubStatus')
-        tags.append(",eventType=${eventType}")
-        tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ hubStatus")
-        // global identifier
-        tags.append(",identifierLocal=${identifier}")
-        tags.append(",isChange=${evt?.isStateChange}")
-        tags.append(",source=${evt.source}")
-
-        def fields = new StringBuilder() // populate initial fields set
-        def eventTime = evt.date.time // get event time
-        fields.append("eventDescription=\"${evt?.descriptionText}\"")
-        fields.append(",eventId=\"${evt.id}\"")
-        def nStateBinary = (evt.value == 'active') ? 'true' : 'false'
-        def nStateLevel = (evt.value == 'active') ? '1i' : '-1i'
-        fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.value}\"")
-        fields.append(",nText=\"${state.hubLocationText}hub is ${evt.value}.\"")
-        fields.append(",timestamp=${eventTime}i")
-
-        tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
-        tags.insert(0, 'states')
-        def rp = 'autogen' // set retention policy
-        postToInfluxDB(tags.toString(), rp)
-    }
-}
-*/
-/*
-def handleDaylight(evt) {
-    def eventType = 'daylight'
-
-    logger("handleDaylight(): $evt.displayName ($evt.name) $evt.value", 'info')
-
-    def identifier = "House\\ .\\ Daylight" // create local identifier
-
-    def tags = new StringBuilder() // Create InfluxDB line protocol
-    tags.append(state.hubLocationDetails) // Add hub tags
-    tags.append(',chamber=House')
-    tags.append(',deviceLabel=Sun')
-    tags.append(',event=daylight')
-    tags.append(",eventType=${eventType}")
-    tags.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ daylight")
-    // global identifier
-    tags.append(",identifierLocal=${identifier}")
-    tags.append(",isChange=${evt?.isStateChange}")
-    tags.append(",source=${evt.source}")
-
-    def fields = new StringBuilder() // populate initial fields set
-    def eventTime = evt.date.time // get event time
-    fields.append("eventDescription=\"${evt?.descriptionText}\"")
-    fields.append(",eventId=\"${evt.id}\"")
-    def nStateBinary = (evt.name == 'sunrise') ? 'true' : 'false'
-    def nStateLevel = (evt.name == 'sunrise') ? '1i' : '-1i'
-    def nStateText = (evt.name == 'sunrise') ? 'sun has risen' : 'sun has set'
-    fields.append(",nBinary=${nStateBinary},nLevel=${nStateLevel},nState=\"${evt.name}\"")
-    fields.append(",nText=\"At ${location.name}, building ${location.hubs[0].name}, ${nStateText}.\"")
-    fields.append(",timestamp=${eventTime}i")
-
-    tags.append(' ').append(fields).append(' ').append(eventTime) // Add field set and timestamp
-    tags.insert(0, 'states')
-    def rp = 'autogen' // set retention policy
-    postToInfluxDB(tags.toString(), rp)
-}
-*/
 /*
 def pollAttributes() {
     logger("pollAttributes()", 'trace')
@@ -1267,9 +1188,11 @@ private getAttributeDetail() {
             consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
             contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
             current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
+            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
             door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
             energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
             heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
+            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
             hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
             humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
             illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

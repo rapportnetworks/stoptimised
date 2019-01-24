@@ -775,34 +775,63 @@ def pollDevices() {
 */
 /*
 def pollLocation() {
-    logger("pollLocation()", 'trace')
-
-    def times = getSunriseAndSunset()
-    def h = location.hubs[0]
-
-    def data = new StringBuilder()
-    data.append('locations') // measurement name
-    data.append(state.hubLocationDetails) // Add hub tags
-    data.append(",hubStatus=${h.status}")
-    data.append(",hubType=${h.type}")
-    data.append(h.hub.getDataValue("batteryInUse") == 'true' ? ',onBattery=true' : ',onBattery=false')
-    // *** check this out
-    data.append(",timeZone=${location.timeZone.ID}")
-    data.append(' ')
-    data.append("firmwareVersion=\"${h.firmwareVersionString}\"")
-    data.append(",hubIP=\"${h.localIP}\"")
-    data.append(",latitude=${location.latitude}")
-    data.append(",longitude=${location.longitude}")
-    data.append(",portTCP=${h.localSrvPortTCP}i")
-    data.append(",sunrise=\"${times.sunrise.format("HH:mm", location.timeZone)}\"")
-    data.append(",sunset=\"${times.sunset.format("HH:mm", location.timeZone)}\"")
-    data.append(",zigbeePowerLevel=${h.hub.getDataValue("zigbeePowerLevel")}i")
-    data.append(",zwavePowerLevel=\"${h.hub.getDataValue("zwavePowerLevel")}\"")
-
     def rp = 'metadata'
-    postToInfluxDB(data.toString(), rp)
 }
 */
+
+def tagsLocation() { [
+        [name: 'area', type: ['location'], closure: 'locationName', arguments: 0],
+        [name: 'areaId', type: ['location'], closure: 'locationId', arguments: 0],
+        [name: 'building', type: ['location'], closure: 'hubName', arguments: 0],
+        [name: 'buildingId', type: ['location'], closure: 'hubId', arguments: 0],
+        [name: 'hubStatus', type: ['location'], closure: 'hubStatus', arguments: 0],
+        [name: 'hubType', type: ['location'], closure: 'hubType', arguments: 0],
+        [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
+        [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
+] }
+
+def getHubStatus() { return { -> hub().status } }
+
+def getHubType() { return { -> hub().type } }
+
+def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
+
+def getTimeZone() { return { -> location.timeZone.ID } }
+
+def fieldsLocation() { [
+        [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
+        [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
+        [name: 'latitude', type: ['location'], closure: 'latitude', valueType: 'string', arguments: 0],
+        [name: 'longitude', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
+        [name: 'portTCP', type: ['location'], closure: 'portTCP', valueType: 'integer', arguments: 0],
+        [name: 'sunrise', type: ['location'], closure: 'sunrise', valueType: 'string', arguments: 0],
+        [name: 'sunset', type: ['location'], closure: 'sunset', valueType: 'string', arguments: 0],
+        [name: 'zigbeePowerLevel', type: ['location'], closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0],
+        [name: 'zwavePowerLevel', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
+] }
+
+def getHub() { return { -> location.hubs[0] }.memoizeAtMost(1) }
+
+def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
+
+def getHubIP() { return { -> "\"${hub().localIP}\"" } }
+
+def getLatitude() { return { -> "\"${hub().latitude}\"" } }
+
+def getLongitude() { return { -> "\"${hub().longitude}\"" } }
+
+def getPortTCP() { return { -> hub().localSrvPortTCP } }
+
+def getDaylight() { return { -> getSunriseAndSunset() } }
+
+def getSunrise() { return { -> "\"${daylight.sunrise.format('HH:mm', timeZone())}\"" } }
+
+def getSunset() { return { -> "\"${daylight.sunset.format('HH:mm', timeZone())}\"" } }
+
+def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
+
+def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
+
 /*
 def pollDeviceChecks() {
     logger("pollDeviceChecks()", 'trace')

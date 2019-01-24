@@ -379,7 +379,7 @@ def handleEvent(event, eventType) {
 
     def influxLP = new StringBuilder()
 
-    influxLP.append(measurements()."${event.name}")
+    influxLP.append(measurements()."${event.name}") // TODO Need to sort this
 
     tags().each { tag ->
         if ('all' in tag.type || eventType in tag.type) {
@@ -403,7 +403,7 @@ def handleEvent(event, eventType) {
     fields().each { field ->
         if ('all' in field.type || eventType in field.type) {
             influxLP.append((fieldCount) ? ',' : '')
-            influxLP.append("${field.name}=")
+            if (field.name) influxLP.append("${field.name}=")
             if (field.arguments) {
                 influxLP.append("$field.closure"(event))
             } else {
@@ -433,6 +433,7 @@ def handleEvent(event, eventType) {
 def measurements() { [
         acceleration: 'states',
         motion: 'states',
+        power: 'values',
         temperature: 'values',
 ] }
 
@@ -447,7 +448,7 @@ def tags() { [
         [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
         [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
         [name: 'event', type: ['all'], closure: 'eventName', arguments: 1],
-        [name: 'eventType', type: ['all'], closure: ''], // ? rename to eventClass ?
+        [name: 'eventType', type: ['all'], closure: 'eventType', arguments: 1], // ? rename to eventClass ?
         [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
         [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
         [name: 'isChange', type: ['all'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
@@ -474,6 +475,10 @@ def getDeviceId() { return { it.deviceId } }
 def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' }.memoizeAtMost(1) }
 
 def getEventName() { return { it.name }.memoizeAtMost(1) }
+
+def getEventDetails() { return { attributeDetail().find { ad -> ad.key == it.name }.value } }
+
+def getEventType() { return { eventDetails(it).type } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
@@ -653,53 +658,52 @@ def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 /*
 def pollAttributes() {
     logger("pollAttributes()", 'trace')
-    def now = new Date()
     getSelectedDevices()?.each { dev ->
         def data = new StringBuilder()
         getDeviceAllowedAttrs(dev?.id)?.each { attr ->
             if (dev.latestState(attr)?.value != null) {
                 logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}", 'info')
 
-                data.append('attributes') // measurement name
-                data.append(state.hubLocationDetails) // Add hub tags
+                data.append(",event=${attr}") // TODO need to work out how to handle this
 
-                def deviceGroup = 'unassigned'
-                def deviceGroupId = 'unassigned'
-                if (state?.groupNames?.(dev.device?.groupId)) {
-                    deviceGroupId = dev.device.groupId
-                    deviceGroup = state.groupNames."${deviceGroupId}"
-                }
-                def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
-
-                data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-
-                data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
-                data.append(",deviceId=${dev.id}")
-                data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
-                data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
-
-                data.append(",event=${attr}")
-                def type = getAttributeDetail().find { it.key == attr }.value.type
-                data.append(",eventType=${type}")
-
-                data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}\\ .\\ ${attr}")
-                // global identifier
-                data.append(",identifierLocal=${identifier}")
-
-                def daysElapsed = ((now.time - dev.latestState(attr).date.time) / 86_400_000) / 30
-                daysElapsed = daysElapsed.toDouble().trunc().round()
-                data.append(',timeElapsed=').append(daysElapsed * 30).append('-').append((daysElapsed + 1) * 30).append('days')
-                data.append(' ')
-                data.append("timeLastEvent=${dev.latestState(attr).date.time}i")
-                data.append(",valueLastEvent=\"${dev.latestState(attr).value}\"")
-                data.append('\n')
-            }
-        }
-        def rp = 'metadata'
-        postToInfluxDB(data.toString(), rp)
-    }
-}
+        data.append('\n')
+    def rp = 'metadata'
 */
+
+def tagsPollAttributes() { [
+        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
+        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
+        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
+        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
+        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
+        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
+        [name: 'eventType', type: ['enum', 'number', 'vector3'], closure: 'eventType', arguments: 1],
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
+        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1], // TODO ?Included
+        [name: 'timeElapsed', type: ['number', 'vector3'], closure: 'timeElapsed', arguments: 1],
+] }
+
+def getTimeElapsed() { return {
+    def daysElapsed = ((new Date().time - it.latestState(attr).date.time) / 86_400_000) / 30
+    daysElapsed = daysElapsed.toDouble().trunc().round()
+    "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
+} }
+
+def fieldsPollAttributes() { [
+        [name: 'timeLastEvent', type: ['location'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
+        [name: 'valueLastEvent', type: ['location'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
+] }
+
+def getTimeLastEvent() { return { it.latestState(attr).date.time } }
+
+def getValueLastEvent() { return { "\"${it.latestState(attr).value}\"" } }
+
+
 /*
 def pollDevices() {
     logger("pollDevices()", 'trace')
@@ -773,11 +777,10 @@ def pollDevices() {
     postToInfluxDB(data.toString(), rp)
 }
 */
-/*
+
 def pollLocation() {
     def rp = 'metadata'
 }
-*/
 
 def tagsLocation() { [
         [name: 'area', type: ['location'], closure: 'locationName', arguments: 0],
@@ -834,38 +837,38 @@ def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel')
 
 /*
 def pollDeviceChecks() {
-    logger("pollDeviceChecks()", 'trace')
-    def data = new StringBuilder()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
             logger("pollDeviceChecks(): device health check report for device ${dev}", 'info')
             data.append('deviceChecks') // measurement name
-            data.append(state.hubLocationDetails) // Add hub tags
-            def deviceGroup = 'unassigned'
-            def deviceGroupId = 'unassigned'
-            if (state?.groupNames?.(dev.device?.groupId)) {
-                deviceGroupId = dev.device.groupId
-                deviceGroup = state.groupNames."${deviceGroupId}"
-            }
-            def identifier = "${deviceGroup}\\ .\\ ${dev.label.replaceAll(' ', '\\\\ ')}" // create local identifier
-            data.append(",chamber=${deviceGroup},chamberId=${deviceGroupId}")
-            data.append(",deviceCode=${dev.name.replaceAll(' ', '\\\\ ')}")
-            data.append(",deviceId=${dev.id}")
-            data.append(",deviceLabel=${dev.label.replaceAll(' ', '\\\\ ')}")
-            data.append(",deviceType=${dev.typeName.replaceAll(' ', '\\\\ ')}")
-            data.append(",identifierGlobal=${state.hubLocationIdentifier}\\ .\\ ${identifier}") // global identifier
-            data.append(",identifierLocal=${identifier}")
-            data.append(",status=${dev?.status}")
-            data.append(' ')
-            def statusLevel = (dev?.status.toUpperCase() in ["ONLINE"]) ? '1i' : '0i'
-            data.append("statusLevel=${statusLevel}")
-            data.append('\n')
-        }
-    }
+    data.append('\n')
     def rp = 'autogen'
-    postToInfluxDB(data.toString(), rp)
-}
 */
+def tagsDeviceChecks() { [
+        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
+        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
+        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
+        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
+        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
+        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
+        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
+] }
+
+def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
+
+def getStatus() { return { it?.status } }
+
+def fieldsDeviceChecks() { [
+        [name: 'statusLevel', type: ['location'], closure: 'statusLevel', valueType: 'integer', arguments: 1],
+] }
+
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
 /*****************************************************************************************************************
  *  Main Commands:

@@ -327,12 +327,12 @@ def updated() { // runs when app settings are changed
     // Configure Subscriptions:
     manageSubscriptions()
 
-    // manageSchedules()
+    manageSchedules()
 
     // runIn(100, pollLocation)
-    // runIn(300, pollDevices)
+    // runIn(300, pollZwave)
     // runIn(600, pollAttributes)
-    // runIn(900, pollDeviceChecks)
+    // runIn(900, pollDevices)
 }
 
 /*****************************************************************************************************************
@@ -391,23 +391,29 @@ def pollLocation() {
     influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
-def pollAttributes() {
-    logger("pollAttributes()", 'trace')
-    getSelectedDevices()?.each { dev ->
-        def data = new StringBuilder()
-        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-            if (dev.latestState(attr)?.value != null) {
-                logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}", 'info')
-                data.append(",event=${attr}") // TODO need to work out how to handle this
-                def ending = '\n'
-                def rp = 'metadata'
-            }
-        }
-    }
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+def pollDevices() {
+    def measurement = 'devices'
+    def retentionPolicy = 'autogen' // TODO Check should it be 'metadata'?
+    def multiple = true
+    def filter = { !it.displayName.startsWith('~') }
+    def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
+    influxLineProtocol(items, measurement, retentionPolicy, multiple)
 }
 
-def pollDevices() {
+def pollAttributes() {
+    logger("pollAttributes()", 'trace')
+    def measurement = 'attributes'
+    def retentionPolicy = 'metadata'
+    def multiple = true
+    def filterDevices = { !it.displayName.startsWith('~') }
+    def devices = getSelectedDevices()?.findAll(filterDevices)
+    def filter = { attr -> latestState(attr)?.value != null }
+    def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) }?.findAll(filter)
+    append(",event=${attr}") // TODO need to work out how to handle this - put inside getEventName - use respondsto to check not event
+    influxLineProtocol(items, measurement, retentionPolicy, multiple)
+}
+
+def pollZwave() {
     logger("pollDevices()", 'trace')
     def data = new StringBuilder()
     def info
@@ -415,18 +421,6 @@ def pollDevices() {
         if (info.containsKey("zw")) {
             logger("pollDevices(): zWave report for device ${dev}", 'info')
             data.append('devices') // measurement name
-        }
-    }
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
-}
-
-def pollDeviceChecks() {
-    getSelectedDevices()?.each { dev ->
-        if (!dev.displayName.startsWith("~")) {
-            logger("pollDeviceChecks(): device health check report for device ${dev}", 'info')
-            data.append('deviceChecks') // measurement name
-            data.append('\n')
-            def rp = 'autogen'
         }
     }
     influxLineProtocol(evt, measurement, retentionPolicy, multiple)
@@ -456,7 +450,7 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
 
         def fieldCount = 0
         fields().each { field ->
-            if ('all' in field.type || eventType in field.type) {
+            if ('all' in field.type || measurement in field.type) {
                 influxLP.append((fieldCount) ? ',' : '')
                 if (field.name) influxLP.append("${field.name}=")
                 if (field.arguments) {
@@ -469,7 +463,7 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
             }
         }
 
-        if (timestamp(item)) {
+        if (item?.respondsTo('isStateChange')) {
             influxLP.append(' ')
             influxLP.append(timestamp(item))
         }
@@ -479,10 +473,9 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
 
     logger ("${influxLP.toString()}", 'trace')
 /*
-    def rp = 'autogen' // set retention policy
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
-        postToInfluxDB(tags.toString(), rp)
+        postToInfluxDB(tags.toString(), retentionPolicy)
     } else {
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
@@ -495,51 +488,78 @@ def tags() { [
         [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
         [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
         [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceLabel', arguments: 1],
-        [name: 'deviceType', type: ['device', 'attr', 'deviceZw'], closure: 'deviceType', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceLabel', arguments: 1],
+        [name: 'deviceType', type: ['devices', 'attr', 'deviceZw'], closure: 'deviceType', arguments: 1],
         [name: 'event', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventName', arguments: 1],
         [name: 'eventType', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventType', arguments: 1], // ? rename to eventClass ?
         [name: 'hubStatus', type: ['location'], closure: 'hubStatus', arguments: 0],
         [name: 'hubType', type: ['location'], closure: 'hubType', arguments: 0],
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes', 'device', 'attr', 'deviceZw'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes', 'device', 'attr', 'deviceZw'], closure: 'identifierLocal', arguments: 1],
-        [name: 'isChange', type: ['all'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes', 'devices', 'attr', 'deviceZw'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes', 'devices', 'attr', 'deviceZw'], closure: 'identifierLocal', arguments: 1],
+        [name: 'isChange', type: ['enum', 'number', 'vector3'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
         [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
         [name: 'power', type: ['deviceZw'], closure: 'power', arguments: 1],
         [name: 'secure', type: ['deviceZw'], closure: 'secure', arguments: 1],
-        [name: 'source', type: ['all'], closure: 'source', arguments: 1],
-        [name: 'status', type: ['device', 'attr', 'deviceZw'], closure: 'status', arguments: 1], // TODO ?Included
+        [name: 'source', type: ['enum', 'number', 'vector3'], closure: 'source', arguments: 1],
+        [name: 'status', type: ['devices', 'attr', 'deviceZw'], closure: 'status', arguments: 1], // TODO ?Included
         [name: 'type', type: ['deviceZw'], closure: 'zwType', arguments: 0],
         [name: 'timeElapsed', type: ['attr'], closure: 'daysElapsed', arguments: 1],
         [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
         [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
-]}
+] }
 
+def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') } }
 
-def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
+def getLocationId() { return { -> location.id } }
 
-def getLocationId() { return { -> location.id }.memoizeAtMost(1) }
+def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') } }
 
-def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
+def getHubId() { return { -> location.hubs[0].id } }
 
-def getHubId() { return { -> location.hubs[0].id }.memoizeAtMost(1) }
+def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: state.houseType } } // not assigned for hub and daylight events
 
-def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: state.houseType }.memoizeAtMost(1) } // not assigned for hub and daylight events
+def getGroupId() { return {
+    if (it?.respondsTo('isStateChange')) {
+        return it?.device?.device?.groupId // for event objects
+    }
+    else {
+        return it?.device?.groupId // for everything else
+    }
+} }
 
-def getGroupId() { return { it?.device?.device?.groupId }.memoizeAtMost(1) }
+def getDeviceCode() { return {
+    if (it?.respondsTo('isStateChange')) {
+        return (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for event objects
+    }
+    else {
+        return (it?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for everything else
+    }
+} }
 
-def getDeviceCode() { return { (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' } }
+def getDeviceId() { return {
+    if (it?.respondsTo('isStateChange')) {
+        return it.deviceId // for event objects
+    }
+    else {
+        return it?.id // for everything else
+    }
+} }
 
-def getDeviceId() { return { it.deviceId } }
-
-def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' }.memoizeAtMost(1) }
+def getDeviceLabel() { return {
+    if (it?.respondsTo('isStateChange')) {
+        return (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for event objects
+    }
+    else {
+        return (it?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for everything else
+    }
+} }
 
 def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
-def getEventName() { return { it.name }.memoizeAtMost(1) }
+def getEventName() { return { it.name } }
 
 def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } } // needs 'get' prefix
 
@@ -551,7 +571,7 @@ def getHubType() { return { -> hub().type } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
-def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" }.memoizeAtMost(1) }
+def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
 
@@ -607,8 +627,8 @@ def getZwType() { return { 'zwave' } }
 def fields() { [
         [name: '', type: ['deviceZw'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
         [name: 'checkInterval', type: ['deviceZw'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
-        [name: 'eventDescription', type: ['all'], closure: 'eventDescription', valueType: 'string', arguments: 1],
-        [name: 'eventId', type: ['all'], closure: 'eventId', valueType: 'string', arguments: 1],
+        [name: 'eventDescription', type: ['enum', 'number', 'vector3'], closure: 'eventDescription', valueType: 'string', arguments: 1],
+        [name: 'eventId', type: ['enum', 'number', 'vector3'], closure: 'eventId', valueType: 'string', arguments: 1],
         [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
         [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
         [name: 'latitude', type: ['location'], closure: 'latitude', valueType: 'string', arguments: 0],
@@ -632,14 +652,14 @@ def fields() { [
         [name: 'pValue', type: ['number'], closure: 'previousValue', valueType: 'float', arguments: 1],
         [name: 'rChange', type: ['number'], closure: 'difference', valueType: 'float', arguments: 1],
         [name: 'rChangeText', type: ['number'], closure: 'differenceText', valueType: 'string', arguments: 1],
-        [name: 'statusLevel', type: ['device'], closure: 'statusLevel', valueType: 'integer', arguments: 1], // TODO Convert to a tag?
+        [name: 'statusLevel', type: ['devices'], closure: 'statusLevel', valueType: 'integer', arguments: 1], // TODO Convert to a tag?
         [name: 'sunrise', type: ['location'], closure: 'sunrise', valueType: 'string', arguments: 0],
         [name: 'sunset', type: ['location'], closure: 'sunset', valueType: 'string', arguments: 0],
         [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay', valueType: 'integer', arguments: 1],
         [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed', valueType: 'integer', arguments: 1],
         [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText', valueType: 'string', arguments: 1],
         [name: 'timeLastEvent', type: ['attr'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
-        [name: 'timestamp', type: ['all'], closure: 'timestamp', valueType: 'integer', arguments: 1],
+        [name: 'timestamp', type: ['enum', 'number', 'vector3'], closure: 'timestamp', valueType: 'integer', arguments: 1],
         [name: 'tOffset', type: ['enum'], closure: 'currentTimeOffset', valueType: 'integer', arguments: 1],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite', valueType: 'integer', arguments: 0],
         [name: 'valueLastEvent', type: ['attr'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
@@ -682,7 +702,7 @@ def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'f
 
 def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-def getAttributeStates() { return { eventDetails(it).levels }.memoizeAtMost(1) } // Lookup array for event state levels
+def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
@@ -709,7 +729,7 @@ def removeUnit() { return { // remove any units appending to end of event value
 
 def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
 
-    def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
+def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
 def getCurrentValueDescription() { return {
     def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} in the ${groupName(it)}.\""
@@ -720,11 +740,11 @@ def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
 def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
 def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 
-    def getGravityFactor() { return { -> (1024) }.memoizeAtMost(1) }
+def getGravityFactor() { return { -> (1024) } }
 
 def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
 
-def getHub() { return { -> location.hubs[0] }.memoizeAtMost(1) }
+def getHub() { return { -> location.hubs[0] } }
 
 def getHubIP() { return { -> "\"${hub().localIP}\"" } }
 
@@ -750,7 +770,7 @@ def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
 def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
-    def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
 
 def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
 
@@ -778,11 +798,11 @@ def getSunset() { return { -> "\"${daylight.sunset.format('HH:mm', timeZone())}\
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
-    def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) }.memoizeAtMost(1) }
+def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
-    def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
 
-    def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
 
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 
@@ -816,109 +836,9 @@ def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel
 
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
-
-/*
-def tagsPollAttributes() { [
-        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
-        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
-        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
-        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
-        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
-        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
-        [name: 'eventType', type: ['enum', 'number', 'vector3'], closure: 'eventType', arguments: 1],
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
-        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1], // TODO ?Included
-        [name: 'timeElapsed', type: ['number', 'vector3'], closure: 'timeElapsed', arguments: 1],
-] }
-def fieldsPollAttributes() { [
-        [name: 'timeLastEvent', type: ['attr'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
-        [name: 'valueLastEvent', type: ['attr'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
-] }
-
-def tagsDeviceChecks() { [
-        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
-        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
-        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
-        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
-        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
-        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
-        [name: 'power', type: ['enum', 'number', 'threeaxes'], closure: 'power', arguments: 1],
-        [name: 'secure', type: ['enum', 'number', 'threeaxes'], closure: 'secure', arguments: 1],
-        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
-        [name: 'type', type: ['location'], closure: 'zwType', arguments: 0],
-] }
-def fieldsPollDevices() { [
-        [name: '', type: ['location'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
-        [name: 'checkInterval', type: ['location'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
-        [name: '', type: ['location'], closure: 'ccList', valueType: 'string', arguments: 1],
-] }
-
-def tagsLocation() { [
-        [name: 'area', type: ['location'], closure: 'locationName', arguments: 0],
-        [name: 'areaId', type: ['location'], closure: 'locationId', arguments: 0],
-        [name: 'building', type: ['location'], closure: 'hubName', arguments: 0],
-        [name: 'buildingId', type: ['location'], closure: 'hubId', arguments: 0],
-        [name: 'hubStatus', type: ['location'], closure: 'hubStatus', arguments: 0],
-        [name: 'hubType', type: ['location'], closure: 'hubType', arguments: 0],
-        [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
-        [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
-] }
-def fieldsLocation() { [
-        [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
-        [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
-        [name: 'latitude', type: ['location'], closure: 'latitude', valueType: 'string', arguments: 0],
-        [name: 'longitude', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
-        [name: 'portTCP', type: ['location'], closure: 'portTCP', valueType: 'integer', arguments: 0],
-        [name: 'sunrise', type: ['location'], closure: 'sunrise', valueType: 'string', arguments: 0],
-        [name: 'sunset', type: ['location'], closure: 'sunset', valueType: 'string', arguments: 0],
-        [name: 'zigbeePowerLevel', type: ['location'], closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0],
-        [name: 'zwavePowerLevel', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
-] }
-
-def tagsDeviceChecks() { [
-        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
-        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
-        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
-        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
-        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
-        [name: 'deviceType', type: ['enum', 'number', 'vector3'], closure: 'deviceType', arguments: 1],
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
-        [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
-] }
-
-def fieldsDeviceChecks() { [
-        [name: 'statusLevel', type: ['location'], closure: 'statusLevel', valueType: 'integer', arguments: 1],
-] }
-*/
-
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-/*
-def hubLocationDetails() {
-    // state.hubLocationDetails = ",area=${location.name.replaceAll(' ', '\\\\ ')},areaId=${location.id},building=${location.hubs[0].name.replaceAll(' ', '\\\\ ')},buildingId=${location.hubs[0].id}"
-    // tags: area,areaId,building,buildingId
-    // state.hubLocationIdentifier = "${location.name.replaceAll(' ', '\\\\ ')}\\ .\\ ${location.hubs[0].name.replaceAll(' ', '\\\\ ')}"
-    // state.hubLocationText = "At ${location.name}, in ${location.hubs[0].name},"
-}
-*/
-
 def postToInfluxDB(data, rp = 'autogen') {
 // need to update hubAction state variables and rewrite the hubAction function
     if (state.databaseHost.take(3) == "192") {
@@ -972,18 +892,9 @@ def handleInfluxResponse(response, requestdata) {
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-/*
 private manageSchedules() {
     logger("manageSchedules()", 'trace')
-
-    try {
-        unschedule(hubLocationDetails)
-    }
-    catch (e) {
-        logger("manageSchedules(): Unschedule hubLocationDetails failed!", 'error')
-    }
-    runEvery3Hours(hubLocationDetails)
-
+/*
     try {
         unschedule(pollLocation)
     }
@@ -991,14 +902,15 @@ private manageSchedules() {
         logger("manageSchedules(): Unschedule pollLocation failed!", 'error')
     }
     runEvery3Hours(pollLocation)
-
+*/
     try {
         unschedule(pollDevices)
     }
     catch (e) {
         logger("manageSchedules(): Unschedule pollDevices failed!", 'error')
     }
-    runEvery3Hours(pollDevices)
+    // runEvery3Hours(pollDevices)
+    runEvery15Minutes(pollDevices)
 
     try {
         unschedule(pollAttributes)
@@ -1006,17 +918,19 @@ private manageSchedules() {
     catch (e) {
         logger("manageSchedules(): Unschedule pollAttributes failed!", 'error')
     }
-    runEvery3Hours(pollAttributes)
-
+    // runEvery3Hours(pollAttributes)
+    runEvery5Minutes(pollAttributes)
+/*
     try {
-        unschedule(pollDeviceChecks)
+        unschedule(pollZwave)
     }
     catch (e) {
-        logger("manageSchedules(): Unschedule pollDeviceChecks failed!", 'error')
+        logger("manageSchedules(): Unschedule pollZwave failed!", 'error')
     }
-    runEvery3Hours(pollDeviceChecks)
-}
+    runEvery3Hours(pollZwave)
 */
+}
+
 
 private manageSubscriptions() { // Configures subscriptions
     logger("manageSubscriptions()", 'trace')

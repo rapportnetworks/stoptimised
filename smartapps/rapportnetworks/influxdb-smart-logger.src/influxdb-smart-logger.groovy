@@ -344,38 +344,51 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 }
 
 def handleEnumEvent(evt) {
-    def eventType = 'enum' // 'state'
-    handleEvent(evt, eventType)
+    def measurement = 'enum' // 'state'
+    def retentionPolicy = 'autogen'
+    def multiple = false
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def handleNumberEvent(evt) {
-    def eventType = 'number'
-    handleEvent(evt, eventType)
+    def measurement = 'number'
+    def retentionPolicy = 'autogen'
+    def multiple = false
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def handleNumberThreeaxes(evt) {
-    def eventType = 'threeaxes'
-    handleEvent(evt, eventType)
+    def measurement = 'threeaxes'
+    def retentionPolicy = 'autogen'
+    def multiple = false
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def handleDaylight(evt) {
-    def eventType = 'daylight'
+    def measurement = 'daylight'
+    def retentionPolicy = 'autogen'
+    def multiple = false
     def event = evt.clone()
     def value = "${event.name}"
     event.name = 'daylight'
     event.value = value
-    handleEvent(event, eventType)
+    influxLineProtocol(event, measurement, retentionPolicy, multiple)
 }
 
 def handleHubStatus(evt) {
     if (evt.value == 'active' || evt.value == 'disconnected') {
-        def eventType = 'hubStatus'
-        handleEvent(evt, eventType)
+        def measurement = 'hubStatus'
+        def retentionPolicy = 'autogen'
+        def multiple = false
+        influxLineProtocol(evt, measurement, retentionPolicy, multiple)
     }
 }
 
 def pollLocation() {
-    def rp = 'metadata'
+    def measurement = 'location'
+    def retentionPolicy = 'metadata'
+    def multiple = false
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def pollAttributes() {
@@ -391,6 +404,7 @@ def pollAttributes() {
             }
         }
     }
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def pollDevices() {
@@ -403,6 +417,7 @@ def pollDevices() {
             data.append('devices') // measurement name
         }
     }
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
 def pollDeviceChecks() {
@@ -414,51 +429,53 @@ def pollDeviceChecks() {
             def rp = 'autogen'
         }
     }
+    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
 }
 
-def handleEvent(event, eventType) {
-    logger("handleEnumEvent(): $event.displayName ($event.name - $eventType) $event.value", 'trace')
+def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
+    logger("influxLineProtocol(): ", 'trace')
 
     def influxLP = new StringBuilder()
 
-    influxLP.append(measurements()."${event.name}") // TODO Need to sort this
+    items.each { item ->
 
-    tags().each { tag ->
-        if ('all' in tag.type || eventType in tag.type) {
-            influxLP.append(",${tag.name}=")
-            if (tag.name) { // != 'eventType') {
+        influxLP.append(measurement)
+
+        tags().each { tag ->
+            if ('all' in tag.type || measurement in tag.type) {
+                influxLP.append(",${tag.name}=")
                 if (tag.arguments) {
-                    influxLP.append("$tag.closure"(event))
+                    influxLP.append("$tag.closure"(item))
                 } else {
-                    influxLP.append("$tag.closure"())
+                   influxLP.append("$tag.closure"())
                 }
             }
-            else {
-                influxLP.append("$eventType")
+        }
+
+        influxLP.append(' ')
+
+        def fieldCount = 0
+        fields().each { field ->
+            if ('all' in field.type || eventType in field.type) {
+                influxLP.append((fieldCount) ? ',' : '')
+                if (field.name) influxLP.append("${field.name}=")
+                if (field.arguments) {
+                    influxLP.append("$field.closure"(item))
+                } else {
+                    influxLP.append("$field.closure"())
+                }
+                if (field.valueType == 'integer') influxLP.append('i')
+                fieldCount++
             }
         }
-    }
 
-    influxLP.append(' ')
-
-    def fieldCount = 0
-    fields().each { field ->
-        if ('all' in field.type || eventType in field.type) {
-            influxLP.append((fieldCount) ? ',' : '')
-            if (field.name) influxLP.append("${field.name}=")
-            if (field.arguments) {
-                influxLP.append("$field.closure"(event))
-            } else {
-                influxLP.append("$field.closure"())
-            }
-            if (field.valueType == 'integer') influxLP.append('i')
-            fieldCount++
+        if (timestamp(item)) {
+            influxLP.append(' ')
+            influxLP.append(timestamp(item))
         }
+
+        if (multiple) influxLP.append('\n')
     }
-
-    influxLP.append(' ')
-
-    influxLP.append(timestamp(event))
 
     logger ("${influxLP.toString()}", 'trace')
 /*
@@ -471,13 +488,6 @@ def handleEvent(event, eventType) {
     }
 */
 }
-
-def measurements() { [
-        acceleration: 'states',
-        motion: 'states',
-        power: 'values',
-        temperature: 'values',
-] }
 
 def tags() { [
         [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
@@ -503,7 +513,7 @@ def tags() { [
         [name: 'source', type: ['all'], closure: 'source', arguments: 1],
         [name: 'status', type: ['device', 'attr', 'deviceZw'], closure: 'status', arguments: 1], // TODO ?Included
         [name: 'type', type: ['deviceZw'], closure: 'zwType', arguments: 0],
-        [name: 'timeElapsed', type: ['attr'], closure: 'timeElapsed', arguments: 1],
+        [name: 'timeElapsed', type: ['attr'], closure: 'daysElapsed', arguments: 1],
         [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
         [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
 ]}
@@ -531,7 +541,7 @@ def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
 def getEventName() { return { it.name }.memoizeAtMost(1) }
 
-def getEventDetails() { return { attributeDetail().find { ad -> ad.key == eventName(it) }.value }.memoizeAtMost(1) }
+def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } } // needs 'get' prefix
 
 def getEventType() { return { eventDetails(it).type } }
 
@@ -575,7 +585,7 @@ def getSource() { return {
 
 def getStatus() { return { it?.status } }
 
-def getTimeElapsed() { return {
+def getDaysElapsed() { return {
     def daysElapsed = ((new Date().time - it.latestState(attr).date.time) / 86_400_000) / 30
     daysElapsed = daysElapsed.toDouble().trunc().round()
     "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
@@ -670,9 +680,9 @@ def getCurrentState() { return { "\"${it.value}\"" } }
 
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-    def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
 
-    def getAttributeStates() { return { eventDetails(it).levels }.memoizeAtMost(1) } // Lookup array for event state levels
+def getAttributeStates() { return { eventDetails(it).levels }.memoizeAtMost(1) } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""

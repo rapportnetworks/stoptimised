@@ -388,7 +388,7 @@ def pollLocation() {
     def measurement = 'location'
     def retentionPolicy = 'metadata'
     def multiple = false
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+    influxLineProtocol(location, measurement, retentionPolicy, multiple) // only 1 location currently accessible by SmartApp instance
 }
 
 def pollDevices() {
@@ -407,23 +407,20 @@ def pollAttributes() {
     def multiple = true
     def filterDevices = { !it.displayName.startsWith('~') }
     def devices = getSelectedDevices()?.findAll(filterDevices)
-    def filter = { attr -> latestState(attr)?.value != null }
-    def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) }?.findAll(filter)
-    append(",event=${attr}") // TODO need to work out how to handle this - put inside getEventName - use respondsto to check not event
+    def filter = { attr -> dev.latestState(attr)?.value != null }
+    def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) } //?.findAll(filter)
+    // append(",event=${attr}") // TODO need to work out how to handle this - put inside getEventName - use respondsto to check not event
     influxLineProtocol(items, measurement, retentionPolicy, multiple)
 }
 
 def pollZwave() {
     logger("pollDevices()", 'trace')
-    def data = new StringBuilder()
-    def info
-    getSelectedDevices()?.each { dev ->
-        if (info.containsKey("zw")) {
-            logger("pollDevices(): zWave report for device ${dev}", 'info')
-            data.append('devices') // measurement name
-        }
-    }
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+    def measurement = 'devicesZw'
+    def retentionPolicy = 'metadata'
+    def multiple = true
+    def filter = { it.info.containsKey('zw') }
+    def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
+    influxLineProtocol(items, measurement, retentionPolicy, multiple)
 }
 
 def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
@@ -488,9 +485,9 @@ def tags() { [
         [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
         [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
         [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceId', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'deviceId', arguments: 1],
         [name: 'deviceLabel', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceLabel', arguments: 1],
         [name: 'deviceType', type: ['devices', 'attr', 'deviceZw'], closure: 'deviceType', arguments: 1],
         [name: 'event', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventName', arguments: 1],

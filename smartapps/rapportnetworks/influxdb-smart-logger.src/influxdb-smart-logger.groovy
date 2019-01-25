@@ -374,6 +374,48 @@ def handleHubStatus(evt) {
     }
 }
 
+def pollLocation() {
+    def rp = 'metadata'
+}
+
+def pollAttributes() {
+    logger("pollAttributes()", 'trace')
+    getSelectedDevices()?.each { dev ->
+        def data = new StringBuilder()
+        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
+            if (dev.latestState(attr)?.value != null) {
+                logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}", 'info')
+                data.append(",event=${attr}") // TODO need to work out how to handle this
+                def ending = '\n'
+                def rp = 'metadata'
+            }
+        }
+    }
+}
+
+def pollDevices() {
+    logger("pollDevices()", 'trace')
+    def data = new StringBuilder()
+    def info
+    getSelectedDevices()?.each { dev ->
+        if (info.containsKey("zw")) {
+            logger("pollDevices(): zWave report for device ${dev}", 'info')
+            data.append('devices') // measurement name
+        }
+    }
+}
+
+def pollDeviceChecks() {
+    getSelectedDevices()?.each { dev ->
+        if (!dev.displayName.startsWith("~")) {
+            logger("pollDeviceChecks(): device health check report for device ${dev}", 'info')
+            data.append('deviceChecks') // measurement name
+            data.append('\n')
+            def rp = 'autogen'
+        }
+    }
+}
+
 def handleEvent(event, eventType) {
     logger("handleEnumEvent(): $event.displayName ($event.name - $eventType) $event.value", 'trace')
 
@@ -443,18 +485,29 @@ def tags() { [
         [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
         [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
         [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3'], closure: 'deviceLabel', arguments: 1],
-        [name: 'event', type: ['all'], closure: 'eventName', arguments: 1],
-        [name: 'eventType', type: ['all'], closure: 'eventType', arguments: 1], // ? rename to eventClass ?
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes'], closure: 'identifierLocal', arguments: 1],
+        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'groupId', arguments: 1],
+        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceCode', arguments: 1],
+        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceId', arguments: 1],
+        [name: 'deviceLabel', type: ['enum', 'number', 'vector3', 'device', 'attr', 'deviceZw'], closure: 'deviceLabel', arguments: 1],
+        [name: 'deviceType', type: ['device', 'attr', 'deviceZw'], closure: 'deviceType', arguments: 1],
+        [name: 'event', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventName', arguments: 1],
+        [name: 'eventType', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventType', arguments: 1], // ? rename to eventClass ?
+        [name: 'hubStatus', type: ['location'], closure: 'hubStatus', arguments: 0],
+        [name: 'hubType', type: ['location'], closure: 'hubType', arguments: 0],
+        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes', 'device', 'attr', 'deviceZw'], closure: 'identifierGlobal', arguments: 1],
+        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes', 'device', 'attr', 'deviceZw'], closure: 'identifierLocal', arguments: 1],
         [name: 'isChange', type: ['all'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
+        [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
+        [name: 'power', type: ['deviceZw'], closure: 'power', arguments: 1],
+        [name: 'secure', type: ['deviceZw'], closure: 'secure', arguments: 1],
         [name: 'source', type: ['all'], closure: 'source', arguments: 1],
+        [name: 'status', type: ['device', 'attr', 'deviceZw'], closure: 'status', arguments: 1], // TODO ?Included
+        [name: 'type', type: ['deviceZw'], closure: 'zwType', arguments: 0],
+        [name: 'timeElapsed', type: ['attr'], closure: 'timeElapsed', arguments: 1],
+        [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
         [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
 ]}
+
 
 def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') }.memoizeAtMost(1) }
 
@@ -474,17 +527,38 @@ def getDeviceId() { return { it.deviceId } }
 
 def getDeviceLabel() { return { (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' }.memoizeAtMost(1) }
 
+def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
+
 def getEventName() { return { it.name }.memoizeAtMost(1) }
 
 def getEventDetails() { return { attributeDetail().find { ad -> ad.key == eventName(it) }.value }.memoizeAtMost(1) }
 
 def getEventType() { return { eventDetails(it).type } }
 
+def getHubStatus() { return { -> hub().status } }
+
+def getHubType() { return { -> hub().type } }
+
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
 def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" }.memoizeAtMost(1) }
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
+
+def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
+
+def getPower() { return {
+    switch (zwInfo(it)?.zw.take(1)) {
+        case 'L':
+            return 'Listening'; break
+        case 'S':
+            return 'Sleepy'; break
+        case 'B':
+            return 'Beamable'; break
+    }
+} }
+
+def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return {
     switch(it.source) {
@@ -499,15 +573,36 @@ def getSource() { return {
     }
 } }
 
+def getStatus() { return { it?.status } }
+
+def getTimeElapsed() { return {
+    def daysElapsed = ((new Date().time - it.latestState(attr).date.time) / 86_400_000) / 30
+    daysElapsed = daysElapsed.toDouble().trunc().round()
+    "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
+} }
+
+def getTimeZone() { return { -> location.timeZone.ID } }
+
 def getUnit() { return {
     def unit = (it?.unit) ?: eventDetails(it).unit
     // threeaxes unit is 'g'
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
 
+def getZwInfo() { return { it?.zwaveInfo() } }
+
+def getZwType() { return { 'zwave' } }
+
+
 def fields() { [
+        [name: '', type: ['deviceZw'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
+        [name: 'checkInterval', type: ['deviceZw'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
         [name: 'eventDescription', type: ['all'], closure: 'eventDescription', valueType: 'string', arguments: 1],
         [name: 'eventId', type: ['all'], closure: 'eventId', valueType: 'string', arguments: 1],
+        [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
+        [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
+        [name: 'latitude', type: ['location'], closure: 'latitude', valueType: 'string', arguments: 0],
+        [name: 'longitude', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
         [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary', valueType: 'boolean', arguments: 1],
         [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel', valueType: 'integer', arguments: 1],
         [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState', valueType: 'string', arguments: 1],
@@ -520,21 +615,52 @@ def fields() { [
         [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ', valueType: 'float', arguments: 1],
         [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary', valueType: 'boolean', arguments: 1],
         [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel', valueType: 'integer', arguments: 1],
+        [name: 'portTCP', type: ['location'], closure: 'portTCP', valueType: 'integer', arguments: 0],
         [name: 'pState', type: ['enum'], closure: 'previousState', valueType: 'string', arguments: 1],
         [name: 'pText', type: ['enum'], closure: 'previousStateDescription', valueType: 'string', arguments: 1],
         [name: 'pText', type: ['number'], closure: 'previousValueDescription', valueType: 'string', arguments: 1],
         [name: 'pValue', type: ['number'], closure: 'previousValue', valueType: 'float', arguments: 1],
         [name: 'rChange', type: ['number'], closure: 'difference', valueType: 'float', arguments: 1],
         [name: 'rChangeText', type: ['number'], closure: 'differenceText', valueType: 'string', arguments: 1],
+        [name: 'statusLevel', type: ['device'], closure: 'statusLevel', valueType: 'integer', arguments: 1], // TODO Convert to a tag?
+        [name: 'sunrise', type: ['location'], closure: 'sunrise', valueType: 'string', arguments: 0],
+        [name: 'sunset', type: ['location'], closure: 'sunset', valueType: 'string', arguments: 0],
         [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay', valueType: 'integer', arguments: 1],
         [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed', valueType: 'integer', arguments: 1],
         [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText', valueType: 'string', arguments: 1],
-        [name: 'tOffset', type: ['enum'], closure: 'currentTimeOffset', valueType: 'integer', arguments: 1],
+        [name: 'timeLastEvent', type: ['attr'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
         [name: 'timestamp', type: ['all'], closure: 'timestamp', valueType: 'integer', arguments: 1],
+        [name: 'tOffset', type: ['enum'], closure: 'currentTimeOffset', valueType: 'integer', arguments: 1],
         [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite', valueType: 'integer', arguments: 0],
+        [name: 'valueLastEvent', type: ['attr'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
         [name: 'wLevel', type: ['enum'], closure: 'weightedLevel', valueType: 'integer', arguments: 1],
         [name: 'wValue', type: ['number'], closure: 'weightedValue', valueType: 'float', arguments: 1],
+        [name: 'zigbeePowerLevel', type: ['location'], closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0],
+        [name: 'zwavePowerLevel', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
+        [name: '', type: ['deviceZw'], closure: 'ccList', valueType: 'string', arguments: 1],
 ] }
+
+def getCcList() { return {
+    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def cc = info.cc
+    if (info?.ccOut) cc.addAll(info.ccOut)
+    if (info?.sec) cc.addAll(info.sec)
+    def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
+    info.remove('zw')
+    info.remove('cc')
+    info.remove('ccOut')
+    info.remove('sec')
+    info = info.sort()
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    info = toKeyValue(info) + ',' + "${ccList}"
+    info
+} }
+
+def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
+
+def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
+
+def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
@@ -586,6 +712,18 @@ def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 
     def getGravityFactor() { return { -> (1024) }.memoizeAtMost(1) }
 
+def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
+
+def getHub() { return { -> location.hubs[0] }.memoizeAtMost(1) }
+
+def getHubIP() { return { -> "\"${hub().localIP}\"" } }
+
+def getLatitude() { return { -> "\"${hub().latitude}\"" } }
+
+def getLongitude() { return { -> "\"${hub().longitude}\"" } }
+
+def getPortTCP() { return { -> hub().localSrvPortTCP } }
+
 def getPreviousEvent() { return {
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
@@ -622,6 +760,12 @@ def getDifferenceText() { return {
     changeText
 } }
 
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
+
+def getSunrise() { return { -> "\"${daylight.sunrise.format('HH:mm', timeZone())}\"" } }
+
+def getSunset() { return { -> "\"${daylight.sunset.format('HH:mm', timeZone())}\"" } }
+
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
     def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) }.memoizeAtMost(1) }
@@ -648,28 +792,22 @@ def getTimeElapsedText() { return {
     }
 }
 
+def getTimeLastEvent() { return { it.latestState(attr).date.time } }
+
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
+
+def getValueLastEvent() { return { "\"${it.latestState(attr).value}\"" } }
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
+def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
+
+def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
+
 
 /*
-def pollAttributes() {
-    logger("pollAttributes()", 'trace')
-    getSelectedDevices()?.each { dev ->
-        def data = new StringBuilder()
-        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-            if (dev.latestState(attr)?.value != null) {
-                logger("pollAttributes(): Polling device ${dev} for attribute: ${attr}", 'info')
-
-                data.append(",event=${attr}") // TODO need to work out how to handle this
-
-        data.append('\n')
-    def rp = 'metadata'
-*/
-
 def tagsPollAttributes() { [
         [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
         [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
@@ -687,33 +825,11 @@ def tagsPollAttributes() { [
         [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1], // TODO ?Included
         [name: 'timeElapsed', type: ['number', 'vector3'], closure: 'timeElapsed', arguments: 1],
 ] }
-
-def getTimeElapsed() { return {
-    def daysElapsed = ((new Date().time - it.latestState(attr).date.time) / 86_400_000) / 30
-    daysElapsed = daysElapsed.toDouble().trunc().round()
-    "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
-} }
-
 def fieldsPollAttributes() { [
-        [name: 'timeLastEvent', type: ['location'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
-        [name: 'valueLastEvent', type: ['location'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
+        [name: 'timeLastEvent', type: ['attr'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
+        [name: 'valueLastEvent', type: ['attr'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
 ] }
 
-def getTimeLastEvent() { return { it.latestState(attr).date.time } }
-
-def getValueLastEvent() { return { "\"${it.latestState(attr).value}\"" } }
-
-
-/*
-def pollDevices() {
-    logger("pollDevices()", 'trace')
-    def data = new StringBuilder()
-    def info
-    getSelectedDevices()?.each { dev ->
-         if (info.containsKey("zw")) {
-            logger("pollDevices(): zWave report for device ${dev}", 'info')
-            data.append('devices') // measurement name
-*/
 def tagsDeviceChecks() { [
         [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
         [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
@@ -732,54 +848,11 @@ def tagsDeviceChecks() { [
         [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
         [name: 'type', type: ['location'], closure: 'zwType', arguments: 0],
 ] }
-
-def getZwInfo() { return { it?.zwaveInfo() } }
-
-def getPower() { return {
-    switch (zwInfo(it)?.zw.take(1)) {
-        case 'L':
-            return 'Listening'; break
-        case 'S':
-            return 'Sleepy'; break
-        case 'B':
-            return 'Beamable'; break
-    }
-} }
-
-def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
-
-def getZwType() { return { 'zwave' } }
-
 def fieldsPollDevices() { [
         [name: '', type: ['location'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
         [name: 'checkInterval', type: ['location'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
         [name: '', type: ['location'], closure: 'ccList', valueType: 'string', arguments: 1],
 ] }
-
-def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
-
-def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
-
-def getCcList() { return {
-    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
-    def cc = info.cc
-    if (info?.ccOut) cc.addAll(info.ccOut)
-    if (info?.sec) cc.addAll(info.sec)
-    def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
-    info.remove('zw')
-    info.remove('cc')
-    info.remove('ccOut')
-    info.remove('sec')
-    info = info.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-    info = toKeyValue(info) + ',' + "${ccList}"
-    info
-} }
-
-
-def pollLocation() {
-    def rp = 'metadata'
-}
 
 def tagsLocation() { [
         [name: 'area', type: ['location'], closure: 'locationName', arguments: 0],
@@ -791,15 +864,6 @@ def tagsLocation() { [
         [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
         [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
 ] }
-
-def getHubStatus() { return { -> hub().status } }
-
-def getHubType() { return { -> hub().type } }
-
-def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
-
-def getTimeZone() { return { -> location.timeZone.ID } }
-
 def fieldsLocation() { [
         [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
         [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
@@ -812,37 +876,6 @@ def fieldsLocation() { [
         [name: 'zwavePowerLevel', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
 ] }
 
-def getHub() { return { -> location.hubs[0] }.memoizeAtMost(1) }
-
-def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
-
-def getHubIP() { return { -> "\"${hub().localIP}\"" } }
-
-def getLatitude() { return { -> "\"${hub().latitude}\"" } }
-
-def getLongitude() { return { -> "\"${hub().longitude}\"" } }
-
-def getPortTCP() { return { -> hub().localSrvPortTCP } }
-
-def getDaylight() { return { -> getSunriseAndSunset() } }
-
-def getSunrise() { return { -> "\"${daylight.sunrise.format('HH:mm', timeZone())}\"" } }
-
-def getSunset() { return { -> "\"${daylight.sunset.format('HH:mm', timeZone())}\"" } }
-
-def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
-
-def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
-
-/*
-def pollDeviceChecks() {
-    getSelectedDevices()?.each { dev ->
-        if (!dev.displayName.startsWith("~")) {
-            logger("pollDeviceChecks(): device health check report for device ${dev}", 'info')
-            data.append('deviceChecks') // measurement name
-    data.append('\n')
-    def rp = 'autogen'
-*/
 def tagsDeviceChecks() { [
         [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
         [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
@@ -859,15 +892,10 @@ def tagsDeviceChecks() { [
         [name: 'status', type: ['number', 'vector3'], closure: 'status', arguments: 1],
 ] }
 
-def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
-
-def getStatus() { return { it?.status } }
-
 def fieldsDeviceChecks() { [
         [name: 'statusLevel', type: ['location'], closure: 'statusLevel', valueType: 'integer', arguments: 1],
 ] }
-
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
+*/
 
 /*****************************************************************************************************************
  *  Main Commands:

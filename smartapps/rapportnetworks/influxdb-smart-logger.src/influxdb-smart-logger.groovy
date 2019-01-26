@@ -342,57 +342,54 @@ def handleHubStatus(evt) {
 }
 
 def pollLocations() {
+    logger('pollLocations:', 'trace')
     def measurementType = 'location'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
     def multiple = false
-    influxLineProtocol(location, measurementName, measurementType, multiple, retentionPolicy) // only 1 location currently accessible by SmartApp instance
+    def items = [location.id]
+    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy) // only 1 location currently accessible by SmartApp instance (injected property = location installed)
 }
 
 def pollDevices() {
+    logger('pollDevices:', 'trace')
     def measurementType = 'device'
     def measurementName = 'devices'
     def retentionPolicy = 'autogen' // TODO Check should it be 'metadata'?
     def multiple = true
-    def filter = { !it.displayName.startsWith('~') }
-    def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') } // ?Needs 'get' because private method?
     influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def pollAttributes() {
-    logger("pollAttributes()", 'trace')
+    logger('pollAttributes:', 'trace')
     def measurementType = 'attribute'
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
     def multiple = true
-    def filterDevices = { !it.displayName.startsWith('~') }
-    def devices = getSelectedDevices()?.findAll(filterDevices)
-    def filter = { attr -> dev.latestState(attr)?.value != null }
-    def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) } //?.findAll(filter)
-    // append(",event=${attr}") // TODO need to work out how to handle this - put inside getEventName - use respondsto to check not event
-    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy)
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+
+    // def attributes = devices?.each { dev -> getDeviceAllowedAttrs(dev?.id)?.findAll { attr -> dev.latestState(attr)?.value != null } }
+    // def filterAttributes = { attr -> dev.latestState(attr)?.value != null }
+    // def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) } //?.findAll(filter)
+
+    influxLineProtocolAttributes(items, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def pollZwaves() {
-    logger("pollDevices()", 'trace')
+    logger('pollZwaves:', 'trace')
     def measurementType = 'zwave'
     def measurementName = 'devicesZw' // need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
-    def filter = { it.getZwaveInfo().containsKey('zw') }
-    def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
-    influxLineProtocol(items, measurement, retentionPolicy, multiple)
+    def items = getSelectedDevices()?.findAll { it?.getZwaveInfo()?.containsKey('zw') }
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple)
 }
 
 def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen') {
-    logger("influxLineProtocol(): ", 'trace')
-
     def influxLP = new StringBuilder()
-
     items.each { item ->
-
         influxLP.append(measurementName)
-
         tags().each { tag ->
             if ('all' in tag.type || measurementType in tag.type) {
                 influxLP.append(",${tag.name}=")
@@ -403,9 +400,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 }
             }
         }
-
         influxLP.append(' ')
-
         def fieldCount = 0
         fields().each { field ->
             if ('all' in field.type || measurementType in field.type) {
@@ -420,24 +415,77 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 fieldCount++
             }
         }
-
         if (item?.respondsTo('isStateChange')) {
             influxLP.append(' ')
             influxLP.append(timestamp(item))
         }
-
         if (multiple) influxLP.append('\n')
     }
-
     logger ("${influxLP.toString()}", 'trace')
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), retentionPolicy)
-
     def location = (state.databaseRemote) ? 'Remote' : 'Local'
     "postToInfluxDB${location}"(data, retentionPolicy)
+    } else {
+        logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
+    }
+*/
+}
 
+def influxLineProtocolAttributes(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen') {
+    def influxLP = new StringBuilder()
+    items.each { item ->
+        item.getSupportedAttributes().each { attr ->
+            influxLP.append(measurementName)
+            tags().each { tag ->
+                if ('all' in tag.type || measurementType in tag.type) {
+                    influxLP.append(",${tag.name}=")
+                    if (tag.arguments) {
+                        if (tag.name in ['event', 'eventType', 'timeElapsed']) {
+                            influxLP.append("$tag.closure"(attr))
+                        } else {
+                            influxLP.append("$tag.closure"(item))
+                        }
+                    } else {
+                        influxLP.append("$tag.closure"())
+                    }
+                }
+            }
+            influxLP.append(' ')
+            def fieldCount = 0
+            fields().each { field ->
+                if ('all' in field.type || measurementType in field.type) {
+                    influxLP.append((fieldCount) ? ',' : '')
+                    if (field.name) influxLP.append("${field.name}=")
+                    if (field.arguments) {
+                        if (field.name in ['timeLastEvent', 'valueLastEvent']) {
+                            influxLP.append("$field.closure"(attr))
+                        } else {
+                            influxLP.append("$field.closure"(item))
+                        }
+                    } else {
+                        influxLP.append("$field.closure"())
+                    }
+                    if (field.valueType == 'integer') influxLP.append('i')
+                    fieldCount++
+                }
+            }
+            if (item?.respondsTo('isStateChange')) {
+                influxLP.append(' ')
+                influxLP.append(timestamp(item))
+            }
+            if (multiple) influxLP.append('\n')
+        }
+    }
+    logger ("${influxLPAttributes.toString()}", 'trace')
+/*
+    if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
+        // ignores repeated propagation of an event (time interval < 0.5 s)
+        postToInfluxDB(tags.toString(), retentionPolicy)
+    def location = (state.databaseRemote) ? 'Remote' : 'Local'
+    "postToInfluxDB${location}"(data, retentionPolicy)
     } else {
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
@@ -462,7 +510,7 @@ def tags() { [
         [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
         [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
-        [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['location']],
+        // [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['location']], // check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
@@ -527,9 +575,9 @@ def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eve
 
 def getEventType() { return { eventDetails(it).type } }
 
-def getHubStatus() { return { -> hub().status } }
+def getHubStatus() { return { -> getHub().status } }
 
-def getHubType() { return { -> hub().type } }
+def getHubType() { return { -> getHub().type } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
@@ -537,10 +585,10 @@ def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" 
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
 
-def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
+def getOnBattery() { return { -> getHub().getDataValue('batteryInUse') } }
 
 def getPower() { return {
-    switch (zwInfo(it)?.zw.take(1)) {
+    switch (getZwaveInfo(it)?.zw.take(1)) {
         case 'L':
             return 'Listening'; break
         case 'S':
@@ -550,7 +598,7 @@ def getPower() { return {
     }
 } }
 
-def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
+def getSecure() { return { (getZwaveInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return {
     switch(it.source) {
@@ -568,7 +616,8 @@ def getSource() { return {
 def getStatus() { return { it?.status } }
 
 def getDaysElapsed() { return {
-    def daysElapsed = ((new Date().time - it.latestState(attr).date.time) / 86_400_000) / 30
+    if (latestState(it?)) {
+    def daysElapsed = ((new Date().time - it?.latestState(attr)?.date.time) / 86_400_000) / 30
     daysElapsed = daysElapsed.toDouble().trunc().round()
     "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
 } }
@@ -581,9 +630,9 @@ def getUnit() { return {
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
 
-def getZwInfo() { return { it?.zwaveInfo() } }
+def getZwaveInfo() { return { it?.getZwInfo() } }
 
-def getZwType() { return { 'zwave' } }
+def getZwaveType() { return { 'zwave' } } // getZwType() is a valid ST method
 
 
 def fields() { [
@@ -635,9 +684,9 @@ def fields() { [
 def getCcList() { return {
     def info = getZwaveInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
     def cc = info.cc
-    if (info?.ccOut) cc.addAll(info.ccOut)
-    if (info?.sec) cc.addAll(info.sec)
-    def ccList = 'zz' + cc.sort().join("=true,zz") + '=true'
+    cc?.addAll(info?.ccOut)
+    cc?.addAll(info?.sec)
+    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true'
     info.remove('zw')
     info.remove('cc')
     info.remove('ccOut')
@@ -704,17 +753,17 @@ def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 
 def getGravityFactor() { return { -> (1024) } }
 
-def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
+def getFirmware() { return { -> "\"${getHub().firmwareVersionString}\"" } }
 
 def getHub() { return { -> location.hubs[0] } }
 
-def getHubIP() { return { -> "\"${hub().localIP}\"" } }
+def getHubIP() { return { -> "\"${getHub().localIP}\"" } }
 
-def getLatitude() { return { -> "\"${hub().latitude}\"" } }
+def getLatitude() { return { -> "\"${getHub().latitude}\"" } }
 
-def getLongitude() { return { -> "\"${hub().longitude}\"" } }
+def getLongitude() { return { -> "\"${getHub().longitude}\"" } }
 
-def getPortTCP() { return { -> hub().localSrvPortTCP } }
+def getPortTCP() { return { -> getHub().localSrvPortTCP } }
 
 def getPreviousEvent() { return {
     def eventData = parseJson(it?.data)
@@ -794,9 +843,9 @@ def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
+def getZigbeePowerLevel() { return { -> getHub().hub.getDataValue('zigbeePowerLevel') } }
 
-def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
+def getZwavePowerLevel() { return { -> getHub().hub.getDataValue('zwavePowerLevel') } }
 
 /*****************************************************************************************************************
  *  Main Commands:

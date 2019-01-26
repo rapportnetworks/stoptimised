@@ -121,7 +121,7 @@ def sendCommand() {
     }
 }
 
-def checkReceived() {
+def checkReceived() { // need to put a time limit on checking currentState - so that isn't long time ago
     def removalList = []
     settings?.configurationPref?.each {
         if (it.id in state?.selectedDevices) {

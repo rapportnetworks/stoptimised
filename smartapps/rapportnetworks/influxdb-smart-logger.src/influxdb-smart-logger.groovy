@@ -352,7 +352,7 @@ def pollLocations() {
     def retentionPolicy = 'metadata'
     def multiple = false
     def superItem = false
-    def items = [location.id]
+    def items = location.id // make new object (dummy) TODO
     influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem) // only 1 location currently accessible by SmartApp instance (injected property = location installed)
 }
 
@@ -390,8 +390,9 @@ def pollZwaves() {
     def measurementName = 'devicesZw' // need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
-    def items = getSelectedDevices()?.findAll { it?.getZwaveInfo()?.containsKey('zw') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple)
+    def superItem = false
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple, superItem)
 }
 
 def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen', superItem) {
@@ -554,7 +555,7 @@ def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or d
 def getOnBattery() { return { -> getHub().getDataValue('batteryInUse') } }
 
 def getPower() { return {
-    switch(getZwaveInfo(it)?.zw.take(1)) {
+    switch(getZwInfo(it)?.zw.take(1)) {
         case 'L':
             return 'Listening'; break
         case 'S':
@@ -564,7 +565,7 @@ def getPower() { return {
     }
 } }
 
-def getSecure() { return { (getZwaveInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
+def getSecure() { return { (getZwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return {
     switch(it.source) {
@@ -579,7 +580,7 @@ def getSource() { return {
     }
 } }
 
-def getStatus() { return { it?.status } }
+def getStatus() { return { it?.status } } // TODO - use switch to convert to lowercase (ONLINE/OFFLINE)
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -599,9 +600,9 @@ def getUnit() { return {
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
 
-def getZwaveInfo() { return { it?.getZwInfo() } }
+def getZwInfo() { return { it?.getZwaveInfo() } }
 
-def getZwaveType() { return { 'zwave' } } // getZwType() is a valid ST method
+def getZwType() { return { 'zwave' } } // getZwType() is a valid ST method
 
 
 def fields() { [
@@ -651,7 +652,7 @@ def fields() { [
 ] }
 
 def getCcList() { return {
-    def info = getZwaveInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def info = getZwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
     def cc = info.cc
     cc?.addAll(info?.ccOut)
     cc?.addAll(info?.sec)

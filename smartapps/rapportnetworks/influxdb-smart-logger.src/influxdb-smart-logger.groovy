@@ -63,41 +63,32 @@ def mainPage() {
         }
         section('InfluxDB Database:') {
             input(
-                    name: 'prefDatabaseHost',
-                    type: 'text',
-                    title: 'Host',
-                    defaultValue: 'data.sunnd.com',
-                    required: true
+                name: 'prefDatabaseRemote',
+                type: 'bool',
+                title: 'Use Remote Database',
+                defaultValue: true,
+                required: true
             )
+
             input(
-                    name: 'prefDatabasePort',
-                    type: 'text',
-                    title: 'Port',
-                    defaultValue: '443',
+                    name: 'prefDatabaseSecure',
+                    type: 'bool',
+                    title: 'Use Encrypted Connection',
+                    defaultValue: true,
                     required: true
             )
-            input(
-                    name: 'prefDatabaseName',
-                    type: 'text',
-                    title: 'Database Name',
-                    defaultValue: '*',
-                    required: true
-            )
-            input(
-                    name: 'prefDatabaseUser',
-                    type: 'text',
-                    title: 'Username',
-                    defaultValue: '*',
-                    required: true
-            )
-            input(
-                    name: 'prefDatabasePass',
-                    type: 'text',
-                    title: 'Password',
-                    defaultValue: '*',
-                    required: true
-            )
+
+            input(name: 'prefDatabaseHost', type: 'text', title: 'Host', defaultValue: 'data.sunnd.com', required: true)
+
+            input(name: 'prefDatabasePort', type: 'text', title: 'Port', defaultValue: '443', required: true)
+
+            input(name: 'prefDatabaseName', type: 'text', title: 'Database Name', defaultValue: '*', required: true)
+
+            input(name: 'prefDatabaseUser', type: 'text', title: 'Username', defaultValue: '*', required: true)
+
+            input(name: 'prefDatabasePass', type: 'text', title: 'Password', defaultValue: '*', required: true)
         }
+        /*
         section('System Monitoring:') {
             input(
                     name: 'prefAdjustInactiveTimestamp',
@@ -106,13 +97,7 @@ def mainPage() {
                     defaultValue: true,
                     required: true
             )
-            input(
-                    name: 'prefRoomNameCapture',
-                    type: 'bool',
-                    title: 'Use Virtual Devices to Capture Room Names?',
-                    defaultValue: true,
-                    required: true
-            )
+        */
         }
 
         if (state.devicesConfigured) {
@@ -151,14 +136,7 @@ private getDevicesPageContent() {
 
         getCapabilities().each {
             try {
-                input(
-                        "${it.cap}Pref", "capability.${it.cap}",
-                        title: "${it.title}:",
-                        multiple: true,
-                        hideWhenEmpty: true,
-                        required: false,
-                        submitOnChange: true
-                )
+                input("${it.cap}Pref", "capability.${it.cap}", title: "${it.title}:", multiple: true, hideWhenEmpty: true, required: false, submitOnChange: true)
             }
             catch (e) {
                 logger("Failed to create input for ${it}: ${e.message}", 'trace')
@@ -181,15 +159,7 @@ private getAttributesPageContent() {
             paragraph(
                     "Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included."
             )
-            input(
-                    name: 'allowedAttributes',
-                    type: 'enum',
-                    title: "Which events should be logged?",
-                    required: true,
-                    multiple: true,
-                    submitOnChange: true,
-                    options: supportedAttr
-            )
+            input(name: 'allowedAttributes', type: 'enum', title: "Which events should be logged?", required: true, multiple: true, submitOnChange: true, options: supportedAttr)
         }
     } else {
         section('Choose Events') {
@@ -220,14 +190,7 @@ def attributeExclusionsPage() {
                                 device.hasAttribute("${attr}")
                             }?.collect { it.id }?.unique()?.sort()
                             if (attrDevices) {
-                                input(
-                                        name: "${attr}Exclusions",
-                                        type: "enum",
-                                        title: "Exclude ${attr} events:",
-                                        required: false,
-                                        multiple: true,
-                                        options: attrDevices
-                                )
+                                input(name: "${attr}Exclusions", type: "enum", title: "Exclude ${attr} events:", required: false, multiple: true, options: attrDevices)
                             }
                         }
                         catch (e) {
@@ -288,40 +251,28 @@ def updated() { // runs when app settings are changed
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
     // Database config:
-    state.databaseHost = settings.prefDatabaseHost
-    state.databasePort = settings.prefDatabasePort
-    state.databaseName = settings.prefDatabaseName
-    state.databaseUser = settings.prefDatabaseUser
-    state.databasePass = settings.prefDatabasePass
+    state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", "Content-Type": "application/x-www-form-urlencoded"]
+    state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
+    state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms']
+    state.path = '/write'
 
-    state.headers = [HOST: "${state.databaseHost}:${state.databasePort}", "Content-Type": "application/x-www-form-urlencoded"]
-    state.uri = "https://${state.databaseHost}:${state.databasePort}"
-    state.path = "/write"
-    state.query = [db: "${state.databaseName}", rp: 'autogen', precision: 'ms', u: "${state.databaseUser}", p: "${state.databasePass}"]
-
-    state.adjustInactiveTimestamp = settings.prefAdjustInactiveTimestamp
-    state.roomNameCapture = settings.prefRoomNameCapture
-
-    state.groupNames = [:] // Initialise map of Group Ids and Group Names
-    state.hubLocationDetails = "" // Define state variable to hold location and hub details
-    state.hubLocationText = ""
+    // Set values for state variables
+    state.groupNames = [:] // Initialise map of Group Ids and Group Names TODO - Is this needed here?
 
     state.houseType = 'House'
-
-    // hubLocationDetails() // generate hub location details
 
     state.installed = true
 
     if (settings?.allowedAttributes) {
         state.attributesConfigured = true
     } else {
-        logDebug "Unconfigured - Choose Events"
+        logger("Unconfigured - Choose Events", 'debug')
     }
 
     if (getSelectedDevices()) {
         state.devicesConfigured = true
     } else {
-        logDebug "Unconfigured - Choose Devices"
+        logger("Unconfigured - Choose Devices", 'debug')
     }
 
     // Configure Subscriptions:
@@ -329,10 +280,10 @@ def updated() { // runs when app settings are changed
 
     manageSchedules()
 
-    // runIn(100, pollLocation)
-    // runIn(300, pollZwave)
+    // runIn(100, pollLocations)
+    // runIn(300, pollDevices)
     // runIn(600, pollAttributes)
-    // runIn(900, pollDevices)
+    // runIn(900, pollZwaves)
 }
 
 /*****************************************************************************************************************
@@ -344,65 +295,76 @@ def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
 }
 
 def handleEnumEvent(evt) {
-    def measurement = 'enum' // 'state'
+    def measurementType = 'enum'
+    def measurementName = 'states'
     def retentionPolicy = 'autogen'
     def multiple = false
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def handleNumberEvent(evt) {
-    def measurement = 'number'
+    def measurementType = 'number'
+    def measurementName = 'values'
     def retentionPolicy = 'autogen'
     def multiple = false
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy)
 }
 
-def handleNumberThreeaxes(evt) {
-    def measurement = 'threeaxes'
+def handleVector3Event(evt) {
+    def measurementType = 'vector3'
+    def measurementName = 'threeaxes'
     def retentionPolicy = 'autogen'
     def multiple = false
-    influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy)
 }
+
+// def handleColorMapEvent() { } // TODO
+// def handleJsonObjectEvent() { } // TODO
 
 def handleDaylight(evt) {
-    def measurement = 'daylight'
+    def measurementType = 'enum'
+    def measurementName = 'states'
     def retentionPolicy = 'autogen'
     def multiple = false
     def event = evt.clone()
     def value = "${event.name}"
     event.name = 'daylight'
     event.value = value
-    influxLineProtocol(event, measurement, retentionPolicy, multiple)
+    influxLineProtocol(event, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
     if (evt.value == 'active' || evt.value == 'disconnected') {
-        def measurement = 'hubStatus'
+        def measurementType = 'hub'
+        def measurementName = 'hubStatus'
         def retentionPolicy = 'autogen'
         def multiple = false
-        influxLineProtocol(evt, measurement, retentionPolicy, multiple)
+        influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy)
     }
 }
 
-def pollLocation() {
-    def measurement = 'location'
+def pollLocations() {
+    def measurementType = 'location'
+    def measurementName = 'location'
     def retentionPolicy = 'metadata'
     def multiple = false
-    influxLineProtocol(location, measurement, retentionPolicy, multiple) // only 1 location currently accessible by SmartApp instance
+    influxLineProtocol(location, measurementName, measurementType, multiple, retentionPolicy) // only 1 location currently accessible by SmartApp instance
 }
 
 def pollDevices() {
-    def measurement = 'devices'
+    def measurementType = 'devices'
+    def measurementName = 'devices'
     def retentionPolicy = 'autogen' // TODO Check should it be 'metadata'?
     def multiple = true
     def filter = { !it.displayName.startsWith('~') }
     def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
-    influxLineProtocol(items, measurement, retentionPolicy, multiple)
+    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def pollAttributes() {
     logger("pollAttributes()", 'trace')
-    def measurement = 'attributes'
+    def measurementType = 'attributes'
+    def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
     def multiple = true
     def filterDevices = { !it.displayName.startsWith('~') }
@@ -410,12 +372,13 @@ def pollAttributes() {
     def filter = { attr -> dev.latestState(attr)?.value != null }
     def items = devices.each { dev -> getDeviceAllowedAttrs(dev?.id) } //?.findAll(filter)
     // append(",event=${attr}") // TODO need to work out how to handle this - put inside getEventName - use respondsto to check not event
-    influxLineProtocol(items, measurement, retentionPolicy, multiple)
+    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy)
 }
 
-def pollZwave() {
+def pollZwaves() {
     logger("pollDevices()", 'trace')
-    def measurement = 'devicesZw'
+    def measurementType = 'zwave'
+    def measurementName = 'devicesZw' // need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
     def filter = { it.info.containsKey('zw') }
@@ -423,17 +386,17 @@ def pollZwave() {
     influxLineProtocol(items, measurement, retentionPolicy, multiple)
 }
 
-def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
+def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen') {
     logger("influxLineProtocol(): ", 'trace')
 
     def influxLP = new StringBuilder()
 
     items.each { item ->
 
-        influxLP.append(measurement)
+        influxLP.append(measurementName)
 
         tags().each { tag ->
-            if ('all' in tag.type || measurement in tag.type) {
+            if ('all' in tag.type || measurementType in tag.type) {
                 influxLP.append(",${tag.name}=")
                 if (tag.arguments) {
                     influxLP.append("$tag.closure"(item))
@@ -447,7 +410,7 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
 
         def fieldCount = 0
         fields().each { field ->
-            if ('all' in field.type || measurement in field.type) {
+            if ('all' in field.type || measurementType in field.type) {
                 influxLP.append((fieldCount) ? ',' : '')
                 if (field.name) influxLP.append("${field.name}=")
                 if (field.arguments) {
@@ -473,6 +436,10 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
         postToInfluxDB(tags.toString(), retentionPolicy)
+
+    def location = (state.databaseRemote) ? 'Remote' : 'Local'
+    "postToInfluxDB${location}"(data, retentionPolicy)
+
     } else {
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
@@ -480,32 +447,32 @@ def influxLineProtocol(items, measurement, retentionPolicy, multiple) {
 }
 
 def tags() { [
-        [name: 'area', type: ['all'], closure: 'locationName', arguments: 0],
-        [name: 'areaId', type: ['all'], closure: 'locationId', arguments: 0],
-        [name: 'building', type: ['all'], closure: 'hubName', arguments: 0],
-        [name: 'buildingId', type: ['all'], closure: 'hubId', arguments: 0],
-        [name: 'chamber', type: ['all'], closure: 'groupName', arguments: 1],
-        [name: 'chamberId', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'groupId', arguments: 1],
-        [name: 'deviceCode', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'deviceCode', arguments: 1],
-        [name: 'deviceId', type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'deviceZw'], closure: 'deviceId', arguments: 1],
-        [name: 'deviceLabel', type: ['enum', 'number', 'vector3', 'devices', 'attr', 'deviceZw'], closure: 'deviceLabel', arguments: 1],
-        [name: 'deviceType', type: ['devices', 'attr', 'deviceZw'], closure: 'deviceType', arguments: 1],
-        [name: 'event', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventName', arguments: 1],
-        [name: 'eventType', type: ['enum', 'number', 'vector3', 'attr'], closure: 'eventType', arguments: 1], // ? rename to eventClass ?
-        [name: 'hubStatus', type: ['location'], closure: 'hubStatus', arguments: 0],
-        [name: 'hubType', type: ['location'], closure: 'hubType', arguments: 0],
-        [name: 'identifierGlobal', type: ['enum', 'number', 'threeaxes', 'devices', 'attr', 'deviceZw'], closure: 'identifierGlobal', arguments: 1],
-        [name: 'identifierLocal', type: ['enum', 'number', 'threeaxes', 'devices', 'attr', 'deviceZw'], closure: 'identifierLocal', arguments: 1],
-        [name: 'isChange', type: ['enum', 'number', 'vector3'], closure: 'isChange', arguments: 1], // ??Handle null values? or does it always have a value?
-        [name: 'onBattery', type: ['location'], closure: 'onBattery', arguments: 0],
-        [name: 'power', type: ['deviceZw'], closure: 'power', arguments: 1],
-        [name: 'secure', type: ['deviceZw'], closure: 'secure', arguments: 1],
-        [name: 'source', type: ['enum', 'number', 'vector3'], closure: 'source', arguments: 1],
-        [name: 'status', type: ['devices', 'attr', 'deviceZw'], closure: 'status', arguments: 1], // TODO ?Included
-        [name: 'type', type: ['deviceZw'], closure: 'zwType', arguments: 0],
-        [name: 'timeElapsed', type: ['attr'], closure: 'daysElapsed', arguments: 1],
-        [name: 'timeZone', type: ['location'], closure: 'timeZone', arguments: 0],
-        [name: 'unit', type: ['number', 'vector3'], closure: 'unit', arguments: 1],
+        [name: 'area', closure: 'locationName', arguments: 0, type: ['all']],
+        [name: 'areaId', closure: 'locationId', arguments: 0, type: ['all']],
+        [name: 'building', closure: 'hubName', arguments: 0, type: ['all']],
+        [name: 'buildingId', closure: 'hubId', arguments: 0, type: ['all']],
+        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['all']],
+        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'zwave']],
+        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'zwave']],
+        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'zwave']],
+        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['enum', 'number', 'vector3', 'devices', 'attributes', 'zwave']],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['devices', 'attributes', 'zwave']],
+        [name: 'event', closure: 'eventName', arguments: 1, type: ['enum', 'number', 'vector3', 'attributes']],
+        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['enum', 'number', 'vector3', 'attributes']], // ? rename to eventClass ?
+        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['location']],
+        [name: 'hubType', closure: 'hubType', arguments: 0, type: ['location']],
+        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['enum', 'number', 'threeaxes', 'devices', 'attributes', 'zwave']],
+        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['enum', 'number', 'threeaxes', 'devices', 'attributes', 'zwave']],
+        [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
+        [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['location']],
+        [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
+        [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
+        [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'status', closure: 'status', arguments: 1, type: ['devices', 'attributes', 'zwave']], // TODO ?Included
+        [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
+        [name: 'timeElapsed', closure: 'daysElapsed', arguments: 1, type: ['attributes']],
+        [name: 'timeZone', closure: 'timeZone', arguments: 0, type: ['location']],
+        [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
 def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') } }
@@ -622,49 +589,49 @@ def getZwType() { return { 'zwave' } }
 
 
 def fields() { [
-        [name: '', type: ['deviceZw'], closure: 'configuredParameters', valueType: 'string', arguments: 1],
-        [name: 'checkInterval', type: ['deviceZw'], closure: 'checkInterval', valueType: 'integer', arguments: 1],
-        [name: 'eventDescription', type: ['enum', 'number', 'vector3'], closure: 'eventDescription', valueType: 'string', arguments: 1],
-        [name: 'eventId', type: ['enum', 'number', 'vector3'], closure: 'eventId', valueType: 'string', arguments: 1],
-        [name: 'firmwareVersion', type: ['location'], closure: 'firmware', valueType: 'string', arguments: 0],
-        [name: 'hubIP', type: ['location'], closure: 'hubIP', valueType: 'string', arguments: 0],
-        [name: 'latitude', type: ['location'], closure: 'latitude', valueType: 'string', arguments: 0],
-        [name: 'longitude', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
-        [name: 'nBinary', type: ['day', 'hub', 'enum'], closure: 'currentStateBinary', valueType: 'boolean', arguments: 1],
-        [name: 'nLevel', type: ['day', 'hub', 'enum'], closure: 'currentStateLevel', valueType: 'integer', arguments: 1],
-        [name: 'nState', type: ['day', 'hub', 'enum'], closure: 'currentState', valueType: 'string', arguments: 1],
-        [name: 'nText', type: ['enum'], closure: 'currentStateDescription', valueType: 'string', arguments: 1],
-        [name: 'nText', type: ['number'], closure: 'currentValueDescription', valueType: 'string', arguments: 1],
-        [name: 'nValue', type: ['number'], closure: 'currentValue', valueType: 'float', arguments: 1],
-        [name: 'nValueDisplay', type: ['number'], closure: 'currentValueDisplay', valueType: 'float', arguments: 1],
-        [name: 'nValueX', type: ['vector3'], closure: 'currentValueX', valueType: 'float', arguments: 1],
-        [name: 'nValueY', type: ['vector3'], closure: 'currentValueY', valueType: 'float', arguments: 1],
-        [name: 'nValueZ', type: ['vector3'], closure: 'currentValueZ', valueType: 'float', arguments: 1],
-        [name: 'pBinary', type: ['enum'], closure: 'previousStateBinary', valueType: 'boolean', arguments: 1],
-        [name: 'pLevel', type: ['enum'], closure: 'previousStateLevel', valueType: 'integer', arguments: 1],
-        [name: 'portTCP', type: ['location'], closure: 'portTCP', valueType: 'integer', arguments: 0],
-        [name: 'pState', type: ['enum'], closure: 'previousState', valueType: 'string', arguments: 1],
-        [name: 'pText', type: ['enum'], closure: 'previousStateDescription', valueType: 'string', arguments: 1],
-        [name: 'pText', type: ['number'], closure: 'previousValueDescription', valueType: 'string', arguments: 1],
-        [name: 'pValue', type: ['number'], closure: 'previousValue', valueType: 'float', arguments: 1],
-        [name: 'rChange', type: ['number'], closure: 'difference', valueType: 'float', arguments: 1],
-        [name: 'rChangeText', type: ['number'], closure: 'differenceText', valueType: 'string', arguments: 1],
-        [name: 'statusLevel', type: ['devices'], closure: 'statusLevel', valueType: 'integer', arguments: 1], // TODO Convert to a tag?
-        [name: 'sunrise', type: ['location'], closure: 'sunrise', valueType: 'string', arguments: 0],
-        [name: 'sunset', type: ['location'], closure: 'sunset', valueType: 'string', arguments: 0],
-        [name: 'tDay', type: ['enum', 'number'], closure: 'timeOfDay', valueType: 'integer', arguments: 1],
-        [name: 'tElapsed', type: ['enum', 'number'], closure: 'timeElapsed', valueType: 'integer', arguments: 1],
-        [name: 'tElapsedText', type: ['enum', 'number'], closure: 'timeElapsedText', valueType: 'string', arguments: 1],
-        [name: 'timeLastEvent', type: ['attr'], closure: 'timeLastEvent', valueType: 'integer', arguments: 1],
-        [name: 'timestamp', type: ['enum', 'number', 'vector3'], closure: 'timestamp', valueType: 'integer', arguments: 1],
-        [name: 'tOffset', type: ['enum'], closure: 'currentTimeOffset', valueType: 'integer', arguments: 1],
-        [name: 'tWrite', type: ['enum', 'number', 'vector3'], closure: 'timeWrite', valueType: 'integer', arguments: 0],
-        [name: 'valueLastEvent', type: ['attr'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
-        [name: 'wLevel', type: ['enum'], closure: 'weightedLevel', valueType: 'integer', arguments: 1],
-        [name: 'wValue', type: ['number'], closure: 'weightedValue', valueType: 'float', arguments: 1],
-        [name: 'zigbeePowerLevel', type: ['location'], closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0],
-        [name: 'zwavePowerLevel', type: ['location'], closure: 'longitude', valueType: 'string', arguments: 0],
-        [name: '', type: ['deviceZw'], closure: 'ccList', valueType: 'string', arguments: 1],
+        [name: '', closure: 'configuredParameters', valueType: 'string', arguments: 1, type: ['zwave']],
+        [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
+        [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'latitude', closure: 'latitude', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'longitude', closure: 'longitude', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day', 'hub', 'enum']],
+        [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'hub', 'enum']],
+        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum']],
+        [name: 'nText', closure: 'currentStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
+        [name: 'nText', closure: 'currentValueDescription', valueType: 'string', arguments: 1, type: ['number']],
+        [name: 'nValue', closure: 'currentValue', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'nValueDisplay', closure: 'currentValueDisplay', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'nValueX', closure: 'currentValueX', valueType: 'float', arguments: 1, type: ['vector3']],
+        [name: 'nValueY', closure: 'currentValueY', valueType: 'float', arguments: 1, type: ['vector3']],
+        [name: 'nValueZ', closure: 'currentValueZ', valueType: 'float', arguments: 1, type: ['vector3']],
+        [name: 'pBinary', closure: 'previousStateBinary', valueType: 'boolean', arguments: 1, type: ['enum']],
+        [name: 'pLevel', closure: 'previousStateLevel', valueType: 'integer', arguments: 1, type: ['enum']],
+        [name: 'portTCP', closure: 'portTCP', valueType: 'integer', arguments: 0, type: ['location']],
+        [name: 'pState', closure: 'previousState', valueType: 'string', arguments: 1, type: ['enum']],
+        [name: 'pText', closure: 'previousStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
+        [name: 'pText', closure: 'previousValueDescription', valueType: 'string', arguments: 1, type: ['number']],
+        [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
+        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['devices']], // TODO Convert to a tag?
+        [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
+        [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
+        [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
+        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 1, type: ['attributes']],
+        [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
+        [name: 'tWrite', closure: 'timeWrite', valueType: 'integer', arguments: 0, type: ['enum', 'number', 'vector3']],
+        [name: 'valueLastEvent', type: ['attributes'], closure: 'valueLastEvent', valueType: 'string', arguments: 1],
+        [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
+        [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['location']],
+        [name: 'zwavePowerLevel', closure: 'longitude', valueType: 'string', arguments: 0, type: ['location']],
+        [name: '', closure: 'ccList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
 def getCcList() { return {
@@ -836,75 +803,72 @@ def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel')
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-def postToInfluxDB(data, rp = 'autogen') {
-// need to update hubAction state variables and rewrite the hubAction function
-    if (state.databaseHost.take(3) == "192") {
-        try {
-            def query = state.query.clone()
-            query.rp = rp
-            def hubAction = new physicalgraph.device.HubAction([
-                    method : "POST",
-                    headers: state.headers,
-                    path   : state.path,
-                    query  : query,
-                    body   : data
-            ],
-                    null,
-                    [callback: handleInfluxResponseHubAction]
-            )
-            logger("postToInfluxDB(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
-            sendHubCommand(hubAction)
-        }
-        catch (Exception e) {
-            logger("postToInfluxDB(): Exception ${e} on ${hubAction}", 'error')
-        }
-    } else {
+def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
+    try {
         def query = state.query.clone()
-        query.rp = rp
-        def params = [
-                uri               : state.uri,
-                path              : state.path,
-                query             : query,
-                contentType       : "application/x-www-form-urlencoded",
-                requestContentType: "application/x-www-form-urlencoded",
-                body              : data
-        ]
-        logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
-        asynchttp_v1.post(handleInfluxResponse, params)
+        query.rp = retentionPolicy
+        def hubAction = new physicalgraph.device.HubAction([
+            method : 'POST',
+            headers: state.headers,
+            path   : state.path,
+            query  : query,
+            body   : data],
+            null,
+            [callback: handleInfluxResponseLocal]
+        )
+        logger("postToInfluxDB(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+        sendHubCommand(hubAction)
+    }
+    catch (e) {
+        logger("postToInfluxDB(): Exception ${e} on ${hubAction}", 'error')
     }
 }
 
-def handleInfluxResponseHubAction(physicalgraph.device.HubResponse hubResponse) {
-    def status = hubResponse.status
-    if (status == 204) logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}", 'trace')
-    if (status >= 400) logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
+def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) { // TODO - Check / tidy up
+    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}", 'trace')
+    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def handleInfluxResponse(response, requestdata) {
-    def status = response.status
-    if (status == 204) logger("postToInfluxDB(): Success! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'trace')
-    if (status >= 400) logger("postToInfluxDB(): Something went wrong! Response from InfluxDB: Status: ${status}, Headers: ${response.headers}, Body: ${response.data}", 'error')
+def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
+    def query = state.query.clone()
+    query.rp = retentionPolicy
+    def params = [
+        uri               : state.uri,
+        path              : state.path,
+        query             : query,
+        contentType       : "application/x-www-form-urlencoded",
+        requestContentType: "application/x-www-form-urlencoded",
+        body              : data
+    ]
+    logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp_v1.post(handleInfluxResponseRemote, params)
+}
+
+def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy up
+    if (response.status == 204) logger("postToInfluxDBRemote: Success! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'trace')
+    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'error')
 }
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
 private manageSchedules() {
-    logger("manageSchedules()", 'trace')
-/*
+    logger('manageSchedules', 'trace')
+
     try {
-        unschedule(pollLocation)
+        unschedule(pollLocations)
     }
     catch (e) {
-        logger("manageSchedules(): Unschedule pollLocation failed!", 'error')
+        logger('manageSchedules: Unschedule pollLocation failed!', 'error')
     }
-    runEvery3Hours(pollLocation)
-*/
+    // runEvery3Hours(pollLocations)
+    runEvery15Minutes(pollLocations)
+
     try {
         unschedule(pollDevices)
     }
     catch (e) {
-        logger("manageSchedules(): Unschedule pollDevices failed!", 'error')
+        logger('manageSchedules: Unschedule pollDevices failed!', 'error')
     }
     // runEvery3Hours(pollDevices)
     runEvery15Minutes(pollDevices)
@@ -913,78 +877,66 @@ private manageSchedules() {
         unschedule(pollAttributes)
     }
     catch (e) {
-        logger("manageSchedules(): Unschedule pollAttributes failed!", 'error')
+        logger('manageSchedules: Unschedule pollAttributes failed!', 'error')
     }
     // runEvery3Hours(pollAttributes)
-    runEvery5Minutes(pollAttributes)
-/*
+    runEvery15Minutes(pollAttributes)
+
     try {
-        unschedule(pollZwave)
+        unschedule(pollZwaves)
     }
     catch (e) {
-        logger("manageSchedules(): Unschedule pollZwave failed!", 'error')
+        logger('manageSchedules: Unschedule pollZwaves failed!', 'error')
     }
-    runEvery3Hours(pollZwave)
-*/
+    // runEvery3Hours(pollZwaves)
+    runEvery15Minutes(pollZwaves)
 }
 
 
 private manageSubscriptions() { // Configures subscriptions
-    logger("manageSubscriptions()", 'trace')
+    logger('manageSubscriptions:', 'trace')
     unsubscribe()
-
     getSelectedDevices()?.each { dev ->
-
         if (!dev.displayName.startsWith("~")) {
-
             getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-
                 if (dev?.hasAttribute("${attr}")) { // select only attributes that exist
-
                     def type = getAttributeDetail().find { it.key == attr }.value.type
-
                     if (type == 'enum') {
-                        logger("manageSubscriptions(): Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
                         subscribe(dev, attr, handleEnumEvent)
                     } else if (type == 'number') {
-                        logger("manageSubscriptions(): Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
                         subscribe(dev, attr, handleNumberEvent)
                     } else if (type == 'vector3') {
-                        logger("manageSubscriptions(): Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
                         subscribe(dev, attr, handleVector3Event)
                     } else if (type == 'color_map') {
-                        logger("manageSubscriptions(): Subscribing 'handleColor_mapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleColor_mapEvent) *** TO DO - write handler
+                        logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        //    subscribe(dev, attr, handleColorMapEvent) *** TODO - write handler
                     } else if (type == 'json_object') {
-                        logger("manageSubscriptions(): Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleJson_objectEvent) *** TO DO - write handler (if needed)
+                        logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        //    subscribe(dev, attr, handleJsonObjectEvent) *** TODO - write handler (if needed)
                     }
                 }
             }
         }
     }
 
-    /*
-    // subscribe to Sunrise and Sunset events
-    subscribe(location, "sunrise", handleDaylight)
-    subscribe(location, "sunset", handleDaylight)
-    logger("manageSubscriptions(): Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events", 'info')
-    */
-    /*
-    // subscribe to Hub status
-    def hub = location.hubs[0]
-    subscribe(hub, "hubStatus", handleHubStatus)
-    logger("manageSubscriptions(): Subscribing 'handleHubStatus' listener to 'Hub Status' events", 'info')
-    */
+    logger("manageSubscriptions: Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events", 'info')
+    subscribe(location, 'sunrise', handleDaylight)
+    subscribe(location, 'sunset', handleDaylight)
 
-    // build state maps of group Ids and group names
-    if (state.roomNameCapture) {
+    logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events", 'info')
+    subscribe(location.hubs[0], 'hubStatus', handleHubStatus)
+
+    logger('manageSubscriptions: Building state map of group Ids and group names', 'info')
+    if (settings.bridgePref) {
         def groupId
         def groupName
         settings.bridgePref.each {
             if (it.name?.take(1) == '~') {
                 groupId = it.device?.groupId
-                groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ')
+                groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ') // TODO Check if need to escape spaces
                 if (groupId) state.groupNames << [(groupId): groupName]
             }
         }
@@ -1033,7 +985,7 @@ private getDeviceAllowedAttrs(deviceName) {
     catch (e) {
         logger("Error while getting device allowed attributes for ${device.displayName}: ${e.message}", 'warn')
     }
-    return deviceAllowedAttrs
+    deviceAllowedAttrs
 }
 
 private getSupportedAttributes() {
@@ -1047,11 +999,11 @@ private getSupportedAttributes() {
                 }
             }
             catch (e) {
-                logWarn "Error while finding supported devices for ${attr}: ${e.message}"
+                logger("Error while finding supported devices for ${attr}: ${e.message}", 'warn')
             }
         }
     }
-    return supportedAttributes?.unique()?.sort()
+    supportedAttributes?.unique()?.sort()
 }
 
 private getAllAttributes() {
@@ -1069,10 +1021,10 @@ private getAllAttributes() {
             }
         }
         catch (e) {
-            logWarn "Error while getting attributes for capability ${cap}: ${e.message}"
+            logger("Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
         }
     }
-    return attributes
+    attributes
 }
 
 private getSelectedDeviceNames() {
@@ -1080,7 +1032,7 @@ private getSelectedDeviceNames() {
         return getSelectedDevices()?.collect { it?.displayName }?.sort()
     }
     catch (e) {
-        logWarn "Error while getting selected device names: ${e.message}"
+        logger("Error while getting selected device names: ${e.message}", 'warn')
         return []
     }
 }
@@ -1094,10 +1046,10 @@ private getSelectedDevices() {
             }
         }
         catch (e) {
-            logWarn "Error while getting selected devices for capability ${it}: ${e.message}"
+            logger("Error while getting selected devices for capability ${it}: ${e.message}", 'warn')
         }
     }
-    return devices?.flatten()?.unique { it.id }
+    devices?.flatten()?.unique { it.id }
 }
 
 private getCapabilities() {
@@ -1168,11 +1120,11 @@ private getAttributeDetail() {
             consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
             contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
             current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
+            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]], // TODO Add into database
             door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
             energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
             heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
+            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]], // TODO Add into database
             hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
             humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
             illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

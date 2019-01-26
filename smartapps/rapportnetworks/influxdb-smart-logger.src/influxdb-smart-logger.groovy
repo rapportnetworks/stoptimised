@@ -379,7 +379,7 @@ def pollZwaves() {
     def measurementName = 'devicesZw' // need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
-    def filter = { it.info.containsKey('zw') }
+    def filter = { it.getZwaveInfo().containsKey('zw') }
     def items = getSelectedDevices()?.findAll(filter) // ?Needs 'get' because private method?
     influxLineProtocol(items, measurement, retentionPolicy, multiple)
 }
@@ -633,7 +633,7 @@ def fields() { [
 ] }
 
 def getCcList() { return {
-    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def info = getZwaveInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
     def cc = info.cc
     if (info?.ccOut) cc.addAll(info.ccOut)
     if (info?.sec) cc.addAll(info.sec)
@@ -784,11 +784,11 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeLastEvent() { return { latestState(it)?.date.time } }
+def getTimeLastEvent() { return { latestState(it)?.date.time } } // TODO ? it.name (to get attribute name) ?
 
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getValueLastEvent() { return { "\"${latestState(it)?.value}\"" } }
+def getValueLastEvent() { return { "\"${latestState(it)?.value}\"" } }  // TODO ? it.name (to get attribute name) ?
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
@@ -853,39 +853,23 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
 private manageSchedules() {
     logger('manageSchedules', 'trace')
 
-    try {
-        unschedule(pollLocations)
-    }
-    catch (e) {
-        logger('manageSchedules: Unschedule pollLocation failed!', 'error')
-    }
+    try { unschedule(pollLocations) }
+    catch (e) { logger('manageSchedules: Unschedule pollLocation failed!', 'error') }
     // runEvery3Hours(pollLocations)
     runEvery15Minutes(pollLocations)
 
-    try {
-        unschedule(pollDevices)
-    }
-    catch (e) {
-        logger('manageSchedules: Unschedule pollDevices failed!', 'error')
-    }
+    try { unschedule(pollDevices) }
+    catch (e) { logger('manageSchedules: Unschedule pollDevices failed!', 'error') }
     // runEvery3Hours(pollDevices)
     runEvery15Minutes(pollDevices)
 
-    try {
-        unschedule(pollAttributes)
-    }
-    catch (e) {
-        logger('manageSchedules: Unschedule pollAttributes failed!', 'error')
-    }
+    try { unschedule(pollAttributes) }
+    catch (e) { logger('manageSchedules: Unschedule pollAttributes failed!', 'error') }
     // runEvery3Hours(pollAttributes)
     runEvery15Minutes(pollAttributes)
 
-    try {
-        unschedule(pollZwaves)
-    }
-    catch (e) {
-        logger('manageSchedules: Unschedule pollZwaves failed!', 'error')
-    }
+    try { unschedule(pollZwaves) }
+    catch (e) { logger('manageSchedules: Unschedule pollZwaves failed!', 'error') }
     // runEvery3Hours(pollZwaves)
     runEvery15Minutes(pollZwaves)
 }

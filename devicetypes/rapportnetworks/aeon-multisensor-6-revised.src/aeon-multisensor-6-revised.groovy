@@ -644,27 +644,25 @@ def configure() {
 
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
+    state.configure = true
+
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    // try { device.updateSetting('configAutoResetTamperDelay', 30) }
-    // catch(e) { state.configure = true }
     state.autoResetTamperDelay = 30
+    device?.updateSetting('configAutoResetTamperDelay', 30)
 
     logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
-    // try { device.updateSetting('configLogLevelIDE', 5) }
-    // catch(e) { state.configure = true }
     state.logLevelIDE = 5 // set to 3 when finished debugging
+    device?.updateSetting('configLogLevelIDE', 5)
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    // try { device.updateSetting('configLogLevelDevice', 2) }
-    // catch(e) { state.configure = true }
     state.logLevelDevice = 2
+    device?.updateSetting('configLogLevelDevice', 2)
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        // try { device.updateSetting('configWakeUpInterval', interval) }
-        // catch(e) { state.configure = true }
         state.wakeUpIntervalTarget = interval
+        device?.updateSetting('configWakeUpInterval', interval)
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
@@ -678,19 +676,16 @@ def configure() {
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                // try { device.updateSetting("configParam$id", resetValue) }
-                // catch(e) { state.configure = true }
+                device?.updateSetting("configParam$id", resetValue)
                 break
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                // try { device.updateSetting("configParam$id", resetValue) }
-                // catch(e) { state.configure = true }
+                device?.updateSetting("configParam$id", resetValue)
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                // try { device.updateSetting("configParam$id", resetBool) }
-                // catch(e) { state.configure = true }
+                device?.updateSetting("configParam$id", resetBool)
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
@@ -698,8 +693,7 @@ def configure() {
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    // try { device.updateSetting("configParam$id$rf.id", resetBool) }
-                    // catch(e) { state.configure = true }
+                    device?.updateSetting("configParam$id$rf.id", resetBool)
                 }
                 break
             default:

@@ -168,7 +168,8 @@ private generatePrefsParams() {
     paramsMetadata().findAll{ !it.readonly }.each{
         if (configUser()[0] == 0 || it.id in configUser()) {
             def id = it.id.toString().padLeft(3, "0")
-            def lb = (it.description.length() > 0) ? "\n" : ""
+            // def lb = (it.description.length() > 0) ? "\n" : ""
+            def lb = (it.description) ? "\n" : ""
             def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
             def prefDefaultValue = (specifiedValue) ?: it.defaultValue
             switch(it.type) {
@@ -644,25 +645,25 @@ def configure() {
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    try { device.updateSetting('configAutoResetTamperDelay', 30) }
-    catch(e) { state.configure = true }
+    // try { device.updateSetting('configAutoResetTamperDelay', 30) }
+    // catch(e) { state.configure = true }
     state.autoResetTamperDelay = 30
 
     logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
-    try { device.updateSetting('configLogLevelIDE', 5) }
-    catch(e) { state.configure = true }
+    // try { device.updateSetting('configLogLevelIDE', 5) }
+    // catch(e) { state.configure = true }
     state.logLevelIDE = 5 // set to 3 when finished debugging
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    try { device.updateSetting('configLogLevelDevice', 2) }
-    catch(e) { state.configure = true }
+    // try { device.updateSetting('configLogLevelDevice', 2) }
+    // catch(e) { state.configure = true }
     state.logLevelDevice = 2
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        try { device.updateSetting('configWakeUpInterval', interval) }
-        catch(e) { state.configure = true }
+        // try { device.updateSetting('configWakeUpInterval', interval) }
+        // catch(e) { state.configure = true }
         state.wakeUpIntervalTarget = interval
     }
 
@@ -677,19 +678,19 @@ def configure() {
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) { state.configure = true }
+                // try { device.updateSetting("configParam$id", resetValue) }
+                // catch(e) { state.configure = true }
                 break
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) { state.configure = true }
+                // try { device.updateSetting("configParam$id", resetValue) }
+                // catch(e) { state.configure = true }
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                try { device.updateSetting("configParam$id", resetBool) }
-                catch(e) { state.configure = true }
+                // try { device.updateSetting("configParam$id", resetBool) }
+                // catch(e) { state.configure = true }
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
@@ -697,8 +698,8 @@ def configure() {
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
-                    catch(e) { state.configure = true }
+                    // try { device.updateSetting("configParam$id$rf.id", resetBool) }
+                    // catch(e) { state.configure = true }
                 }
                 break
             default:
@@ -717,27 +718,27 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        if (!state.configure && settings?.configAutoResetTamperDelay != null) {
+        if (!state.configuring && settings?.configAutoResetTamperDelay != null) {
             state.autoResetTamperDelay = settings.configAutoResetTamperDelay
             logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
         }
 
-        if (!state.configure && settings?.configLogLevelIDE != null) {
+        if (!state.configuring && settings?.configLogLevelIDE != null) {
             state.logLevelIDE = settings.configLogLevelIDE.toInteger()
             logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
         }
 
-        if (!state.configure && settings?.configLogLevelDevice != null) {
+        if (!state.configuring && settings?.configLogLevelDevice != null) {
             state.logLevelDevice =  settings.configLogLevelDevice.toInteger()
             logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
         }
 
-        if (!state.configure && settings?.configWakeUpInterval != null) {
+        if (!state.configuring && settings?.configWakeUpInterval != null) {
             state.wakeUpIntervalTarget =  settings.configWakeUpInterval
             logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
         }
 
-        if (!state.configure) {
+        if (!state.configuring) {
             paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
                 def id = it.id.toString().padLeft(3, "0")
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
@@ -774,7 +775,7 @@ def updated() {
             }
         }
 
-        state.configure = false
+        state.configuring = false
 
         if (listening()) {
             def result = response(sendCommandSequence(sync()))

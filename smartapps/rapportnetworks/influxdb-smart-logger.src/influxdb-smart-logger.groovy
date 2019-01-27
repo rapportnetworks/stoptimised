@@ -347,12 +347,12 @@ def handleHubStatus(evt) {
 
 def pollLocations() {
     logger('pollLocations:', 'trace')
-    def measurementType = 'location'
+    def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
     def multiple = false
     def superItem = false
-    def items = location.id // make new object (dummy) TODO
+    def items = ['dummy'] // make new object (dummy) TODO
     influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem) // only 1 location currently accessible by SmartApp instance (injected property = location installed)
 }
 
@@ -376,7 +376,7 @@ def pollAttributes() {
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
         getDeviceAllowedAttrs(dev?.id)?.each { attr ->
             def superItem = dev
-            def item = attr
+            def items = attr
             influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
         }
     }
@@ -404,7 +404,8 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 influxLP.append(",${tag.name}=")
                 switch(tag.arguments) {
                     case 0:
-                        influxLP.append("$tag.closure"()); break
+                        influxLP.append("$tag.closure"())
+                        break
                     case 1:
                         if (!superItem || tag.sub) {
                             influxLP.append("$tag.closure"(item))
@@ -413,7 +414,8 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         }
                         break
                     case 2:
-                        influxLP.append("$tag.closure"(superItem, item)); break
+                        influxLP.append("$tag.closure"(superItem, item))
+                        break
                  }
             }
         }
@@ -425,7 +427,8 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 if (field.name) influxLP.append("${field.name}=")
                 switch(field.arguments) {
                     case 0:
-                        influxLP.append("$field.closure"()); break
+                        influxLP.append("$field.closure"())
+                        break
                     case 1:
                         if (!superItem || field.sub) {
                             influxLP.append("$field.closure"(item))
@@ -434,7 +437,8 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         }
                         break
                     case 2:
-                        influxLP.append("$field.closure"(superItem, item)); break
+                        influxLP.append("$field.closure"(superItem, item))
+                        break
                 }
                 if (field.valueType == 'integer') influxLP.append('i')
                 fieldCount++
@@ -472,19 +476,19 @@ def tags() { [
         [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['device', 'attribute', 'zwave']],
         [name: 'event', closure: 'eventName', arguments: 1, type: ['enum', 'number', 'vector3', 'attribute'], sub: true],
         [name: 'eventType', closure: 'eventType', arguments: 1, type: ['enum', 'number', 'vector3', 'attribute'], sub: true], // ? rename to eventClass ?
-        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['location']],
-        [name: 'hubType', closure: 'hubType', arguments: 0, type: ['location']],
+        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
+        [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
         [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'zwave']], // removed 'attribute' for now
         [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
-        // [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['location']], // check this out
+        // [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'status', closure: 'status', arguments: 1, type: ['device', 'attribute', 'zwave']], // TODO ?Included
         [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute'], sub: true],
-        [name: 'timeZone', closure: 'timeZone', arguments: 0, type: ['location']],
+        [name: 'timeZone', closure: 'timeZone', arguments: 0, type: ['local']],
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
@@ -542,9 +546,9 @@ def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eve
 
 def getEventType() { return { eventDetails(it).type } }
 
-def getHubStatus() { return { -> getHub().status } }
+def getHubStatus() { return { -> location.hubs[0].status } }
 
-def getHubType() { return { -> getHub().type } }
+def getHubType() { return { -> location.hubs[0].type } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
@@ -552,10 +556,11 @@ def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" 
 
 def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
 
-def getOnBattery() { return { -> getHub().getDataValue('batteryInUse') } }
+def getOnBattery() { return { -> location.hubs[0].hub.getDataValue('batteryInUse') } }
 
 def getPower() { return {
-    switch(getZwInfo(it)?.zw.take(1)) {
+    def power = it?.getZwaveInfo()?.zw.take(1)
+    switch(power) {
         case 'L':
             return 'Listening'; break
         case 'S':
@@ -565,7 +570,7 @@ def getPower() { return {
     }
 } }
 
-def getSecure() { return { (getZwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
+def getSecure() { return { (it?.getZwaveInfo()?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return {
     switch(it.source) {
@@ -600,7 +605,7 @@ def getUnit() { return {
     unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
 } }
 
-def getZwInfo() { return { it?.getZwaveInfo() } }
+def getZwInfo() { return { it?.getZwaveInfo().clone() } }
 
 def getZwType() { return { 'zwave' } } // getZwType() is a valid ST method
 
@@ -610,10 +615,10 @@ def fields() { [
         [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
         [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
-        [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['location']],
-        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['location']],
-        [name: 'latitude', closure: 'latitude', valueType: 'string', arguments: 0, type: ['location']],
-        [name: 'longitude', closure: 'longitude', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['local']],
+        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local']],
+        [name: 'latitude', closure: 'latitude', valueType: 'string', arguments: 0, type: ['local']],
+        [name: 'longitude', closure: 'longitude', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day', 'hub', 'enum']],
         [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'hub', 'enum']],
         [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum']],
@@ -626,7 +631,7 @@ def fields() { [
         [name: 'nValueZ', closure: 'currentValueZ', valueType: 'float', arguments: 1, type: ['vector3']],
         [name: 'pBinary', closure: 'previousStateBinary', valueType: 'boolean', arguments: 1, type: ['enum']],
         [name: 'pLevel', closure: 'previousStateLevel', valueType: 'integer', arguments: 1, type: ['enum']],
-        [name: 'portTCP', closure: 'portTCP', valueType: 'integer', arguments: 0, type: ['location']],
+        [name: 'portTCP', closure: 'portTCP', valueType: 'integer', arguments: 0, type: ['local']],
         [name: 'pState', closure: 'previousState', valueType: 'string', arguments: 1, type: ['enum']],
         [name: 'pText', closure: 'previousStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
         [name: 'pText', closure: 'previousValueDescription', valueType: 'string', arguments: 1, type: ['number']],
@@ -634,8 +639,8 @@ def fields() { [
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device']], // TODO Convert to a tag?
-        [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['location']],
-        [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
+        [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
@@ -646,13 +651,13 @@ def fields() { [
         [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 1, type: ['attribute'], sub: true],
         [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['location']],
-        [name: 'zwavePowerLevel', closure: 'longitude', valueType: 'string', arguments: 0, type: ['location']],
+        [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
+        [name: 'zwavePowerLevel', closure: 'longitude', valueType: 'string', arguments: 0, type: ['local']],
         [name: '', closure: 'ccList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
 def getCcList() { return {
-    def info = getZwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def info = it?.getZwaveInfo().clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
     def cc = info.cc
     cc?.addAll(info?.ccOut)
     cc?.addAll(info?.sec)
@@ -723,17 +728,17 @@ def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 
 def getGravityFactor() { return { -> (1024) } }
 
-def getFirmware() { return { -> "\"${getHub().firmwareVersionString}\"" } }
+def getFirmware() { return { -> "\"${location.hubs[0].firmwareVersionString}\"" } }
 
 def getHub() { return { -> location.hubs[0] } }
 
-def getHubIP() { return { -> "\"${getHub().localIP}\"" } }
+def getHubIP() { return { -> "\"${location.hubs[0].localIP}\"" } }
 
-def getLatitude() { return { -> "\"${getHub().latitude}\"" } }
+def getLatitude() { return { -> "\"${location.latitude}\"" } }
 
-def getLongitude() { return { -> "\"${getHub().longitude}\"" } }
+def getLongitude() { return { -> "\"${location.longitude}\"" } }
 
-def getPortTCP() { return { -> getHub().localSrvPortTCP } }
+def getPortTCP() { return { -> location.hubs[0].localSrvPortTCP } }
 
 def getPreviousEvent() { return {
     def eventData = parseJson(it?.data)
@@ -773,9 +778,9 @@ def getDifferenceText() { return {
 
 def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
-def getSunrise() { return { -> "\"${daylight.sunrise.format('HH:mm', timeZone())}\"" } }
+def getSunrise() { return { -> "\"${getDaylight().sunrise.format('HH:mm', timeZone())}\"" } }
 
-def getSunset() { return { -> "\"${daylight.sunset.format('HH:mm', timeZone())}\"" } }
+def getSunset() { return { -> "\"${getDaylight().sunset.format('HH:mm', timeZone())}\"" } }
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
@@ -813,9 +818,9 @@ def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-def getZigbeePowerLevel() { return { -> getHub().hub.getDataValue('zigbeePowerLevel') } }
+def getZigbeePowerLevel() { return { -> location.hubs[0].hub.getDataValue('zigbeePowerLevel') } }
 
-def getZwavePowerLevel() { return { -> getHub().hub.getDataValue('zwavePowerLevel') } }
+def getZwavePowerLevel() { return { -> location.hubs[0].hub.getDataValue('zwavePowerLevel') } }
 
 /*****************************************************************************************************************
  *  Main Commands:

@@ -59,15 +59,15 @@ metadata {
 
         valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
             state "temperature", label: '${currentValue}°C', unit: "°C",
-                backgroundColors: [
-                    [value: 0, color: "#153591"],
-                    [value: 7, color: "#1e9cbb"],
-                    [value: 15, color: "#90d2a7"],
-                    [value: 23, color: "#44b621"],
-                    [value: 29, color: "#f1d801"],
-                    [value: 33, color: "#d04e00"],
-                    [value: 37, color: "#bc2323"]
-                ],  defaultState: true
+                    backgroundColors: [
+                            [value: 0, color: "#153591"],
+                            [value: 7, color: "#1e9cbb"],
+                            [value: 15, color: "#90d2a7"],
+                            [value: 23, color: "#44b621"],
+                            [value: 29, color: "#f1d801"],
+                            [value: 33, color: "#d04e00"],
+                            [value: 37, color: "#bc2323"]
+                    ],  defaultState: true
         }
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 2, height: 2) {
             state "humidity", label: '${currentValue} % humidity', unit: "% humidity", defaultState: true
@@ -162,65 +162,64 @@ metadata {
 
 /*****************************************************************************************************************
  *  Preferences Helper Methods
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS:', description: 'Device parameters are used to customise the physical device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
     paramsMetadata().findAll{ !it.readonly }.each{
         if (configUser()[0] == 0 || it.id in configUser()) {
             def id = it.id.toString().padLeft(3, "0")
-            // def lb = (it.description.length() > 0) ? "\n" : ""
-            def lb = (it.description) ? "\n" : ""
+            def lb = (it.description.length() > 0) ? "\n" : ""
             def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
             def prefDefaultValue = (specifiedValue) ?: it.defaultValue
             switch(it.type) {
                 case "number":
                     input (
-                        name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${prefDefaultValue}",
-                        description: it.description,
-                        type: it.type,
-                        range: it.range,
-                        defaultValue: prefDefaultValue,
-                        required: it.required
+                            name: "configParam${id}",
+                            title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${prefDefaultValue}",
+                            description: it.description,
+                            type: it.type,
+                            range: it.range,
+                            defaultValue: prefDefaultValue,
+                            required: it.required
                     )
                     break
                 case "enum":
                     input (
-                        name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
-                        description: it.description,
-                        type: it.type,
-                        options: it.options,
-                        defaultValue: prefDefaultValue,
-                        required: it.required
+                            name: "configParam${id}",
+                            title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
+                            description: it.description,
+                            type: it.type,
+                            options: it.options,
+                            defaultValue: prefDefaultValue,
+                            required: it.required
                     )
                     break
                 case "bool":
                     input (
-                        name: "configParam${id}",
-                        title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
-                        description: it.description,
-                        type: it.type,
-                        defaultValue: (prefDefaultValue == it.trueValue),
-                        required: it.required
+                            name: "configParam${id}",
+                            title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
+                            description: it.description,
+                            type: it.type,
+                            defaultValue: (prefDefaultValue == it.trueValue),
+                            required: it.required
                     )
                     break
                 case "flags":
                     input (
-                        name: "paraFlags${id}",
-                        title: "${it.id}: ${it.name}",
-                        description: it.description,
-                        type: "paragraph", element: "paragraph"
+                            name: "paraFlags${id}",
+                            title: "${it.id}: ${it.name}",
+                            description: it.description,
+                            type: "paragraph", element: "paragraph"
                     )
                     if (specifiedValue) def specifiedFlags = configSpecified()?.find { csf -> csf.id == it.id }?.flags
                     it.flags.each { f ->
                         def prefFlagValue = (specifiedValue) ? specifiedFlags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
                         input (
-                            name: "configParam${id}${f.id}",
-                            title: "${f.id}) ${f.description}",
-                            type: 'bool',
-                            defaultValue: (prefFlagValue == f.flagValue),
-                            required: it.required
+                                name: "configParam${id}${f.id}",
+                                title: "${f.id}) ${f.description}",
+                                type: 'bool',
+                                defaultValue: (prefFlagValue == f.flagValue),
+                                required: it.required
                         )
                     }
                     break
@@ -232,27 +231,27 @@ private generatePrefsParams() {
 }
 
 private getTimeOptionValueMap() { [
-    "10 seconds": 10,
-    "20 seconds": 20,
-    "40 seconds": 40,
-    "1 minute": 60,
-    "2 minutes": 2 * 60,
-    "3 minutes": 3 * 60,
-    "4 minutes": 4 * 60,
-    "5 minutes": 5 * 60,
-    "8 minutes": 8 * 60,
-    "15 minutes": 15 * 60,
-    "30 minutes": 30 * 60,
-    "1 hour": 60 * 60,
-    "6 hours": 6 * 60 * 60,
-    "12 hours": 12 * 60 * 60,
-    "18 hours": 18 * 60 * 60,
-    "24 hours": 24 * 60 * 60
+        "10 seconds": 10,
+        "20 seconds": 20,
+        "40 seconds": 40,
+        "1 minute": 60,
+        "2 minutes": 2 * 60,
+        "3 minutes": 3 * 60,
+        "4 minutes": 4 * 60,
+        "5 minutes": 5 * 60,
+        "8 minutes": 8 * 60,
+        "15 minutes": 15 * 60,
+        "30 minutes": 30 * 60,
+        "1 hour": 60 * 60,
+        "6 hours": 6 * 60 * 60,
+        "12 hours": 12 * 60 * 60,
+        "18 hours": 18 * 60 * 60,
+        "24 hours": 24 * 60 * 60
 ] }
 
 /*****************************************************************************************************************
  *  Parse Method
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
     def result = []
@@ -282,7 +281,7 @@ def parse(String description) {
 
 /*****************************************************************************************************************
  *  Zwave Application Events Handlers
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, Basic
     logger("BasicSet: Ignoring '$cmd'", 'info')
     // motionEvent(cmd.value)
@@ -394,7 +393,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
 /*****************************************************************************************************************
  *  Zwave Management Events Handlers
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x80:1, Battery
     def map = [name: "battery", unit: "%"]
     if (cmd.batteryLevel == 0xFF) {
@@ -484,7 +483,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
 
 /*****************************************************************************************************************
  *  Zwave Network Protocol Events Handlers
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) { // 0x73=1, // Powerlevel
     logger("PowerlevelReport: '$cmd'", 'debug')
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
@@ -495,7 +494,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
 
 /*****************************************************************************************************************
  *  Zwave Transport Encapsulation Events Handlers
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
     logger("security: raw '$cmd'", 'trace')
     def encapsulatedCommand = cmd.encapsulatedCommand(commandClassesVersions())
@@ -522,7 +521,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupported
 
 /*****************************************************************************************************************
  *  Zwave General Event Handler
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
     logger("General zwaveEvent cmd: ${cmd}", 'warn')
     createEvent(descriptionText: cmd.toString(), isStateChange: false)
@@ -530,7 +529,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 
 /*****************************************************************************************************************
  * Send Zwave Commands to Device
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
     if (!listening()) //noinspection GroovyAssignmentToMethodParameter
         cmds += wakeUpNoMoreInformation()
@@ -563,7 +562,7 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
 
 /*****************************************************************************************************************
  *  Capability-related Commands
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def ping() {
     if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
 }
@@ -576,7 +575,7 @@ def refresh() {
 
 /*****************************************************************************************************************
  *  Custom Commands
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 def resetLog() {
     sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
 }
@@ -644,25 +643,29 @@ def configure() {
 
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
-    state.configure = true
+    state.configuring = true
 
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
     state.autoResetTamperDelay = 30
-    device?.updateSetting('configAutoResetTamperDelay', 30)
+    try { device.updateSetting('configAutoResetTamperDelay', 30) }
+    catch(e) {}
 
     logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
     state.logLevelIDE = 5 // set to 3 when finished debugging
-    device?.updateSetting('configLogLevelIDE', 5)
+    try { device.updateSetting('configLogLevelIDE', 5) }
+    catch(e) {}
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
     state.logLevelDevice = 2
-    device?.updateSetting('configLogLevelDevice', 2)
+    try { device.updateSetting('configLogLevelDevice', 2) }
+    catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
         state.wakeUpIntervalTarget = interval
-        device?.updateSetting('configWakeUpInterval', interval)
+        try { device.updateSetting('configWakeUpInterval', interval) }
+        catch(e) {}
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
@@ -676,16 +679,19 @@ def configure() {
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                device?.updateSetting("configParam$id", resetValue)
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) {}
                 break
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                device?.updateSetting("configParam$id", resetValue)
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) {}
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                device?.updateSetting("configParam$id", resetBool)
+                try { device.updateSetting("configParam$id", resetBool) }
+                catch(e) {}
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
@@ -693,7 +699,8 @@ def configure() {
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    device?.updateSetting("configParam$id$rf.id", resetBool)
+                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
+                    catch(e) {}
                 }
                 break
             default:
@@ -733,10 +740,10 @@ def updated() {
         }
 
         if (!state.configuring) {
-            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+            paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
                 def id = it.id.toString().padLeft(3, "0")
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
-                    switch (it.type) {
+                    switch(it.type) {
                         case 'number':
                             def setting = settings."configParam$id"
                             logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
@@ -754,11 +761,7 @@ def updated() {
                             break
                         case 'flags':
                             def target = 0
-                            settings.findAll { set ->
-                                set.key ==~ /configParam${
-                                    id
-                                }[a-z]/
-                            }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                             logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
                             state."paramTarget$it.id" = target
                             break
@@ -768,7 +771,6 @@ def updated() {
                 }
             }
         }
-
         state.configuring = false
 
         if (listening()) {
@@ -778,7 +780,11 @@ def updated() {
         }
         else {
             logger('updated: Sleepy device, queuing sync().', 'info')
-            state.queued << 'sync'
+            if (state.queued) {
+                state.queued << 'sync'
+            } else {
+                state.queued = ['sync']
+            }
         }
     }
     else { logger('updated: Ran within last 2 seconds so aborting update.', 'trace') }
@@ -786,7 +792,7 @@ def updated() {
 
 /*****************************************************************************************************************
  *  Generic Helper Methods
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 private sync() {
     def cmds = []
     def syncPending = 0
@@ -878,8 +884,8 @@ private byteArrayToUInt(byteArray) {
 }
 
 private listening() {
-    getZwaveInfo()?.zw?.startsWith("S")
-    // getZwaveInfo()?.zw?.startsWith("L")
+    // getZwaveInfo()?.zw?.startsWith("S")
+    getZwaveInfo()?.zw?.startsWith("L")
 }
 
 private logger(msg, level = 'debug') {
@@ -908,8 +914,8 @@ private logger(msg, level = 'debug') {
 
 
 /*****************************************************************************************************************
-* Zwave Command Helpers
-*****************************************************************************************************************/
+ * Zwave Command Helpers
+ *****************************************************************************************************************/
 /*
 private association(commands) {
     sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
@@ -975,7 +981,7 @@ private wakeUpNoMoreInformation() {
 
 /*****************************************************************************************************************
  *  Device Specific Helper Methods
-*****************************************************************************************************************/
+ *****************************************************************************************************************/
 private deviceUseStates() {
     def use = settings?.configDeviceUse
     def useStates = configUseStates()?.find { it.key == use }
@@ -1014,34 +1020,34 @@ private sensorValueEvent(Short value) {
  *  Matadata Methods
  *****************************************************************************************************************/
 private commandClassesQuery() { [ // list to query device for versions supported
-    0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
+                                  0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
 ] }
 
 private commandClassesSecure() { [ // *** don't think this is needed
-    0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
+                                   0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
 ] }
 
 private commandClassesUnsolicited() { [ // command classes of sensor reports - to trigger sync if device on battery
-    0x20, 0x30, 0x31, 0x60, 0x71, 0x9C
+                                        0x20, 0x30, 0x31, 0x60, 0x71, 0x9C
 ] }
 
 private commandClassesVersions() { [ // device/SmartThings versions supported
-    0x20: 1, // Basic
-    0x30: 2, // Sensor Binary
-    0x31: 5, // Sensor Multilevel
-    0x59: 1, // Association Grp Info
-    0x5A: 1, // Device Reset Locally
-    0x5E: 2, // Zwave Plus Info (not supported)
-    0x70: 2, // Configuration
-    0x71: 3, // Notification - changed to v3
-    0x72: 2, // Manufacturer Specific
-    0x73: 1, // Powerlevel
-    0x7A: 2, // Firmware Update Md
-    0x80: 1, // Battery
-    0x84: 1, // Wake Up - changed to v1
-    0x85: 2, // Association
-    0x86: 1, // Version - changed to v1
-    0x98: 1 // Security
+                                     0x20: 1, // Basic
+                                     0x30: 2, // Sensor Binary
+                                     0x31: 5, // Sensor Multilevel
+                                     0x59: 1, // Association Grp Info
+                                     0x5A: 1, // Device Reset Locally
+                                     0x5E: 2, // Zwave Plus Info (not supported)
+                                     0x70: 2, // Configuration
+                                     0x71: 3, // Notification - changed to v3
+                                     0x72: 2, // Manufacturer Specific
+                                     0x73: 1, // Powerlevel
+                                     0x7A: 2, // Firmware Update Md
+                                     0x80: 1, // Battery
+                                     0x84: 1, // Wake Up - changed to v1
+                                     0x85: 2, // Association
+                                     0x86: 1, // Version - changed to v1
+                                     0x98: 1 // Security
 ] }
 
 /* Currently Unused
@@ -1053,56 +1059,56 @@ private commandClassesVersions() { [ // device/SmartThings versions supported
 */
 
 private configHandler() { [ // menu items available in app
-    'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
+                            'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
 ] }
 
 private configUseStates() { [
-    Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
-    Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-    Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-    Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
+        Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
+        Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
+        Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
+        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 
 private configIntervals() { [
-    defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
-    specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
-    batteryRefreshInterval: 604_800
+        defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
+        specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
+        batteryRefreshInterval: 604_800
 ] }
 
 private configParameters() { [
-    2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
+        2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
 ] }
 
 private configSpecified() { [
-    [id:2,size:1,defaultValue:0,specifiedValue:1],
-    [id:3,size:2,defaultValue:240,specifiedValue:30],
-    [id:4,size:1,defaultValue:5,specifiedValue:5],
-    [id:5,size:1,defaultValue:1,specifiedValue:2],
-    [id:40,size:1,defaultValue:0,specifiedValue:0],
-    [id:81,size:1,defaultValue:0,specifiedValue:2],
-    [id:101,size:4,defaultValue:241,specifiedValue:240,flags:[[id:'a',flagValue:1,defaultValue:1,specifiedValue:0],[id:'b',flagValue:16,defaultValue:16,specifiedValue:16],[id:'c',flagValue:32,defaultValue:32,specifiedValue:32],[id:'d',flagValue:64,defaultValue:64,specifiedValue:64],[id:'e',flagValue:128,defaultValue:128,specifiedValue:128]]],
-    [id:102,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
-    [id:103,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
-    [id:111,size:4,defaultValue:3600,specifiedValue:3600]
+        [id:2,size:1,defaultValue:0,specifiedValue:1],
+        [id:3,size:2,defaultValue:240,specifiedValue:30],
+        [id:4,size:1,defaultValue:5,specifiedValue:5],
+        [id:5,size:1,defaultValue:1,specifiedValue:2],
+        [id:40,size:1,defaultValue:0,specifiedValue:0],
+        [id:81,size:1,defaultValue:0,specifiedValue:2],
+        [id:101,size:4,defaultValue:241,specifiedValue:240,flags:[[id:'a',flagValue:1,defaultValue:1,specifiedValue:0],[id:'b',flagValue:16,defaultValue:16,specifiedValue:16],[id:'c',flagValue:32,defaultValue:32,specifiedValue:32],[id:'d',flagValue:64,defaultValue:64,specifiedValue:64],[id:'e',flagValue:128,defaultValue:128,specifiedValue:128]]],
+        [id:102,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
+        [id:103,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
+        [id:111,size:4,defaultValue:3600,specifiedValue:3600]
 ] }
 
 private configUser() { [
-    2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
+        2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
 ] }
 
 private paramsMetadata() { [
-    [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
-    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
-    [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
-    [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
-    [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
-    [id:9,size:2,type:'flags',required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode'],
-    [id:40,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',falseValue:0,trueValue:1],
-    [id:81,size:1,type:'enum',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
-    [id:101,size:4,type:'flags',defaultValue:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:1],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:16],[id:'c',description:'enable temperature',flagValue:32,defaultValue:32],[id:'d',description:'enable humidity',flagValue:64,defaultValue:64],[id:'e',description:'enable luminance',flagValue:128,defaultValue:128]]],
-    [id:102,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 2 Report',description:'Which report needs to be sent in Report group 2',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
-    [id:103,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 3 Report',description:'Which report needs to be sent in Report group 3',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
-    [id:111,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 1 report',description:'The interval time of sending reports in group 1'],
-    [id:112,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 2 report',description:'The interval time of sending reports in group 2'],
-    [id:113,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3']
+        [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
+        [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
+        [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
+        [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
+        [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
+        [id:9,size:2,type:'flags',required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode'],
+        [id:40,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',falseValue:0,trueValue:1],
+        [id:81,size:1,type:'enum',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
+        [id:101,size:4,type:'flags',defaultValue:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:1],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:16],[id:'c',description:'enable temperature',flagValue:32,defaultValue:32],[id:'d',description:'enable humidity',flagValue:64,defaultValue:64],[id:'e',description:'enable luminance',flagValue:128,defaultValue:128]]],
+        [id:102,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 2 Report',description:'Which report needs to be sent in Report group 2',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
+        [id:103,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 3 Report',description:'Which report needs to be sent in Report group 3',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
+        [id:111,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 1 report',description:'The interval time of sending reports in group 1'],
+        [id:112,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 2 report',description:'The interval time of sending reports in group 2'],
+        [id:113,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3']
 ] }

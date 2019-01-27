@@ -644,18 +644,26 @@ def configure() {
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    device.updateSetting('configAutoResetTamperDelay', 30); state.autoResetTamperDelay = 30
+    try { device.updateSetting('configAutoResetTamperDelay', 30) }
+    catch(e) { state.configure = true }
+    state.autoResetTamperDelay = 30
 
     logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
-    device.updateSetting('configLogLevelIDE', 5); state.logLevelIDE = 5 // set to 3 when finished debugging
+    try { device.updateSetting('configLogLevelIDE', 5) }
+    catch(e) { state.configure = true }
+    state.logLevelIDE = 5 // set to 3 when finished debugging
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    device.updateSetting('configLogLevelDevice', 2); state.logLevelDevice = 2
+    try { device.updateSetting('configLogLevelDevice', 2) }
+    catch(e) { state.configure = true }
+    state.logLevelDevice = 2
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        device.updateSetting('configWakeUpInterval', interval); state.wakeUpIntervalTarget = interval
+        try { device.updateSetting('configWakeUpInterval', interval) }
+        catch(e) { state.configure = true }
+        state.wakeUpIntervalTarget = interval
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
@@ -669,16 +677,19 @@ def configure() {
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                device.updateSetting("configParam$id", resetValue)
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) { state.configure = true }
                 break
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                device.updateSetting("configParam$id", resetValue)
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) { state.configure = true }
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                device.updateSetting("configParam$id", resetBool)
+                try { device.updateSetting("configParam$id", resetBool) }
+                catch(e) { state.configure = true }
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
@@ -686,7 +697,8 @@ def configure() {
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    device.updateSetting("configParam$id$rf.id", resetBool)
+                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
+                    catch(e) { state.configure = true }
                 }
                 break
             default:
@@ -705,56 +717,64 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        if (settings?.configAutoResetTamperDelay != null) {
+        if (!state.configure && settings?.configAutoResetTamperDelay != null) {
             state.autoResetTamperDelay = settings.configAutoResetTamperDelay
             logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
         }
 
-        if (settings?.configLogLevelIDE != null) {
+        if (!state.configure && settings?.configLogLevelIDE != null) {
             state.logLevelIDE = settings.configLogLevelIDE.toInteger()
             logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
         }
 
-        if (settings?.configLogLevelDevice != null) {
+        if (!state.configure && settings?.configLogLevelDevice != null) {
             state.logLevelDevice =  settings.configLogLevelDevice.toInteger()
             logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
         }
 
-        if (settings?.configWakeUpInterval != null) {
+        if (!state.configure && settings?.configWakeUpInterval != null) {
             state.wakeUpIntervalTarget =  settings.configWakeUpInterval
             logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
         }
 
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
-            def id = it.id.toString().padLeft(3, "0")
-            if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
-                switch(it.type) {
-                    case 'number':
-                        def setting = settings."configParam$id"
-                        logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
-                        state."paramTarget$it.id" = setting
-                        break
-                    case 'enum':
-                        def setting = settings."configParam$id".toInteger()
-                        logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
-                        state."paramTarget$it.id" = setting
-                        break
-                    case 'bool':
-                        def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
-                        logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
-                        state."paramTarget$it.id" = setting
-                        break
-                    case 'flags':
-                        def target = 0
-                        settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
-                        logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
-                        state."paramTarget$it.id" = target
-                        break
-                    default:
-                        logger('updated: Unhandled configuration type.', 'warn')
+        if (!state.configure) {
+            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+                def id = it.id.toString().padLeft(3, "0")
+                if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
+                    switch (it.type) {
+                        case 'number':
+                            def setting = settings."configParam$id"
+                            logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'enum':
+                            def setting = settings."configParam$id".toInteger()
+                            logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'bool':
+                            def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
+                            logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'flags':
+                            def target = 0
+                            settings.findAll { set ->
+                                set.key ==~ /configParam${
+                                    id
+                                }[a-z]/
+                            }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                            logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
+                            state."paramTarget$it.id" = target
+                            break
+                        default:
+                            logger('updated: Unhandled configuration type.', 'warn')
+                    }
                 }
             }
         }
+
+        state.configure = false
 
         if (listening()) {
             def result = response(sendCommandSequence(sync()))

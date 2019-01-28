@@ -315,11 +315,28 @@ def handleVector3Event(evt) {
     def measurementName = 'threeaxes'
     def retentionPolicy = 'autogen'
     def multiple = false
+    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
 }
 
-// def handleStringEvent() { } // TODO
-// def handleColorMapEvent() { } // TODO
+def handleStringEvent(evt) {
+    def measurementType = 'string'
+    def measurementName = 'statuses'
+    def retentionPolicy = 'autogen'
+    def multiple = false
+    def superItem = false
+    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+}
+
+def handleColorMapEvent() {
+    def measurementType = 'colorMap'
+    def measurementName = 'colors'
+    def retentionPolicy = 'autogen'
+    def multiple = false
+    def superItem = false
+    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+}
+
 // def handleJsonObjectEvent() { } // TODO
 
 def handleDaylight(evt) {
@@ -328,10 +345,6 @@ def handleDaylight(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    def event = evt.clone() // TODO clone() not allowed - need to work out another approach in closures
-    def value = "${event.name}"
-    event.name = 'daylight'
-    event.value = value
     influxLineProtocol(event, measurementName, measurementType, multiple, retentionPolicy, superItem)
 }
 
@@ -478,19 +491,19 @@ def tags() { [
         [name: 'areaId', closure: 'locationId', arguments: 0, type: ['all']],
         [name: 'building', closure: 'hubName', arguments: 0, type: ['all']],
         [name: 'buildingId', closure: 'hubId', arguments: 0, type: ['all']],
-        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'device', 'zwave']],
-        [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'enum', 'number', 'vector3'], sub: true],
-        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'enum', 'number', 'vector3', ], sub: true], // ? rename to eventClass ?
+        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'colorMap', 'device', 'zwave']],
+        [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3'], sub: true],
+        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ], sub: true], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'enum', 'number', 'vector3', 'zwave']], // removed 'attribute' for now
-        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
-        [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
+        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'colorMap', 'enum', 'number', 'string', 'vector3', 'zwave']], // removed 'attribute' for now
+        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'isChange', closure: 'isChange', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
         [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
@@ -550,9 +563,13 @@ def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
 def getEventName() { return {
     if (it?.respondsTo('isStateChange')) {
-        return it?.name
+        if (it?.name in ['sunrise', 'sunset']) {
+            return 'daylight'
+        } else {
+            return it?.name
+        }
     } else {
-        return "${it}"
+        return it
     }
 } }
 
@@ -628,8 +645,8 @@ def getZwType() { return { 'zwave' } } // getZwType() is a valid ST method
 def fields() { [
         [name: '', closure: 'configuredParameters', valueType: 'string', arguments: 1, type: ['zwave']],
         [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
-        [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
-        [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
+        [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'latitude', closure: 'latitude', valueType: 'string', arguments: 0, type: ['local']],
@@ -637,10 +654,13 @@ def fields() { [
         [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day', 'hub', 'enum']],
         [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'hub', 'enum']],
         [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum']],
+        [name: 'nString', closure: 'currentString', valueType: 'string', arguments: 1, type: ['string']],
         [name: 'nText', closure: 'currentStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
         [name: 'nText', closure: 'currentValueDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'nValue', closure: 'currentValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'nValueDisplay', closure: 'currentValueDisplay', valueType: 'float', arguments: 1, type: ['number']],
+        [name: 'nValueHue', closure: 'currentValueHue', valueType: 'integer', arguments: 1, type: ['colorMap']],
+        [name: 'nValueSat', closure: 'currentValueSat', valueType: 'integer', arguments: 1, type: ['colorMap']],
         [name: 'nValueX', closure: 'currentValueX', valueType: 'float', arguments: 1, type: ['vector3']],
         [name: 'nValueY', closure: 'currentValueY', valueType: 'float', arguments: 1, type: ['vector3']],
         [name: 'nValueZ', closure: 'currentValueZ', valueType: 'float', arguments: 1, type: ['vector3']],
@@ -697,11 +717,19 @@ def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
 def getEventId() { return { "\"${it.id}\"" } }
 
-def getCurrentState() { return { "\"${it.value}\"" } }
+def getCurrentEventValue() { return {
+    if (it?.name in ['sunrise', 'sunset']) {
+        return it.name
+    } else {
+        return it.value
+    }
+} }
+
+def getCurrentState() { return { "\"${getCurrentEventValue(it)}\"" } }
 
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == it.value }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == getCurrentEventValue(it) }.value } }
 
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
@@ -709,6 +737,8 @@ def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
+
+def getCurrentString() { return { "\"${it.value}\"" } }
 
 def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
 
@@ -736,6 +766,11 @@ def getCurrentValueDescription() { return {
     def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
+
+def getCurrentColorMap() { return { parseJson(it) } }
+
+def getCurrentValueHue() { return { getCurrentColorMap(it).hue } }
+def getCurrentValueSat() { return { getCurrentColorMap(it).saturation } }
 
 def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
 def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
@@ -955,7 +990,7 @@ private manageSubscriptions() { // Configures subscriptions
                         case 'string':
                             logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
                     //    subscribe(dev, attr, handleStringEvent); break *** TODO - write handler
-                        case 'color_map':
+                        case 'colorMap':
                         logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
                         //    subscribe(dev, attr, handleColorMapEvent); break *** TODO - write handler
                         case 'json_object':
@@ -1160,7 +1195,7 @@ private getAttributeDetail() {
             buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
             carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
             carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-            color                   : [type: 'color_map'],
+            color                   : [type: 'colorMap'],
             colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
             consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
             contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],

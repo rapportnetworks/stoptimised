@@ -318,6 +318,7 @@ def handleVector3Event(evt) {
     influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
 }
 
+// def handleStringEvent() { } // TODO
 // def handleColorMapEvent() { } // TODO
 // def handleJsonObjectEvent() { } // TODO
 
@@ -409,11 +410,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            // if (!superItem || tag.sub) {
+                            if (superItem && !tag.sub) {
+                                influxLP.append("$tag.closure"(superItem))
+                            } else {
                                 influxLP.append("$tag.closure"(item))
-                            // } else {
-                            //     influxLP.append("$tag.closure"(superItem))
-                            // }
+                            }
                         }
                         catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
                         break
@@ -437,11 +438,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            // if (!superItem || field.sub) {
+                            if (superItem && !field.sub) {
+                                influxLP.append("$field.closure"(superItem))
+                            } else {
                                 influxLP.append("$field.closure"(item))
-                            // } else {
-                            //     influxLP.append("$field.closure"(superItem))
-                            // }
+                            }
                         }
                         catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
                         break
@@ -497,7 +498,7 @@ def tags() { [
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'status', closure: 'status', arguments: 1, type: ['attribute', 'device', 'zwave']], // TODO ?Included
         [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
-        [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute'], sub: true],
+        [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute']],
         [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, type: ['local']],
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
@@ -654,11 +655,11 @@ def fields() { [
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
-        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute'], sub: true],
+        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute']],
         [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'tWrite', closure: 'timeWrite', valueType: 'integer', arguments: 0, type: ['enum', 'number', 'vector3']],
-        [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 2, type: ['attribute'], sub: true],
+        [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 2, type: ['attribute']],
         [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
@@ -788,9 +789,9 @@ def getDifferenceText() { return {
 
 def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
-def getSunrise() { return { -> "\"${getDaylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
+def getSunrise() { return { -> "\"${getSunriseAndSunset().sunrise.format('HH:mm', location.timeZone)}\"" } }
 
-def getSunset() { return { -> "\"${getDaylight().sunset.format('HH:mm', location.timeZone)}\"" } }
+def getSunset() { return { -> "\"${getSunriseAndSunset().sunset.format('HH:mm', location.timeZone)}\"" } }
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
@@ -917,21 +918,25 @@ private manageSubscriptions() { // Configures subscriptions
             getDeviceAllowedAttrs(dev?.id)?.each { attr ->
                 if (dev?.hasAttribute("${attr}")) { // select only attributes that exist
                     def type = getAttributeDetail().find { it.key == attr }.value.type
-                    if (type == 'enum') {
+                    switch(type) {
+                        case 'enum':
                         logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleEnumEvent)
-                    } else if (type == 'number') {
+                        subscribe(dev, attr, handleEnumEvent); break
+                        case 'number':
                         logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleNumberEvent)
-                    } else if (type == 'vector3') {
+                        subscribe(dev, attr, handleNumberEvent); break
+                        case 'vector3':
                         logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleVector3Event)
-                    } else if (type == 'color_map') {
+                        subscribe(dev, attr, handleVector3Event); break
+                        case 'string':
+                            logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                    //    subscribe(dev, attr, handleStringEvent); break *** TODO - write handler
+                        case 'color_map':
                         logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleColorMapEvent) *** TODO - write handler
-                    } else if (type == 'json_object') {
+                        //    subscribe(dev, attr, handleColorMapEvent); break *** TODO - write handler
+                        case 'json_object':
                         logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleJsonObjectEvent) *** TODO - write handler (if needed)
+                        //    subscribe(dev, attr, handleJsonObjectEvent); break *** TODO - write handler (if needed)
                     }
                 }
             }

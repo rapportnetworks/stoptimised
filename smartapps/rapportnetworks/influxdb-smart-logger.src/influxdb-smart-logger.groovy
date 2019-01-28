@@ -563,19 +563,19 @@ def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
 def getEventName() { return {
     if (it?.respondsTo('isStateChange')) {
-        if (it?.name in ['sunrise', 'sunset']) {
+        if (it.name in ['sunrise', 'sunset']) {
             return 'daylight'
         } else {
-            return it?.name
+            return it.name
         }
     } else {
         return it
     }
 } }
 
-def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } }
+def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == 'power' }.value } }
 
-def getEventType() { return { eventDetails(it).type } }
+def getEventType() { return { getEventDetails(it).type } }
 
 def getHubStatus() { return { -> location.hubs[0].status } }
 
@@ -631,7 +631,7 @@ def getDaysElapsed() { return { dev, attr ->
 def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 
 def getUnit() { return {
-    def unit = (it?.unit) ? it.unit : eventDetails(it).unit
+    def unit = (it?.unit) ? it.unit : getEventDetails(it).unit
     // threeaxes unit is 'g'
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
@@ -727,11 +727,11 @@ def getCurrentEventValue() { return {
 
 def getCurrentState() { return { "\"${getCurrentEventValue(it)}\"" } }
 
-def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { (getCurrentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == getCurrentEventValue(it) }.value } }
+def getCurrentStateLevel() { return { getAttributeStates(it).find { level -> level.key == getCurrentEventValue(it) }.value } }
 
-def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
+def getAttributeStates() { return { getEventDetails(it).levels } } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
@@ -760,10 +760,10 @@ def removeUnit() { return { // remove any units appending to end of event value
 
 def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
 
-def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
+def getDecimalPlaces() { return { getEventDetails(it)?.decimalPlaces } }
 
 def getCurrentValueDescription() { return {
-    def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} in the ${groupName(it)}.\""
+    def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\""
     text.replaceAll('\\\\', '')
 } }
 

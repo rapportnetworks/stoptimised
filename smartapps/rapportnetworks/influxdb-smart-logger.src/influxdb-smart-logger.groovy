@@ -422,7 +422,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            if (superItem && !tag.sub) {
+                            if (superItem && tag.super) {
                                 influxLP.append("$tag.closure"(superItem))
                             } else {
                                 influxLP.append("$tag.closure"(item))
@@ -450,7 +450,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            if (superItem && !field.sub) {
+                            if (superItem && field.super) {
                                 influxLP.append("$field.closure"(superItem))
                             } else {
                                 influxLP.append("$field.closure"(item))
@@ -491,14 +491,14 @@ def tags() { [
         [name: 'areaId', closure: 'locationId', arguments: 0, type: ['all']],
         [name: 'building', closure: 'hubName', arguments: 0, type: ['all']],
         [name: 'buildingId', closure: 'hubId', arguments: 0, type: ['all']],
-        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
-        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
-        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
-        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
-        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'colorMap', 'device', 'zwave']],
-        [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3'], sub: true],
-        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ], sub: true], // ? rename to eventClass ?
+        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'colorMap', 'device', 'zwave'], super: true],
+        [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3']],
+        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
         [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'colorMap', 'enum', 'number', 'string', 'vector3', 'zwave']], // removed 'attribute' for now
@@ -508,7 +508,7 @@ def tags() { [
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
-        [name: 'status', closure: 'status', arguments: 1, type: ['attribute', 'device', 'zwave']], // TODO ?Included
+        [name: 'status', closure: 'status', arguments: 1, type: ['attribute', 'device', 'zwave'], super: true], // TODO ?Included
         [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute']],
         [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, type: ['local']],
@@ -573,9 +573,9 @@ def getEventName() { return {
     }
 } }
 
-def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == 'power' }.value } }
+def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
-def getEventType() { return { getEventDetails(it).type } }
+def getEventType() { return { eventDetails(it).type } }
 
 def getHubStatus() { return { -> location.hubs[0].status } }
 
@@ -603,20 +603,9 @@ def getPower() { return {
 
 def getSecure() { return { (it?.getZwaveInfo()?.zw.endsWith('s')) ? 'true' : 'false' } }
 
-def getSource() { return {
-    switch(it.source) {
-        case 'DEVICE':
-            return 'device'; break
-        case 'LOCATION':
-            return 'location'; break
-        case 'HUB':
-            return 'hub'; break
-        default:
-            return it.source; break
-    }
-} }
+def getSource() { return { "${it?.source}".toLowerCase() } }
 
-def getStatus() { return { it?.status } } // TODO - use switch to convert to lowercase (ONLINE/OFFLINE)
+def getStatus() { return { "${it?.status}".toLowerCase() } }
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -725,13 +714,13 @@ def getCurrentEventValue() { return {
     }
 } }
 
-def getCurrentState() { return { "\"${getCurrentEventValue(it)}\"" } }
+def getCurrentState() { return { "\"${currentEventValue(it)}\"" } }
 
-def getCurrentStateBinary() { return { (getCurrentStateLevel(it) > 0) ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getCurrentStateLevel() { return { getAttributeStates(it).find { level -> level.key == getCurrentEventValue(it) }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentEventValue(it) }.value } }
 
-def getAttributeStates() { return { getEventDetails(it).levels } } // Lookup array for event state levels
+def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
 def getCurrentStateDescription() { return {
     def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
@@ -760,7 +749,7 @@ def removeUnit() { return { // remove any units appending to end of event value
 
 def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
 
-def getDecimalPlaces() { return { getEventDetails(it)?.decimalPlaces } }
+def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
 def getCurrentValueDescription() { return {
     def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\""
@@ -769,8 +758,8 @@ def getCurrentValueDescription() { return {
 
 def getCurrentColorMap() { return { parseJson(it) } }
 
-def getCurrentValueHue() { return { getCurrentColorMap(it).hue } }
-def getCurrentValueSat() { return { getCurrentColorMap(it).saturation } }
+def getCurrentValueHue() { return { currentColorMap(it).hue } }
+def getCurrentValueSat() { return { currentColorMap(it).saturation } }
 
 def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
 def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }

@@ -328,7 +328,7 @@ def handleDaylight(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    def event = evt.clone()
+    def event = evt.clone() // TODO clone() not allowed - need to work out another approach in closures
     def value = "${event.name}"
     event.name = 'daylight'
     event.value = value

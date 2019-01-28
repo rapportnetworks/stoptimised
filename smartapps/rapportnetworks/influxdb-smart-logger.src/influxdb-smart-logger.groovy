@@ -330,7 +330,7 @@ def handleStringEvent(evt) {
 
 def handleColorMapEvent() {
     def measurementType = 'colorMap'
-    def measurementName = 'colors'
+    def measurementName = 'values'
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
@@ -989,13 +989,13 @@ private manageSubscriptions() { // Configures subscriptions
                         subscribe(dev, attr, handleVector3Event); break
                         case 'string':
                             logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                    //    subscribe(dev, attr, handleStringEvent); break *** TODO - write handler
+                        subscribe(dev, attr, handleStringEvent); break
                         case 'colorMap':
                         logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleColorMapEvent); break *** TODO - write handler
+                        subscribe(dev, attr, handleColorMapEvent); break
                         case 'json_object':
                         logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        //    subscribe(dev, attr, handleJsonObjectEvent); break *** TODO - write handler (if needed)
+                        // subscribe(dev, attr, handleJsonObjectEvent); break TODO - write handler (if needed)
                     }
                 }
             }
@@ -1200,11 +1200,11 @@ private getAttributeDetail() {
             consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
             contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
             current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]], // TODO Add into database
+            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
             door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
             energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
             heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]], // TODO Add into database
+            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
             hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
             humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
             illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

@@ -409,11 +409,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            if (!superItem || tag.sub) {
+                            // if (!superItem || tag.sub) {
                                 influxLP.append("$tag.closure"(item))
-                            } else {
-                                influxLP.append("$tag.closure"(superItem))
-                            }
+                            // } else {
+                            //     influxLP.append("$tag.closure"(superItem))
+                            // }
                         }
                         catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
                         break
@@ -437,11 +437,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                         break
                     case 1:
                         try {
-                            if (!superItem || field.sub) {
+                            // if (!superItem || field.sub) {
                                 influxLP.append("$field.closure"(item))
-                            } else {
-                                influxLP.append("$field.closure"(superItem))
-                            }
+                            // } else {
+                            //     influxLP.append("$field.closure"(superItem))
+                            // }
                         }
                         catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
                         break
@@ -478,24 +478,24 @@ def tags() { [
         [name: 'areaId', closure: 'locationId', arguments: 0, type: ['all']],
         [name: 'building', closure: 'hubName', arguments: 0, type: ['all']],
         [name: 'buildingId', closure: 'hubId', arguments: 0, type: ['all']],
-        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
-        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
-        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
-        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
-        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['device', 'attribute', 'zwave']],
-        [name: 'event', closure: 'eventName', arguments: 1, type: ['enum', 'number', 'vector3', 'attribute'], sub: true],
-        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['enum', 'number', 'vector3', 'attribute'], sub: true], // ? rename to eventClass ?
+        [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
+        [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
+        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
+        [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
+        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'device', 'zwave']],
+        [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'enum', 'number', 'vector3'], sub: true],
+        [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'enum', 'number', 'vector3', ], sub: true], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'zwave']], // removed 'attribute' for now
-        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
+        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'enum', 'number', 'vector3', 'zwave']], // removed 'attribute' for now
+        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'device', 'enum', 'number', 'vector3', 'zwave']],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
         [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
-        [name: 'status', closure: 'status', arguments: 1, type: ['device', 'attribute', 'zwave']], // TODO ?Included
+        [name: 'status', closure: 'status', arguments: 1, type: ['attribute', 'device', 'zwave']], // TODO ?Included
         [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute'], sub: true],
         [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, type: ['local']],
@@ -550,9 +550,9 @@ def getDeviceLabel() { return {
 
 def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
-def getEventName() { return { it.name } }
+def getEventName() { return { (it?.name) ?: it } }
 
-def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } } // needs 'get' prefix
+def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } }
 
 def getEventType() { return { eventDetails(it).type } }
 
@@ -654,11 +654,11 @@ def fields() { [
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
-        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 1, type: ['attribute'], sub: true],
+        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute'], sub: true],
         [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'tWrite', closure: 'timeWrite', valueType: 'integer', arguments: 0, type: ['enum', 'number', 'vector3']],
-        [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 1, type: ['attribute'], sub: true],
+        [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 2, type: ['attribute'], sub: true],
         [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
@@ -686,7 +686,7 @@ def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
 def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
 
-def getDaylight() { return { getSunriseAndSunset() } }
+def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
@@ -788,9 +788,9 @@ def getDifferenceText() { return {
 
 def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
-def getSunrise() { return { "\"${getDaylight().sunrise.format('HH:mm', getTimeZoneCode())}\"" } }
+def getSunrise() { return { -> "\"${getDaylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
 
-def getSunset() { return { "\"${getDaylight().sunset.format('HH:mm', getTimeZoneCode())}\"" } }
+def getSunset() { return { -> "\"${getDaylight().sunset.format('HH:mm', location.timeZone)}\"" } }
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
@@ -818,11 +818,11 @@ def getTimeElapsedText() { return {
     }
 }
 
-def getTimeLastEvent() { return { latestState(it)?.date.time } }
+def getTimeLastEvent() { return { dev, attr -> dev.latestState(attr)?.date.time } }
 
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getValueLastEvent() { return { "\"${latestState(it)?.value}\"" } }
+def getValueLastEvent() { return { dev, attr -> "\"${dev.latestState(attr)?.value}\"" } }
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 

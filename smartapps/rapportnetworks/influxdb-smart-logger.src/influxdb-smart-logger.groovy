@@ -404,17 +404,22 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 influxLP.append(",${tag.name}=")
                 switch(tag.arguments) {
                     case 0:
-                        influxLP.append("$tag.closure"())
+                        try { influxLP.append("$tag.closure"()) }
+                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
                         break
                     case 1:
-                        if (!superItem || tag.sub) {
-                            influxLP.append("$tag.closure"(item))
-                        } else {
-                            influxLP.append("$tag.closure"(superItem))
+                        try {
+                            if (!superItem || tag.sub) {
+                                influxLP.append("$tag.closure"(item))
+                            } else {
+                                influxLP.append("$tag.closure"(superItem))
+                            }
                         }
+                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
                         break
                     case 2:
-                        influxLP.append("$tag.closure"(superItem, item))
+                        try { influxLP.append("$tag.closure"(superItem, item)) }
+                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
                         break
                  }
             }
@@ -427,17 +432,22 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 if (field.name) influxLP.append("${field.name}=")
                 switch(field.arguments) {
                     case 0:
-                        influxLP.append("$field.closure"())
+                        try { influxLP.append("$field.closure"()) }
+                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
                         break
                     case 1:
-                        if (!superItem || field.sub) {
-                            influxLP.append("$field.closure"(item))
-                        } else {
-                            influxLP.append("$field.closure"(superItem))
+                        try {
+                            if (!superItem || field.sub) {
+                                influxLP.append("$field.closure"(item))
+                            } else {
+                                influxLP.append("$field.closure"(superItem))
+                            }
                         }
+                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
                         break
                     case 2:
-                        influxLP.append("$field.closure"(superItem, item))
+                        try { influxLP.append("$field.closure"(superItem, item)) }
+                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
                         break
                 }
                 if (field.valueType == 'integer') influxLP.append('i')
@@ -481,14 +491,14 @@ def tags() { [
         [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'zwave']], // removed 'attribute' for now
         [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['enum', 'number', 'vector3', 'device', 'attribute', 'zwave']],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['enum', 'number', 'vector3']], // ??Handle null values? or does it always have a value?
-        // [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
+        [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'status', closure: 'status', arguments: 1, type: ['device', 'attribute', 'zwave']], // TODO ?Included
         [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute'], sub: true],
-        [name: 'timeZone', closure: 'timeZone', arguments: 0, type: ['local']],
+        [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, type: ['local']],
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
@@ -597,7 +607,7 @@ def getDaysElapsed() { return { dev, attr ->
     }
 } }
 
-def getTimeZone() { return { -> location.timeZone.ID } }
+def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 
 def getUnit() { return {
     def unit = (it?.unit) ?: eventDetails(it).unit
@@ -676,7 +686,7 @@ def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
 def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
 
-def getDaylight() { return { -> getSunriseAndSunset() } }
+def getDaylight() { return { getSunriseAndSunset() } }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
@@ -778,9 +788,9 @@ def getDifferenceText() { return {
 
 def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
-def getSunrise() { return { -> "\"${getDaylight().sunrise.format('HH:mm', timeZone())}\"" } }
+def getSunrise() { return { "\"${getDaylight().sunrise.format('HH:mm', getTimeZoneCode())}\"" } }
 
-def getSunset() { return { -> "\"${getDaylight().sunset.format('HH:mm', timeZone())}\"" } }
+def getSunset() { return { "\"${getDaylight().sunset.format('HH:mm', getTimeZoneCode())}\"" } }
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 

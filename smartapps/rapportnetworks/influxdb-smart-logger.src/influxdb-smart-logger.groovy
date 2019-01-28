@@ -388,7 +388,7 @@ def pollAttributes() {
     def retentionPolicy = 'metadata'
     def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = getDeviceAllowedAttrs(dev?.id)
+        def items = dev.getSupportedAttribues().findAll { it in settings?.allowedAttributes } // TODO Need to consider device exclusions
         def superItem = dev
         if (items) influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
     }
@@ -501,10 +501,10 @@ def tags() { [
         [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'colorMap', 'enum', 'number', 'string', 'vector3', 'zwave']], // removed 'attribute' for now
-        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']],
+        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'colorMap', 'enum', 'number', 'string', 'vector3', 'zwave']], // TODO Need a separate closure for 'attribute' with arguments: 2
+        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
-        [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // check this out
+        [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // TODO check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
@@ -577,9 +577,9 @@ def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key ==
 
 def getEventType() { return { eventDetails(it).type } }
 
-def getHubStatus() { return { -> location.hubs[0].status } }
+def getHubStatus() { return { -> "${location.hubs[0].status}".toLowerCase() } }
 
-def getHubType() { return { -> location.hubs[0].type } }
+def getHubType() { return { -> "${location.hubs[0].type}".toLowerCase() } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
@@ -590,8 +590,7 @@ def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or d
 def getOnBattery() { return { -> location.hubs[0].hub.getDataValue('batteryInUse') } }
 
 def getPower() { return {
-    def power = it?.getZwaveInfo()?.zw.take(1)
-    switch(power) {
+    switch(zwInfo(it)?.zw.take(1)) {
         case 'L':
             return 'Listening'; break
         case 'S':
@@ -601,7 +600,7 @@ def getPower() { return {
     }
 } }
 
-def getSecure() { return { (it?.getZwaveInfo()?.zw.endsWith('s')) ? 'true' : 'false' } }
+def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return { "${it?.source}".toLowerCase() } }
 
@@ -626,7 +625,7 @@ def getUnit() { return {
     unit
 } }
 
-def getZwInfo() { return { it?.getZwaveInfo().clone() } }
+def getZwInfo() { return { it?.getZwaveInfo() } }
 
 def getZwType() { return { 'zwave' } } // getZwType() is a valid ST method
 
@@ -681,7 +680,7 @@ def fields() { [
 ] }
 
 def getCcList() { return {
-    def info = it?.getZwaveInfo().clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
+    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
     def cc = info.cc
     cc?.addAll(info?.ccOut)
     cc?.addAll(info?.sec)
@@ -767,7 +766,7 @@ def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 
 def getGravityFactor() { return { -> (1024) } }
 
-def getFirmware() { return { -> "\"${location.hubs[0].firmwareVersionString}\"" } }
+def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
 
 def getHub() { return { -> location.hubs[0] } }
 

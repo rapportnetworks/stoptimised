@@ -375,11 +375,9 @@ def pollAttributes() {
     def retentionPolicy = 'metadata'
     def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-            def superItem = dev
-            def items = attr
-            influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
-        }
+        def items = getDeviceAllowedAttrs(dev?.id)
+        def superItem = dev
+        if (items) influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
     }
 }
 
@@ -397,6 +395,7 @@ def pollZwaves() {
 }
 
 def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen', superItem) {
+    logger("influxLP: items: ${items}", 'trace')
     def influxLP = new StringBuilder()
     items.each { item ->
         influxLP.append(measurementName)
@@ -511,7 +510,7 @@ def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') } 
 
 def getHubId() { return { -> location.hubs[0].id } }
 
-def getGroupName() { return { (state?.groupNames?."${groupId(it)}") ?: state.houseType } } // Note: replaceAll already performed on stored state values
+def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ')) ?: state.houseType } }
 
 def getGroupId() { return {
     if (it?.respondsTo('isStateChange')) {
@@ -534,8 +533,7 @@ def getDeviceCode() { return {
 def getDeviceId() { return {
     if (it?.respondsTo('isStateChange')) {
         return it.deviceId // for event objects
-    }
-    else {
+    } else {
         return it?.id // for everything else
     }
 } }
@@ -543,15 +541,20 @@ def getDeviceId() { return {
 def getDeviceLabel() { return {
     if (it?.respondsTo('isStateChange')) {
         return (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for event objects
-    }
-    else {
+    } else {
         return (it?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for everything else
     }
 } }
 
 def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
-def getEventName() { return { (it?.name) ?: it } }
+def getEventName() { return {
+    if (it?.respondsTo('isStateChange')) {
+        return it?.name
+    } else {
+        return "${it}"
+    }
+} }
 
 def getEventDetails() { return { getAttributeDetail().find { ad -> ad.key == eventName(it) }.value } }
 
@@ -611,9 +614,10 @@ def getDaysElapsed() { return { dev, attr ->
 def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 
 def getUnit() { return {
-    def unit = (it?.unit) ?: eventDetails(it).unit
+    def unit = (it?.unit) ? it.unit : eventDetails(it).unit
     // threeaxes unit is 'g'
-    unit = (it.name != 'temperature') ?: unit.replaceAll('\u00B0', '') // remove circle from C unit
+    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
+    unit
 } }
 
 def getZwInfo() { return { it?.getZwaveInfo().clone() } }
@@ -776,7 +780,7 @@ def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal(
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
 } }
 
@@ -808,22 +812,42 @@ def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - pr
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
     def phrase
-    if (time < 60) phrase = Math.round(time) + ' seconds ago'
-    else if (time < 90) phrase = Math.round(time / 60) + ' minute ago'
-    else if (time < 3600) phrase = Math.round(time / 60) + ' minutes ago'
-    else if (time < 5400) phrase = Math.round(time / 3600) + ' hour ago'
-    else if (time < 86400) phrase = Math.round(time / 3600) + ' hours ago'
-    else if (time < 129600) phrase = Math.round(time / 86400) + ' day ago'
-    else phrase = Math.round(time / 86400) + ' days ago'
-    "\"${phrase}\""
+    switch (time) {
+        case { it < 60 } :
+            phrase = Math.round(time) + ' seconds ago'; break
+        case { it < 90 } :
+            phrase = Math.round(time / 60) + ' minute ago'; break
+        case { it < 3600 } :
+            phrase = Math.round(time / 60) + ' minutes ago'; break
+        case { it < 5400 } :
+            phrase = Math.round(time / 3600) + ' hour ago'; break
+        case { it < 86400 } :
+            phrase = Math.round(time / 3600) + ' hours ago'; break
+        case { it < 129600 } :
+            phrase = Math.round(time / 86400) + ' day ago'; break
+        default :
+            phrase = Math.round(time / 86400) + ' days ago'; break
     }
-}
+    phrase
+} }
 
-def getTimeLastEvent() { return { dev, attr -> dev.latestState(attr)?.date.time } }
+def getTimeLastEvent() { return { dev, attr ->
+    if (dev?.latestState(attr)) {
+        return dev.latestState(attr).date.time
+    } else {
+        return 0
+    }
+} }
 
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getValueLastEvent() { return { dev, attr -> "\"${dev.latestState(attr)?.value}\"" } }
+def getValueLastEvent() { return { dev, attr ->
+    if (dev?.latestState(attr)) {
+        return "\"${dev.latestState(attr).value}\""
+    } else {
+        return 'null'
+    }
+} }
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
@@ -957,7 +981,7 @@ private manageSubscriptions() { // Configures subscriptions
         settings.bridgePref.each {
             if (it.name?.take(1) == '~') {
                 groupId = it.device?.groupId
-                groupName = it.name?.drop(1).replaceAll(' ', '\\\\ ') // TODO Check if need to escape spaces
+                groupName = it.name?.drop(1) // .replaceAll(' ', '\\\\ ') // stoppped replaceAll to generalise
                 if (groupId) state.groupNames << [(groupId): groupName]
             }
         }

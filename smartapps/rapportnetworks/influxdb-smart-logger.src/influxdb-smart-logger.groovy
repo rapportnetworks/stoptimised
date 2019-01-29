@@ -1019,29 +1019,22 @@ private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a
 private getDeviceAllowedAttrs(device) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them
     def deviceAllowedAttrs = []
     try {
-        def attrs = device?.supportedAttributes
-        logger("DeviceAllowedAttrs: Supported Attributes ${attrs}", 'trace')
-        logger("DeviceAllowedAttrs: Allowed Attributes ${settings.allowedAttributes}", 'trace')
-        // settings?.allowedAttributes?.each {
+        settings?.allowedAttributes?.each {
             try {
-                // if (device.hasAttribute("${attr}")) {
-                   // deviceAllowedAttrs << "${it}"
-                // }
-            deviceAllowedAttrs = deviceAllowedAttrs.intersect(settings.allowedAttributes)
+                if (device.hasAttribute(it)) {
+                    deviceAllowedAttrs << it
+                }
             }
             catch (e) {
                 logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn')
             }
-
+        }
     }
     catch (e) {
         logger("Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn')
     }
-    logger("DeviceAllowedAttrs: Result: ${deviceAllowedAttrs}", 'trace')
     deviceAllowedAttrs.sort()
 }
-
-
 
 private getSupportedAttributes() { // iterates through list of all potential attributes to find those belonging to selected devices
     def supportedAttributes = []

@@ -62,21 +62,9 @@ def mainPage() {
             )
         }
         section('InfluxDB Database:') {
-            input(
-                name: 'prefDatabaseRemote',
-                type: 'bool',
-                title: 'Use Remote Database',
-                defaultValue: true,
-                required: true
-            )
+            input(name: 'prefDatabaseRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: true)
 
-            input(
-                    name: 'prefDatabaseSecure',
-                    type: 'bool',
-                    title: 'Use Encrypted Connection',
-                    defaultValue: true,
-                    required: true
-            )
+            input(name: 'prefDatabaseSecure', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: true)
 
             input(name: 'prefDatabaseHost', type: 'text', title: 'Host', defaultValue: 'data.sunnd.com', required: true)
 
@@ -128,9 +116,7 @@ def devicesPage() {
 
 private getDevicesPageContent() {
     section("Choose Devices") {
-        paragraph(
-                "Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top."
-        )
+        paragraph("Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top.")
 
         getCapabilities().each {
             try {
@@ -140,7 +126,6 @@ private getDevicesPageContent() {
                 logger("Failed to create input for ${it}: ${e.message}", 'trace')
             }
         }
-
     }
 }
 
@@ -154,16 +139,13 @@ private getAttributesPageContent() {
     def supportedAttr = getSupportedAttributes()?.sort()
     if (supportedAttr) {
         section('Choose Events') {
-            paragraph(
-                    "Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included."
-            )
+            paragraph("Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included.")
+
             input(name: 'allowedAttributes', type: 'enum', title: "Which events should be logged?", required: true, multiple: true, submitOnChange: true, options: supportedAttr)
         }
     } else {
         section('Choose Events') {
-            paragraph(
-                    'You need to select devices before you can choose events.'
-            )
+            paragraph('You need to select devices before you can choose events.')
         }
     }
 }
@@ -173,20 +155,15 @@ def attributeExclusionsPage() {
         section('Device Exclusions (Optional)') {
             def startTime = new Date().time
             if (settings?.allowedAttributes) {
-                paragraph(
-                        "If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them.\nYou can also use the fields below to see which devices support each event."
-                )
+                paragraph("If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them.\nYou can also use the fields below to see which devices support each event.")
+
                 settings?.allowedAttributes?.sort()?.each { attr ->
                     if (startTime && (new Date().time - startTime) > 15000) {
-                        paragraph(
-                                "The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes."
-                        )
+                        paragraph("The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes.")
                         startTime = null
                     } else if (startTime) {
                         try {
-                            def attrDevices = getSelectedDevices()?.findAll { device ->
-                                device.hasAttribute("${attr}")
-                            }?.collect { it.id }?.unique()?.sort()
+                            def attrDevices = getSelectedDevices()?.findAll { device -> device.hasAttribute("${attr}") }?.collect { it.id }?.unique()?.sort()
                             if (attrDevices) {
                                 input(name: "${attr}Exclusions", type: "enum", title: "Exclude ${attr} events:", required: false, multiple: true, options: attrDevices)
                             }
@@ -209,12 +186,8 @@ private getPageLink(linkName, linkText, pageName, args = null, desc = "", image 
             page       : "$pageName",
             required   : false
     ]
-    if (args) {
-        map.params = args
-    }
-    if (image) {
-        map.image = image
-    }
+    if (args) map.params = args
+    if (image) map.image = image
     href(map)
 }
 
@@ -230,7 +203,6 @@ private buildSummary(items) {
 /*****************************************************************************************************************
  *  SmartThings System Commands:
  *****************************************************************************************************************/
-
 def installed() { // runs when the app is first installed
     state.installedAt = now()
     state.loggingLevelIDE = 5
@@ -273,11 +245,8 @@ def updated() { // runs when app settings are changed
         logger("Unconfigured - Choose Devices", 'debug')
     }
 
-    // Configure Subscriptions:
     manageSubscriptions()
-
     manageSchedules()
-
     // runIn(100, pollLocations)
     // runIn(300, pollDevices)
     // runIn(600, pollAttributes)
@@ -287,7 +256,6 @@ def updated() { // runs when app settings are changed
 /*****************************************************************************************************************
  *  Event Handlers:
  *****************************************************************************************************************/
-
 def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
     logger("handleAppTouch()", 'trace')
 }
@@ -388,13 +356,11 @@ def pollAttributes() {
     def retentionPolicy = 'metadata'
     def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = dev.getSupportedAttributes() //.findAll { it in settings?.allowedAttributes } // TODO Need to consider device exclusions
+        def items = getDeviceAllowedAttrs(dev.id) // TODO Is it dev or dev.id?
         def superItem = dev
         if (items) influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
     }
 }
-
-// TODO Check that this works and then see about creating a collection of attributes
 
 def pollZwaves() {
     logger('pollZwaves:', 'trace')
@@ -408,7 +374,7 @@ def pollZwaves() {
 }
 
 def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen', superItem) {
-    logger("influxLP: items: ${items}", 'trace')
+    logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
     items.each { item ->
         influxLP.append(measurementName)
@@ -418,7 +384,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 switch(tag.arguments) {
                     case 0:
                         try { influxLP.append("$tag.closure"()) }
-                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.closure}", 'error') }
                         break
                     case 1:
                         try {
@@ -428,11 +394,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                                 influxLP.append("$tag.closure"(item))
                             }
                         }
-                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.closure}", 'error') }
                         break
                     case 2:
                         try { influxLP.append("$tag.closure"(superItem, item)) }
-                        catch(e) { logger("influxLP: Error with tag closure: ${tag.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.closure}", 'error') }
                         break
                  }
             }
@@ -446,7 +412,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 switch(field.arguments) {
                     case 0:
                         try { influxLP.append("$field.closure"()) }
-                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with field closure 0 (${measurementType}): ${field.closure}", 'error') }
                         break
                     case 1:
                         try {
@@ -456,11 +422,11 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                                 influxLP.append("$field.closure"(item))
                             }
                         }
-                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with field closure 1 (${measurementType}): ${field.closure}", 'error') }
                         break
                     case 2:
                         try { influxLP.append("$field.closure"(superItem, item)) }
-                        catch(e) { logger("influxLP: Error with field closure: ${field.closure}", 'trace') }
+                        catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.closure}", 'error') }
                         break
                 }
                 if (field.valueType == 'integer') influxLP.append('i')
@@ -527,35 +493,35 @@ def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' 
 
 def getGroupId() { return {
     if (it?.respondsTo('isStateChange')) {
-        it?.device?.device?.groupId // ?: 'unassigned' for event objects TODO
+        (it?.device?.device?.groupId) ? it.device.device.groupId  : 'unassigned' // for event objects
     }
     else {
-        it?.device?.groupId // ?: 'unassigned' for everything else TODO
+        (it?.device?.groupId) ? it.device.groupId : 'unassigned' // for everything else
     }
 } }
 
 def getDeviceCode() { return {
     if (it?.respondsTo('isStateChange')) {
-        return (it?.device?.device?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for event objects
+        (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned'
     }
     else {
-        return (it?.name?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for everything else
+        (it?.name) ? it.name.replaceAll(' ', '\\\\ ') : 'unassigned'
     }
 } }
 
 def getDeviceId() { return {
     if (it?.respondsTo('isStateChange')) {
-        return it.deviceId // for event objects
+        it.deviceId
     } else {
-        return it?.id // for everything else
+        it?.id
     }
 } }
 
 def getDeviceLabel() { return {
     if (it?.respondsTo('isStateChange')) {
-        return (it?.device?.device?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for event objects
+        (it?.device?.device?.label) ? it.device.device.label.replaceAll(' ', '\\\\ ') : 'unassigned'
     } else {
-        return (it?.label?.replaceAll(' ', '\\\\ ')) ?: 'unassigned' // for everything else
+        (it?.label) ? it.label.replaceAll(' ', '\\\\ ') : 'unassigned'
     }
 } }
 
@@ -564,12 +530,12 @@ def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 def getEventName() { return {
     if (it?.respondsTo('isStateChange')) {
         if (it.name in ['sunrise', 'sunset']) {
-            return 'daylight'
+            'daylight'
         } else {
-            return it.name
+            it.name
         }
     } else {
-        return it
+        it
     }
 } }
 
@@ -610,9 +576,9 @@ def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
         def daysElapsed = ((new Date().time - dev.latestState(attr).date.time) / 86_400_000) / 30
         daysElapsed = daysElapsed.toDouble().trunc().round()
-        return "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
+        "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
     } else {
-        return null
+        'null'
     }
 } }
 
@@ -620,14 +586,14 @@ def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 
 def getUnit() { return {
     def unit = (it?.unit) ? it.unit : getEventDetails(it).unit
-    // threeaxes unit is 'g'
+    // TODO threeaxes unit is 'g'
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
 } }
 
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
-def getZwType() { return { 'zwave' } } // getZwType() is a valid ST method
+def getZwType() { return { 'zwave' } } // TODO Is this needed?
 
 
 def fields() { [
@@ -707,9 +673,9 @@ def getEventId() { return { "\"${it.id}\"" } }
 
 def getCurrentEventValue() { return {
     if (it?.name in ['sunrise', 'sunset']) {
-        return it.name
+        it.name
     } else {
-        return it.value
+        it.value
     }
 } }
 
@@ -721,10 +687,7 @@ def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.
 
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
-def getCurrentStateDescription() { return {
-    def text = "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\""
-    text.replaceAll('\\\\', '')
-} }
+def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
 def getCurrentString() { return { "\"${it.value}\"" } }
 
@@ -740,9 +703,9 @@ def removeUnit() { return { // remove any units appending to end of event value
         i++
     }
     if (i == length) {
-        return 0
+        0
     } else {
-        return value.toBigDecimal()
+        value.toBigDecimal()
     }
 } }
 
@@ -750,10 +713,7 @@ def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlac
 
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
-def getCurrentValueDescription() { return {
-    def text = "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\""
-    text.replaceAll('\\\\', '')
-} }
+def getCurrentValueDescription() { return { "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
 def getCurrentColorMap() { return { parseJson(it) } }
 
@@ -856,9 +816,9 @@ def getTimeElapsedText() { return {
 
 def getTimeLastEvent() { return { dev, attr ->
     if (dev?.latestState(attr)) {
-        return dev.latestState(attr).date.time
+        dev.latestState(attr).date.time
     } else {
-        return 0
+        0
     }
 } }
 
@@ -866,9 +826,9 @@ def getTimeWrite() { return { -> new Date().time } } // time of processing the e
 
 def getValueLastEvent() { return { dev, attr ->
     if (dev?.latestState(attr)) {
-        return "\"${dev.latestState(attr).value}\""
+        "\"${dev.latestState(attr).value}\""
     } else {
-        return 'null'
+        'null'
     }
 } }
 
@@ -962,8 +922,8 @@ private manageSubscriptions() { // Configures subscriptions
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
-            getDeviceAllowedAttrs(dev?.id)?.each { attr ->
-                if (dev?.hasAttribute("${attr}")) { // select only attributes that exist
+            getDeviceAllowedAttrs(dev?.id)?.each { attr -> // TODO Not sure why device id is used (is this a proxy for device object?) - it works!
+                if (dev?.hasAttribute("${attr}")) { // select only attributes that exist TODO Not sure that this filter is needed?
                     def type = getAttributeDetail().find { it.key == attr }.value.type
                     switch(type) {
                         case 'enum':
@@ -1014,49 +974,40 @@ private manageSubscriptions() { // Configures subscriptions
 private logger(msg, level = 'debug') { // Wrapper function for all logging
     switch (level) {
         case 'error':
-            if (state.loggingLevelIDE >= 1) log.error msg
-            break
+            if (state.loggingLevelIDE >= 1) log.error(msg); break
         case 'warn':
-            if (state.loggingLevelIDE >= 2) log.warn msg
-            break
+            if (state.loggingLevelIDE >= 2) log.warn(msg); break
         case 'info':
-            if (state.loggingLevelIDE >= 3) log.info msg
-            break
+            if (state.loggingLevelIDE >= 3) log.info(msg); break
         case 'debug':
-            if (state.loggingLevelIDE >= 4) log.debug msg
-            break
+            if (state.loggingLevelIDE >= 4) log.debug(msg); break
         case 'trace':
-            if (state.loggingLevelIDE >= 5) log.trace msg
-            break
+            if (state.loggingLevelIDE >= 5) log.trace(msg); break
         default:
-            log.debug msg
-            break
+            log.debug(msg); break
     }
 }
 
-private getDeviceAllowedAttrs(deviceName) {
+private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them unless specifically excluded for that device
     def deviceAllowedAttrs = []
     try {
         settings?.allowedAttributes?.each { attr ->
             try {
                 def attrExcludedDevices = settings?."${attr}Exclusions"
-                if (!attrExcludedDevices?.find { it?.toLowerCase() == deviceName?.toLowerCase() }) {
-                    deviceAllowedAttrs << "${attr}"
-                }
+                if (!attrExcludedDevices?.find { it?.toLowerCase() == deviceName?.toLowerCase() }) { deviceAllowedAttrs << "${attr}" }
             }
             catch (e) {
-                logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}", 'warn')
-                // need to check device.displayName - should it be deviceName.displayName or dev.displayName ??
+                logger("Error while getting device allowed attributes for ${deviceName?.displayName} and attribute ${attr}: ${e.message}", 'warn')
             }
         }
     }
     catch (e) {
-        logger("Error while getting device allowed attributes for ${device.displayName}: ${e.message}", 'warn')
+        logger("Error while getting device allowed attributes for ${deviceName?.displayName}: ${e.message}", 'warn')
     }
     deviceAllowedAttrs
 }
 
-private getSupportedAttributes() {
+private getSupportedAttributes() { // iterates through list of all potential attributes to find those belonging to selected devices
     def supportedAttributes = []
     def devices = getSelectedDevices()
     if (devices) {
@@ -1074,7 +1025,7 @@ private getSupportedAttributes() {
     supportedAttributes?.unique()?.sort()
 }
 
-private getAllAttributes() {
+private getAllAttributes() { // iterates through Capabilites map and creates a list of all the potential attributes (so no custom attributes - could look at pulling them from device.supportedAttributes)
     def attributes = []
     getCapabilities().each { cap ->
         try {
@@ -1092,10 +1043,10 @@ private getAllAttributes() {
             logger("Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
         }
     }
-    attributes
+    attributes?.unique()?.sort() // added .unique()?.sort()
 }
 
-private getSelectedDeviceNames() {
+private getSelectedDeviceNames() { // creates list of device Names from list of device Objects selected by user
     try {
         return getSelectedDevices()?.collect { it?.displayName }?.sort()
     }
@@ -1105,7 +1056,7 @@ private getSelectedDeviceNames() {
     }
 }
 
-private getSelectedDevices() {
+private getSelectedDevices() { // creates list of device Objects from devices selected by user
     def devices = []
     getCapabilities()?.each {
         try {

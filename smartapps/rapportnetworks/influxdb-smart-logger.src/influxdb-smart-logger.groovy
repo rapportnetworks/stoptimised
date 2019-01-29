@@ -45,7 +45,7 @@ preferences {
     page(name: 'mainPage')
     page(name: 'devicesPage')
     page(name: 'attributesPage')
-    page(name: 'attributeExclusionsPage')
+    // page(name: 'attributeExclusionsPage')
 }
 
 def mainPage() {
@@ -99,9 +99,11 @@ def mainPage() {
             section('Selected Events') {
                 getPageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()))
             }
+            /*
             section('Event Device Exclusions') {
                 getPageLink('attributeExclusionsPageLink', 'Select devices to exclude for specific events.', 'attributeExclusionsPage')
             }
+            */
         } else {
             getattributesPageContent()
         }
@@ -150,6 +152,7 @@ private getAttributesPageContent() {
     }
 }
 
+/*
 def attributeExclusionsPage() {
     dynamicPage(name: 'attributeExclusionsPage') {
         section('Device Exclusions (Optional)') {
@@ -163,9 +166,12 @@ def attributeExclusionsPage() {
                         startTime = null
                     } else if (startTime) {
                         try {
-                            def attrDevices = getSelectedDevices()?.findAll { device -> device.hasAttribute("${attr}") }?.collect { it.id }?.unique()?.sort()
+                            def attrDevices = getSelectedDevices()?.findAll { device -> device.hasAttribute("${attr}") } //?.collect { it.id }?.unique()?.sort()
+
+                            // devices?.flatten()?.unique { it.id }
+
                             if (attrDevices) {
-                                input(name: "${attr}Exclusions", type: "enum", title: "Exclude ${attr} events:", required: false, multiple: true, options: attrDevices)
+                                input(name: "${attr}Exclusions", type: "enum", title: "Exclude ${attr} events:", required: false, multiple: true, options: attrDevices.displayName)
                             }
                         }
                         catch (e) {
@@ -177,6 +183,7 @@ def attributeExclusionsPage() {
         }
     }
 }
+*/
 
 private getPageLink(linkName, linkText, pageName, args = null, desc = "", image = null) {
     def map = [
@@ -356,7 +363,7 @@ def pollAttributes() {
     def retentionPolicy = 'metadata'
     def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = getDeviceAllowedAttrs(dev.id) // TODO Is it dev or dev.id?
+        def items = getDeviceAllowedAttrs(dev)
         def superItem = dev
         if (items) influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
     }
@@ -922,7 +929,7 @@ private manageSubscriptions() { // Configures subscriptions
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
-            getDeviceAllowedAttrs(dev?.id)?.each { attr -> // TODO Not sure why device id is used (is this a proxy for device object?) - it works!
+            getDeviceAllowedAttrs(dev)?.each { attr ->
                 if (dev?.hasAttribute("${attr}")) { // select only attributes that exist TODO Not sure that this filter is needed?
                     def type = getAttributeDetail().find { it.key == attr }.value.type
                     switch(type) {
@@ -988,6 +995,7 @@ private logger(msg, level = 'debug') { // Wrapper function for all logging
     }
 }
 
+/*
 private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them unless specifically excluded for that device
     def deviceAllowedAttrs = []
     try {
@@ -1006,6 +1014,29 @@ private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a
     }
     deviceAllowedAttrs
 }
+*/
+
+private getDeviceAllowedAttrs(device) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them
+    def deviceAllowedAttrs = []
+    try {
+        settings?.allowedAttributes?.each { attr ->
+            try {
+                if (device.hasAttribute("${attr}")) {
+                    deviceAllowedAttrs << "${attr}"
+                }
+            }
+            catch (e) {
+                logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}", 'warn')
+            }
+        }
+    }
+    catch (e) {
+        logger("Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn')
+    }
+    deviceAllowedAttrs.sort()
+}
+
+
 
 private getSupportedAttributes() { // iterates through list of all potential attributes to find those belonging to selected devices
     def supportedAttributes = []

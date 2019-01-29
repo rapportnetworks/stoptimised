@@ -930,29 +930,29 @@ private manageSubscriptions() { // Configures subscriptions
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
             getDeviceAllowedAttrs(dev)?.each { attr ->
-                if (dev?.hasAttribute("${attr}")) { // select only attributes that exist TODO Not sure that this filter is needed?
+                // if (dev?.hasAttribute("${attr}")) { // select only attributes that exist TODO Not sure that this filter is needed?
                     def type = getAttributeDetail().find { it.key == attr }.value.type
                     switch(type) {
                         case 'enum':
-                        logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleEnumEvent); break
+                            logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                            subscribe(dev, attr, handleEnumEvent); break
                         case 'number':
-                        logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleNumberEvent); break
+                            logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                            subscribe(dev, attr, handleNumberEvent); break
                         case 'vector3':
-                        logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleVector3Event); break
+                            logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                            subscribe(dev, attr, handleVector3Event); break
                         case 'string':
                             logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleStringEvent); break
+                            subscribe(dev, attr, handleStringEvent); break
                         case 'colorMap':
-                        logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleColorMapEvent); break
+                            logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                            subscribe(dev, attr, handleColorMapEvent); break
                         case 'json_object':
-                        logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        // subscribe(dev, attr, handleJsonObjectEvent); break TODO - write handler (if needed)
+                            logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                            // subscribe(dev, attr, handleJsonObjectEvent); break TODO - write handler (if needed)
                     }
-                }
+                // }
             }
         }
     }
@@ -1019,20 +1019,25 @@ private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a
 private getDeviceAllowedAttrs(device) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them
     def deviceAllowedAttrs = []
     try {
-        settings?.allowedAttributes?.each { attr ->
+        def attrs = device?.supportedAttributes
+        logger("DeviceAllowedAttrs: Supported Attributes ${attrs}", 'trace')
+        logger("DeviceAllowedAttrs: Allowed Attributes ${settings.allowedAttributes}", 'trace')
+        // settings?.allowedAttributes?.each {
             try {
-                if (device.hasAttribute("${attr}")) {
-                    deviceAllowedAttrs << "${attr}"
-                }
+                // if (device.hasAttribute("${attr}")) {
+                   // deviceAllowedAttrs << "${it}"
+                // }
+            deviceAllowedAttrs = deviceAllowedAttrs.intersect(settings.allowedAttributes)
             }
             catch (e) {
-                logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${attr}: ${e.message}", 'warn')
+                logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn')
             }
-        }
+
     }
     catch (e) {
         logger("Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn')
     }
+    logger("DeviceAllowedAttrs: Result: ${deviceAllowedAttrs}", 'trace')
     deviceAllowedAttrs.sort()
 }
 

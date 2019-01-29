@@ -388,7 +388,7 @@ def pollAttributes() {
     def retentionPolicy = 'metadata'
     def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = dev.getSupportedAttribues().findAll { it in settings?.allowedAttributes } // TODO Need to consider device exclusions
+        def items = dev.getSupportedAttributes() //.findAll { it in settings?.allowedAttributes } // TODO Need to consider device exclusions
         def superItem = dev
         if (items) influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
     }

@@ -45,21 +45,12 @@ preferences {
     page(name: 'mainPage')
     page(name: 'devicesPage')
     page(name: 'attributesPage')
-    // page(name: 'attributeExclusionsPage')
 }
 
 def mainPage() {
     dynamicPage(name: 'mainPage', uninstall: true, install: true) {
         section('General:') {
-            input(
-                    name: 'configLoggingLevelIDE',
-                    title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
-                    type: 'enum',
-                    options: [0: 'None', 1: 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace'],
-                    defaultValue: '3',
-                    displayDuringSetup: true,
-                    required: false
-            )
+            input(name: 'configLoggingLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace'], defaultValue: '3', displayDuringSetup: true, required: false)
         }
         section('InfluxDB Database:') {
             input(name: 'prefDatabaseRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: true)
@@ -76,17 +67,7 @@ def mainPage() {
 
             input(name: 'prefDatabasePass', type: 'text', title: 'Password', defaultValue: '*', required: true)
         }
-        /*
-        section('System Monitoring:') {
-            input(
-                    name: 'prefAdjustInactiveTimestamp',
-                    type: 'bool',
-                    title: 'Adjust Inactive status timestamp to compensate for PIR reset time?',
-                    defaultValue: true,
-                    required: true
-            )
-        }
-        */
+
         if (state.devicesConfigured) {
             section('Selected Devices') {
                 getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(getSelectedDeviceNames()))
@@ -99,11 +80,6 @@ def mainPage() {
             section('Selected Events') {
                 getPageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()))
             }
-            /*
-            section('Event Device Exclusions') {
-                getPageLink('attributeExclusionsPageLink', 'Select devices to exclude for specific events.', 'attributeExclusionsPage')
-            }
-            */
         } else {
             getattributesPageContent()
         }
@@ -125,7 +101,7 @@ private getDevicesPageContent() {
                 input("${it.cap}Pref", "capability.${it.cap}", title: "${it.title}:", multiple: true, hideWhenEmpty: true, required: false, submitOnChange: true)
             }
             catch (e) {
-                logger("Failed to create input for ${it}: ${e.message}", 'trace')
+                logger("preferences: Failed to create input for capability: ${it} - ${e.message}", 'error')
             }
         }
     }
@@ -152,47 +128,8 @@ private getAttributesPageContent() {
     }
 }
 
-/*
-def attributeExclusionsPage() {
-    dynamicPage(name: 'attributeExclusionsPage') {
-        section('Device Exclusions (Optional)') {
-            def startTime = new Date().time
-            if (settings?.allowedAttributes) {
-                paragraph("If there are some events that should't be logged for specific devices, use the corresponding event fields below to exclude them.\nYou can also use the fields below to see which devices support each event.")
-
-                settings?.allowedAttributes?.sort()?.each { attr ->
-                    if (startTime && (new Date().time - startTime) > 15000) {
-                        paragraph("The SmartApp was able to load all the fields within the allowed time.  If the event you're looking for didn't get loaded, select less devices or attributes.")
-                        startTime = null
-                    } else if (startTime) {
-                        try {
-                            def attrDevices = getSelectedDevices()?.findAll { device -> device.hasAttribute("${attr}") } //?.collect { it.id }?.unique()?.sort()
-
-                            // devices?.flatten()?.unique { it.id }
-
-                            if (attrDevices) {
-                                input(name: "${attr}Exclusions", type: "enum", title: "Exclude ${attr} events:", required: false, multiple: true, options: attrDevices.displayName)
-                            }
-                        }
-                        catch (e) {
-                            logger("Error while getting device exclusion list for attribute ${attr}: ${e.message}", 'warn')
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-*/
-
 private getPageLink(linkName, linkText, pageName, args = null, desc = "", image = null) {
-    def map = [
-            name       : "$linkName",
-            title      : "$linkText",
-            description: "$desc",
-            page       : "$pageName",
-            required   : false
-    ]
+    def map = [name: "$linkName", title: "$linkText", description: "$desc", page: "$pageName", required: false]
     if (args) map.params = args
     if (image) map.image = image
     href(map)
@@ -213,43 +150,52 @@ private buildSummary(items) {
 def installed() { // runs when the app is first installed
     state.installedAt = now()
     state.loggingLevelIDE = 5
-    logger("${app.label}: Installed with settings: ${settings}", 'trace')
+    logger("installed: ${app.label} installed with settings: ${settings}", 'trace')
     state.installed = true
 }
 
 def uninstalled() { // runs when the app is uninstalled
-    logger("uninstalled()", 'trace')
+    logger("uninstalled:", 'trace')
 }
 
 def updated() { // runs when app settings are changed
-    logger("updated()", 'trace')
+    logger("updated:", 'trace')
+    state.installed = true
 
-    // Update internal state:
+    logger('updated: Setting logging lever', 'trace')
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
-    // Database config:
+    logger('updated: Setting database parameters', 'trace')
     state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", "Content-Type": "application/x-www-form-urlencoded"]
     state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
     state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms']
     state.path = '/write'
 
-    // Set values for state variables
-    state.groupNames = [:] // Initialise map of Group Ids and Group Names TODO - Is this needed here?
-
+    logger('updated: Building state map of group Ids and group names', 'debug')
     state.houseType = 'House'
-
-    state.installed = true
-
-    if (settings?.allowedAttributes) {
-        state.attributesConfigured = true
-    } else {
-        logger("Unconfigured - Choose Events", 'debug')
+    state.groupNames = [:]
+    if (settings.bridgePref) {
+        def groupId
+        def groupName
+        settings.bridgePref.each {
+            if (it.name?.take(1) == '~') {
+                groupId = it.device?.groupId
+                groupName = it.name?.drop(1) // .replaceAll(' ', '\\\\ ') // stoppped replaceAll to generalise
+                if (groupId) state.groupNames << [(groupId): groupName]
+            }
+        }
     }
 
-    if (getSelectedDevices()) {
+    if (settings?.allowedAttributes) { // TODO What is this needed for?
+        state.attributesConfigured = true
+    } else {
+        logger("updated: Unconfigured - Choose Events", 'debug')
+    }
+
+    if (getSelectedDevices()) { // TODO What is this needed for?
         state.devicesConfigured = true
     } else {
-        logger("Unconfigured - Choose Devices", 'debug')
+        logger("updated: Unconfigured - Choose Devices", 'debug')
     }
 
     manageSubscriptions()
@@ -263,8 +209,8 @@ def updated() { // runs when app settings are changed
 /*****************************************************************************************************************
  *  Event Handlers:
  *****************************************************************************************************************/
-def handleAppTouch(evt) { // handleAppTouch(evt) - used for testing
-    logger("handleAppTouch()", 'trace')
+def handleAppTouch(evt) { // Touch event on Smart App TODO ? Configure so that triggers "updated()" ?
+    logger("handleAppTouch:", 'trace')
 }
 
 def handleEnumEvent(evt) {
@@ -341,8 +287,8 @@ def pollLocations() {
     def retentionPolicy = 'metadata'
     def multiple = false
     def superItem = false
-    def items = ['dummy'] // make new object (dummy) TODO
-    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem) // only 1 location currently accessible by SmartApp instance (injected property = location installed)
+    def items = ['dummy'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
+    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
 }
 
 def pollDevices() {
@@ -352,7 +298,7 @@ def pollDevices() {
     def retentionPolicy = 'autogen' // TODO Check should it be 'metadata'?
     def multiple = true
     def superItem = false
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') } // ?Needs 'get' because private method?
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
     influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
 }
 
@@ -372,7 +318,7 @@ def pollAttributes() {
 def pollZwaves() {
     logger('pollZwaves:', 'trace')
     def measurementType = 'zwave'
-    def measurementName = 'devicesZw' // need to check this
+    def measurementName = 'devicesZw' // TODO need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
     def superItem = false
@@ -492,13 +438,15 @@ def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') } }
 
 def getLocationId() { return { -> location.id } }
 
-def getHubName() { return { -> location.hubs[0].name.replaceAll(' ', '\\\\ ') } }
+def getHub() { return { -> location.hubs[0] } }
 
-def getHubId() { return { -> location.hubs[0].id } }
+def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ') } }
+
+def getHubId() { return { -> hub().id } }
 
 def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ')) ?: state.houseType } }
 
-def getGroupId() { return {
+def getGroupId() { return { // TODO Redo with ? : plus create  def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
     if (it?.respondsTo('isStateChange')) {
         (it?.device?.device?.groupId) ? it.device.device.groupId  : 'unassigned' // for event objects
     }
@@ -507,7 +455,7 @@ def getGroupId() { return {
     }
 } }
 
-def getDeviceCode() { return {
+def getDeviceCode() { return { // TODO Redo with ? :
     if (it?.respondsTo('isStateChange')) {
         (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned'
     }
@@ -516,7 +464,7 @@ def getDeviceCode() { return {
     }
 } }
 
-def getDeviceId() { return {
+def getDeviceId() { return { // TODO Redo with ? :
     if (it?.respondsTo('isStateChange')) {
         it.deviceId
     } else {
@@ -524,7 +472,7 @@ def getDeviceId() { return {
     }
 } }
 
-def getDeviceLabel() { return {
+def getDeviceLabel() { return { // TODO Redo with ? :
     if (it?.respondsTo('isStateChange')) {
         (it?.device?.device?.label) ? it.device.device.label.replaceAll(' ', '\\\\ ') : 'unassigned'
     } else {
@@ -536,7 +484,7 @@ def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
 def getEventName() { return {
     if (it?.respondsTo('isStateChange')) {
-        if (it.name in ['sunrise', 'sunset']) {
+        if (it.name in ['sunrise', 'sunset']) { // TODO Redo with ? :
             'daylight'
         } else {
             it.name
@@ -546,21 +494,21 @@ def getEventName() { return {
     }
 } }
 
-def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
-
 def getEventType() { return { eventDetails(it).type } }
 
-def getHubStatus() { return { -> "${location.hubs[0].status}".toLowerCase() } }
+def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
-def getHubType() { return { -> "${location.hubs[0].type}".toLowerCase() } }
+def getHubStatus() { return { -> "${hub().status}".toLowerCase() } }
+
+def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
 def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
 def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
 
-def getIsChange() { return { it?.isStateChange } } // ??Handle null values? or does it always have a value?
+def getIsChange() { return { it?.isStateChange } }
 
-def getOnBattery() { return { -> location.hubs[0].hub.getDataValue('batteryInUse') } }
+def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
 
 def getPower() { return {
     switch(zwInfo(it)?.zw.take(1)) {
@@ -573,11 +521,15 @@ def getPower() { return {
     }
 } }
 
+def getZwInfo() { return { it?.getZwaveInfo() } }
+
 def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'true' : 'false' } }
 
 def getSource() { return { "${it?.source}".toLowerCase() } }
 
 def getStatus() { return { "${it?.status}".toLowerCase() } }
+
+def getZwType() { return { 'zwave' } } // TODO Is this needed?
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -592,16 +544,10 @@ def getDaysElapsed() { return { dev, attr ->
 def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 
 def getUnit() { return {
-    def unit = (it?.unit) ? it.unit : getEventDetails(it).unit
-    // TODO threeaxes unit is 'g'
+    def unit = (it?.unit) ? it.unit : getEventDetails(it).unit // TODO is a unit already present for threeaxes?
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
 } }
-
-def getZwInfo() { return { it?.getZwaveInfo() } }
-
-def getZwType() { return { 'zwave' } } // TODO Is this needed?
-
 
 def fields() { [
         [name: '', closure: 'configuredParameters', valueType: 'string', arguments: 1, type: ['zwave']],
@@ -614,8 +560,7 @@ def fields() { [
         [name: 'longitude', closure: 'longitude', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day', 'hub', 'enum']],
         [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'hub', 'enum']],
-        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum']],
-        [name: 'nString', closure: 'currentString', valueType: 'string', arguments: 1, type: ['string']],
+        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum', 'string']],
         [name: 'nText', closure: 'currentStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
         [name: 'nText', closure: 'currentValueDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'nValue', closure: 'currentValue', valueType: 'float', arguments: 1, type: ['number']],
@@ -652,33 +597,29 @@ def fields() { [
         [name: '', closure: 'ccList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
-def getCcList() { return {
-    def info = zwInfo(it).clone() // TODO rewrite this using collect filters? so as to avoid need for cloning
-    def cc = info.cc
-    cc?.addAll(info?.ccOut)
-    cc?.addAll(info?.sec)
-    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true'
-    info.remove('zw')
-    info.remove('cc')
-    info.remove('ccOut')
-    info.remove('sec')
-    info = info.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
-    info = toKeyValue(info) + ',' + "${ccList}"
-    info
-} }
-
-def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
-
 def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
 
-def getDaylight() { return { -> getSunriseAndSunset() } }
+def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
 def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
 
 def getEventId() { return { "\"${it.id}\"" } }
 
-def getCurrentEventValue() { return {
+def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
+
+def getHubIP() { return { -> "\"${hub().localIP}\"" } }
+
+def getLatitude() { return { -> "\"${location.latitude}\"" } }
+
+def getLongitude() { return { -> "\"${location.longitude}\"" } }
+
+def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
+
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentEventValue(it) }.value } }
+
+def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
+
+def getCurrentEventValue() { return { // TODO redo with ? :
     if (it?.name in ['sunrise', 'sunset']) {
         it.name
     } else {
@@ -688,19 +629,13 @@ def getCurrentEventValue() { return {
 
 def getCurrentState() { return { "\"${currentEventValue(it)}\"" } }
 
-def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
-
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentEventValue(it) }.value } }
-
-def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
-
 def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
-def getCurrentString() { return { "\"${it.value}\"" } }
+def getCurrentValueDescription() { return { "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
 def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
 
-def removeUnit() { return { // remove any units appending to end of event value
+def removeUnit() { return { // remove any units appending to end of event value property
     def length = it.value.length()
     def value
     def i = 2
@@ -720,32 +655,20 @@ def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlac
 
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
-def getCurrentValueDescription() { return { "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
-
-def getCurrentColorMap() { return { parseJson(it) } }
-
 def getCurrentValueHue() { return { currentColorMap(it).hue } }
 def getCurrentValueSat() { return { currentColorMap(it).saturation } }
+def getCurrentColorMap() { return { parseJson(it) } }
 
 def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
 def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
 def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
-
 def getGravityFactor() { return { -> (1024) } }
 
-def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
+def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getHub() { return { -> location.hubs[0] } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
 
-def getHubIP() { return { -> "\"${location.hubs[0].localIP}\"" } }
-
-def getLatitude() { return { -> "\"${location.latitude}\"" } }
-
-def getLongitude() { return { -> "\"${location.longitude}\"" } }
-
-def getPortTCP() { return { -> location.hubs[0].localSrvPortTCP } }
-
-def getPreviousEvent() { return {
+def getPreviousEvent() { return { // TODO - Would this work with device.currentState(it.name)? - i.e. event handler called before event log updated? - Need to test it out
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
         [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
@@ -757,47 +680,11 @@ def getPreviousEvent() { return {
     }
 } }
 
+def getPortTCP() { return { -> hub().localSrvPortTCP } }
+
 def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
-def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
-
-def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
-
 def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
-
-def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
-
-def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
-
-def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
-    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
-} }
-
-def getDifferenceText() { return {
-    def changeText = 'unchanged' // text description of change
-    if (difference(it) > 0) changeText = 'increased'
-    else if (difference(it) < 0) changeText = 'decreased'
-    changeText
-} }
-
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
-
-def getSunrise() { return { -> "\"${getSunriseAndSunset().sunrise.format('HH:mm', location.timeZone)}\"" } }
-
-def getSunset() { return { -> "\"${getSunriseAndSunset().sunset.format('HH:mm', location.timeZone)}\"" } }
-
-def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
-
-def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
-
-def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
-
-def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
-
-def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
-
-def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
 
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
@@ -821,7 +708,43 @@ def getTimeElapsedText() { return {
     phrase
 } }
 
-def getTimeLastEvent() { return { dev, attr ->
+def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
+
+def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
+
+def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+
+def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
+
+def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+
+def getPreviousValueDescription() { return {
+    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
+} }
+
+def getDifferenceText() { return { // TODO Redo with < = > operator
+    def changeText = 'unchanged' // text description of change
+    if (difference(it) > 0) changeText = 'increased'
+    else if (difference(it) < 0) changeText = 'decreased'
+    changeText
+} }
+
+def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+
+def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
+
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
+
+def getDaylight() { return { -> getSunriseAndSunset() } }
+
+def getSunrise() { return { -> "\"${daylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
+
+def getSunset() { return { -> "\"${daylight().sunset.format('HH:mm', location.timeZone)}\"" } }
+
+def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
+
+def getTimeLastEvent() { return { dev, attr -> // TODO Redo with ? :
     if (dev?.latestState(attr)) {
         dev.latestState(attr).date.time
     } else {
@@ -831,7 +754,7 @@ def getTimeLastEvent() { return { dev, attr ->
 
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getValueLastEvent() { return { dev, attr ->
+def getValueLastEvent() { return { dev, attr -> // TODO Redo with ? :
     if (dev?.latestState(attr)) {
         "\"${dev.latestState(attr).value}\""
     } else {
@@ -843,9 +766,25 @@ def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-def getZigbeePowerLevel() { return { -> location.hubs[0].hub.getDataValue('zigbeePowerLevel') } }
+def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
-def getZwavePowerLevel() { return { -> location.hubs[0].hub.getDataValue('zwavePowerLevel') } }
+def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
+
+def getCcList() { return {
+    def info = zwInfo(it).clone()
+    def cc = info.cc
+    cc?.addAll(info?.ccOut)
+    cc?.addAll(info?.sec)
+    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true'
+    info.remove('zw')
+    info.remove('cc')
+    info.remove('ccOut')
+    info.remove('sec')
+    info = info.sort()
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    info = toKeyValue(info) + ',' + "${ccList}"
+    info
+} }
 
 /*****************************************************************************************************************
  *  Main Commands:
@@ -923,36 +862,33 @@ private manageSchedules() {
     runEvery15Minutes(pollZwaves)
 }
 
-
-private manageSubscriptions() { // Configures subscriptions
-    logger('manageSubscriptions:', 'trace')
+private manageSubscriptions() {
+    logger('manageSubscriptions: Subscribing listeners to events', 'trace')
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
             getDeviceAllowedAttrs(dev)?.each { attr ->
-                // if (dev?.hasAttribute("${attr}")) { // select only attributes that exist TODO Not sure that this filter is needed?
-                    def type = getAttributeDetail().find { it.key == attr }.value.type
-                    switch(type) {
-                        case 'enum':
-                            logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            subscribe(dev, attr, handleEnumEvent); break
-                        case 'number':
-                            logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            subscribe(dev, attr, handleNumberEvent); break
-                        case 'vector3':
-                            logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            subscribe(dev, attr, handleVector3Event); break
-                        case 'string':
-                            logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            subscribe(dev, attr, handleStringEvent); break
-                        case 'colorMap':
-                            logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            subscribe(dev, attr, handleColorMapEvent); break
-                        case 'json_object':
-                            logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                            // subscribe(dev, attr, handleJsonObjectEvent); break TODO - write handler (if needed)
-                    }
-                // }
+                def type = getAttributeDetail().find { it.key == attr }.value.type
+                switch(type) {
+                    case 'enum':
+                        logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        subscribe(dev, attr, handleEnumEvent); break
+                    case 'number':
+                        logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        subscribe(dev, attr, handleNumberEvent); break
+                    case 'vector3':
+                        logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        subscribe(dev, attr, handleVector3Event); break
+                    case 'string':
+                        logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        subscribe(dev, attr, handleStringEvent); break
+                    case 'colorMap':
+                        logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                        subscribe(dev, attr, handleColorMapEvent); break
+                    case 'json_object':
+                        logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
+                // subscribe(dev, attr, handleJsonObjectEvent); break TODO - write handler (if needed)
+                }
             }
         }
     }
@@ -963,22 +899,9 @@ private manageSubscriptions() { // Configures subscriptions
 
     logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events", 'info')
     subscribe(location.hubs[0], 'hubStatus', handleHubStatus)
-
-    logger('manageSubscriptions: Building state map of group Ids and group names', 'info')
-    if (settings.bridgePref) {
-        def groupId
-        def groupName
-        settings.bridgePref.each {
-            if (it.name?.take(1) == '~') {
-                groupId = it.device?.groupId
-                groupName = it.name?.drop(1) // .replaceAll(' ', '\\\\ ') // stoppped replaceAll to generalise
-                if (groupId) state.groupNames << [(groupId): groupName]
-            }
-        }
-    }
 }
 
-private logger(msg, level = 'debug') { // Wrapper function for all logging
+private logger(msg, level = 'debug') { // Wrapper method for all logging
     switch (level) {
         case 'error':
             if (state.loggingLevelIDE >= 1) log.error(msg); break
@@ -995,44 +918,15 @@ private logger(msg, level = 'debug') { // Wrapper function for all logging
     }
 }
 
-/*
-private getDeviceAllowedAttrs(deviceName) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them unless specifically excluded for that device
+private getDeviceAllowedAttrs(device) { // creates a list of allowed attributes by for a given device by filtering list of user selected attributes
     def deviceAllowedAttrs = []
     try {
         settings?.allowedAttributes?.each { attr ->
-            try {
-                def attrExcludedDevices = settings?."${attr}Exclusions"
-                if (!attrExcludedDevices?.find { it?.toLowerCase() == deviceName?.toLowerCase() }) { deviceAllowedAttrs << "${attr}" }
-            }
-            catch (e) {
-                logger("Error while getting device allowed attributes for ${deviceName?.displayName} and attribute ${attr}: ${e.message}", 'warn')
-            }
+            try { if (device.hasAttribute(attr)) deviceAllowedAttrs << attr }
+            catch (e) { logger("deviceAllowedAttrs: Error while getting device allowed attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn') }
         }
     }
-    catch (e) {
-        logger("Error while getting device allowed attributes for ${deviceName?.displayName}: ${e.message}", 'warn')
-    }
-    deviceAllowedAttrs
-}
-*/
-
-private getDeviceAllowedAttrs(device) { // creates a list of attributes by a device by filtering list of user selected attributes and adding them
-    def deviceAllowedAttrs = []
-    try {
-        settings?.allowedAttributes?.each {
-            try {
-                if (device.hasAttribute(it)) {
-                    deviceAllowedAttrs << it
-                }
-            }
-            catch (e) {
-                logger("Error while getting device allowed attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn')
-            }
-        }
-    }
-    catch (e) {
-        logger("Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn')
-    }
+    catch (e) { logger("deviceAllowedAttrs: Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn') }
     deviceAllowedAttrs.sort()
 }
 
@@ -1041,14 +935,8 @@ private getSupportedAttributes() { // iterates through list of all potential att
     def devices = getSelectedDevices()
     if (devices) {
         getAllAttributes()?.each { attr ->
-            try {
-                if (devices?.find { it?.hasAttribute("${attr}") }) {
-                    supportedAttributes << "${attr}"
-                }
-            }
-            catch (e) {
-                logger("Error while finding supported devices for ${attr}: ${e.message}", 'warn')
-            }
+            try { if (devices?.find { dev -> dev?.hasAttribute(attr) }) supportedAttributes << attr }
+            catch (e) { logger("supportedAttributes: Error while finding supported devices for ${attr}: ${e.message}", 'warn') }
         }
     }
     supportedAttributes?.unique()?.sort()
@@ -1058,29 +946,29 @@ private getAllAttributes() { // iterates through Capabilites map and creates a l
     def attributes = []
     getCapabilities().each { cap ->
         try {
-            if (cap?.attr) {
+            if (cap?.attr) { // TODO ? Rename in map to 'attribute'?
                 if (cap.attr instanceof Collection) {
-                    cap.attr.each { attr ->
-                        attributes << "${attr}"
+                    cap.attr.each {
+                        attributes << it
                     }
                 } else {
-                    attributes << "${cap?.attr}"
+                    attributes << cap.attr
                 }
             }
         }
         catch (e) {
-            logger("Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
+            logger("allAttributes: Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
         }
     }
-    attributes?.unique()?.sort() // added .unique()?.sort()
+    attributes?.unique()?.sort()
 }
 
 private getSelectedDeviceNames() { // creates list of device Names from list of device Objects selected by user
     try {
-        return getSelectedDevices()?.collect { it?.displayName }?.sort()
+        return getSelectedDevices()?.collect { it?.displayName }?.sort() // TODO ? Could this be groupName . displayName to be more helpful?
     }
     catch (e) {
-        logger("Error while getting selected device names: ${e.message}", 'warn')
+        logger("selectedDeviceNames: Error while getting selected device names: ${e.message}", 'warn')
         return []
     }
 }
@@ -1100,118 +988,114 @@ private getSelectedDevices() { // creates list of device Objects from devices se
     devices?.flatten()?.unique { it.id }
 }
 
-private getCapabilities() {
-    [
-            [title: 'Actuators', cap: 'actuator'],
-            [title: 'Bridges', cap: 'bridge'],
-            [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
-            [title: 'Acceleration Sensors', cap: 'accelerationSensor', attr: 'acceleration'],
-            [title: 'Alarms', cap: 'alarm', attr: 'alarm'],
-            [title: 'Batteries', cap: 'battery', attr: 'battery'],
-            [title: 'Beacons', cap: 'beacon', attr: 'presence'],
-            [title: 'Bulbs', cap: 'bulb', attr: 'switch'],
-            [title: 'Buttons', cap: 'button', attr: ['button', 'numberOfButtons']],
-            [title: 'Carbon Dioxide Measurement Sensors', cap: 'carbonDioxideMeasurement', attr: 'carbonDioxide'],
-            [title: 'Carbon Monoxide Detectors', cap: 'carbonMonoxideDetector', attr: 'carbonMonoxide'],
-            [title: 'Color Control Devices', cap: 'colorControl', attr: ['color', 'hue', 'saturation']],
-            [title: 'Color Temperature Devices', cap: 'colorTemperature', attr: 'colorTemperature'],
-            [title: 'Consumable Devices', cap: 'consumable', attr: 'consumableStatus'],
-            [title: 'Contact Sensors', cap: 'contactSensor', attr: 'contact'],
-            [title: 'Doors', cap: 'doorControl', attr: 'door'],
-            [title: 'Energy Meters', cap: 'energyMeter', attr: 'energy'],
-            [title: 'Garage Doors', cap: 'garageDoorControl', attr: 'door'],
-            [title: 'Holdable Buttons', cap: 'holdableButton', attr: ['button', 'numberOfButtons']],
-            [title: 'Illuminance Measurement Sensors', cap: 'illuminanceMeasurement', attr: 'illuminance'],
-            [title: 'Lights', cap: 'light', attr: 'switch'],
-            [title: 'Locks', cap: 'lock', attr: 'lock'],
-            [title: 'Motion Sensors', cap: 'motionSensor', attr: 'motion'],
-            [title: 'Music Players', cap: 'musicPlayer', attr: ['level', 'mute', 'status', 'trackDescription']],
-            [title: 'Outlets', cap: 'outlet', attr: 'switch'],
-            [title: 'Power Meters', cap: 'powerMeter', attr: 'power'],
-            [title: 'Power Sources', cap: 'powerSource', attr: 'powerSource'],
-            [title: 'Power', cap: 'power', attr: 'powerSource'],
-            [title: 'Presence Sensors', cap: 'presenceSensor', attr: 'presence'],
-            [title: 'Relative Humidity Measurement Sensors', cap: 'relativeHumidityMeasurement', attr: 'humidity'],
-            [title: 'Relay Switches', cap: 'relaySwitch', attr: 'switch'],
-            [title: 'Shock Sensors', cap: 'shockSensor', attr: 'shock'],
-            [title: 'Signal Strength Sensors', cap: 'signalStrength', attr: ['lqi', 'rssi']],
-            [title: 'Sleep Sensors', cap: 'sleepSensor', attr: 'sleeping'],
-            [title: 'Smoke Detectors', cap: 'smokeDetector', attr: 'smoke'],
-            [title: 'Sound Pressure Level Sensors', cap: 'soundPressureLevel', attr: 'soundPressureLevel'],
-            [title: 'Sound Sensors', cap: 'soundSensor', attr: 'sound'],
-            [title: 'Switch Level Sensors', cap: 'switchLevel', attr: 'level'],
-            [title: 'Switches', cap: 'switch', attr: 'switch'],
-            [title: 'Tamper Alert Sensors', cap: 'tamperAlert', attr: 'tamper'],
-            [title: 'Temperature Measurement Sensors', cap: 'temperatureMeasurement', attr: 'temperature'],
-            [title: 'Thermostats', cap: 'thermostat', attr: ['heatingSetpoint', 'temperature', 'thermostatFanMode', 'thermostatMode', 'thermostatOperatingState', 'thermostatSetpoint']],
-            [title: 'Three Axis Sensors', cap: 'threeAxis', attr: 'threeAxis'],
-            [title: 'Touch Sensors', cap: 'touchSensor', attr: 'touch'],
-            [title: 'Ultraviolet Index Sensors', cap: 'ultravioletIndex', attr: 'ultravioletIndex'],
-            [title: 'Valves', cap: 'valve', attr: 'valve'],
-            [title: 'Voltage Measurement Sensors', cap: 'voltageMeasurement', attr: 'voltage'],
-            [title: 'Water Sensors', cap: 'waterSensor', attr: 'water'],
-            [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
-    ]
-}
+private getCapabilities() { [
+        [title: 'Actuators', cap: 'actuator'],
+        [title: 'Bridges', cap: 'bridge'],
+        [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
+        [title: 'Acceleration Sensors', cap: 'accelerationSensor', attr: 'acceleration'],
+        [title: 'Alarms', cap: 'alarm', attr: 'alarm'],
+        [title: 'Batteries', cap: 'battery', attr: 'battery'],
+        [title: 'Beacons', cap: 'beacon', attr: 'presence'],
+        [title: 'Bulbs', cap: 'bulb', attr: 'switch'],
+        [title: 'Buttons', cap: 'button', attr: ['button', 'numberOfButtons']],
+        [title: 'Carbon Dioxide Measurement Sensors', cap: 'carbonDioxideMeasurement', attr: 'carbonDioxide'],
+        [title: 'Carbon Monoxide Detectors', cap: 'carbonMonoxideDetector', attr: 'carbonMonoxide'],
+        [title: 'Color Control Devices', cap: 'colorControl', attr: ['color', 'hue', 'saturation']],
+        [title: 'Color Temperature Devices', cap: 'colorTemperature', attr: 'colorTemperature'],
+        [title: 'Consumable Devices', cap: 'consumable', attr: 'consumableStatus'],
+        [title: 'Contact Sensors', cap: 'contactSensor', attr: 'contact'],
+        [title: 'Doors', cap: 'doorControl', attr: 'door'],
+        [title: 'Energy Meters', cap: 'energyMeter', attr: 'energy'],
+        [title: 'Garage Doors', cap: 'garageDoorControl', attr: 'door'],
+        [title: 'Holdable Buttons', cap: 'holdableButton', attr: ['button', 'numberOfButtons']],
+        [title: 'Illuminance Measurement Sensors', cap: 'illuminanceMeasurement', attr: 'illuminance'],
+        [title: 'Lights', cap: 'light', attr: 'switch'],
+        [title: 'Locks', cap: 'lock', attr: 'lock'],
+        [title: 'Motion Sensors', cap: 'motionSensor', attr: 'motion'],
+        [title: 'Music Players', cap: 'musicPlayer', attr: ['level', 'mute', 'status', 'trackDescription']],
+        [title: 'Outlets', cap: 'outlet', attr: 'switch'],
+        [title: 'Power Meters', cap: 'powerMeter', attr: 'power'],
+        [title: 'Power Sources', cap: 'powerSource', attr: 'powerSource'],
+        [title: 'Power', cap: 'power', attr: 'powerSource'],
+        [title: 'Presence Sensors', cap: 'presenceSensor', attr: 'presence'],
+        [title: 'Relative Humidity Measurement Sensors', cap: 'relativeHumidityMeasurement', attr: 'humidity'],
+        [title: 'Relay Switches', cap: 'relaySwitch', attr: 'switch'],
+        [title: 'Shock Sensors', cap: 'shockSensor', attr: 'shock'],
+        [title: 'Signal Strength Sensors', cap: 'signalStrength', attr: ['lqi', 'rssi']],
+        [title: 'Sleep Sensors', cap: 'sleepSensor', attr: 'sleeping'],
+        [title: 'Smoke Detectors', cap: 'smokeDetector', attr: 'smoke'],
+        [title: 'Sound Pressure Level Sensors', cap: 'soundPressureLevel', attr: 'soundPressureLevel'],
+        [title: 'Sound Sensors', cap: 'soundSensor', attr: 'sound'],
+        [title: 'Switch Level Sensors', cap: 'switchLevel', attr: 'level'],
+        [title: 'Switches', cap: 'switch', attr: 'switch'],
+        [title: 'Tamper Alert Sensors', cap: 'tamperAlert', attr: 'tamper'],
+        [title: 'Temperature Measurement Sensors', cap: 'temperatureMeasurement', attr: 'temperature'],
+        [title: 'Thermostats', cap: 'thermostat', attr: ['heatingSetpoint', 'temperature', 'thermostatFanMode', 'thermostatMode', 'thermostatOperatingState', 'thermostatSetpoint']],
+        [title: 'Three Axis Sensors', cap: 'threeAxis', attr: 'threeAxis'],
+        [title: 'Touch Sensors', cap: 'touchSensor', attr: 'touch'],
+        [title: 'Ultraviolet Index Sensors', cap: 'ultravioletIndex', attr: 'ultravioletIndex'],
+        [title: 'Valves', cap: 'valve', attr: 'valve'],
+        [title: 'Voltage Measurement Sensors', cap: 'voltageMeasurement', attr: 'voltage'],
+        [title: 'Water Sensors', cap: 'waterSensor', attr: 'water'],
+        [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
+] }
 
-private getAttributeDetail() {
-    [
-            acceleration            : [type: 'enum', levels: [inactive: -1, active: 1]],
-            alarm                   : [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
-            battery                 : [type: 'number', decimalPlaces: 0, unit: '%'],
-            button                  : [type: 'enum', levels: [released: -1, pushed: 1, double: 2, held: 3]],
-            buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
-            carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
-            carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-            color                   : [type: 'colorMap'],
-            colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
-            consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
-            contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
-            current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-            daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
-            door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
-            energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
-            heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-            hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
-            hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
-            humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
-            illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],
-            level                   : [type: 'number', decimalPlaces: 0, unit: ''],
-            lock                    : [type: 'enum', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
-            lqi                     : [type: 'number', decimalPlaces: 2, unit: 'dB'],
-            motion                  : [type: 'enum', levels: [inactive: -1, active: 1]],
-            mute                    : [type: 'enum', levels: [muted: -1, unmuted: 1]],
-            numberOfButtons         : [type: 'number', decimalPlaces: 0, unit: ''],
-            pH                      : [type: 'number', decimalPlaces: 1, unit: ''],
-            power                   : [type: 'number', decimalPlaces: 0, unit: 'W'],
-            powerSource             : [type: 'enum', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
-            presence                : [type: 'enum', levels: ['not present': -1, present: 1]],
-            pressure                : [type: 'number', decimalPlaces: 1, unit: 'mbar'],
-            reactiveEnergy          : [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
-            reactivePower           : [type: 'number', decimalPlaces: 3, unit: 'kVar'],
-            rssi                    : [type: 'number', decimalPlaces: 2, unit: 'dB'],
-            saturation              : [type: 'number', decimalPlaces: 0, unit: '%'],
-            shock                   : [type: 'enum', levels: [clear: -1, detected: 1]],
-            sleeping                : [type: 'enum', levels: [sleeping: -1, 'not sleeping': 1]],
-            smoke                   : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-            sound                   : [type: 'enum', levels: ['not detected': -1, detected: 1]],
-            soundPressureLevel      : [type: 'number', decimalPlaces: 0, unit: 'dB'],
-            status                  : [type: 'string'],
-            switch                  : [type: 'enum', levels: [off: -1, on: 1]],
-            tamper                  : [type: 'enum', levels: [clear: -1, detected: 1]],
-            temperature             : [type: 'number', decimalPlaces: 0, unit: 'C'],
-            thermostatFanMode       : [type: 'enum', levels: [on: 1, circulate: 2, auto: 3, followschedule: 4]],
-            thermostatMode          : [type: 'enum', levels: ['rush hour': -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
-            thermostatOperatingState: [type: 'enum', levels: [cooling: -3, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
-            thermostatSetpoint      : [type: 'number', decimalPlaces: 0, unit: 'C'],
-            threeAxis               : [type: 'vector3', decimalPlaces: 2, unit: 'g'],
-            totalEnergy             : [type: 'number', decimalPlaces: 2, unit: 'kVAh'],
-            touch                   : [type: 'enum', levels: [touched: 1]],
-            trackDescription        : [type: 'string'],
-            ultravioletIndex        : [type: 'number', decimalPlaces: 0, unit: ''],
-            valve                   : [type: 'enum', levels: [closed: -1, open: 1]],
-            voltage                 : [type: 'number', decimalPlaces: 0, unit: 'V'],
-            water                   : [type: 'enum', levels: [dry: -1, wet: 1]],
-            windowShade             : [type: 'enum', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
-    ]
-}
+private getAttributeDetail() { [
+        acceleration            : [type: 'enum', levels: [inactive: -1, active: 1]],
+        alarm                   : [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
+        battery                 : [type: 'number', decimalPlaces: 0, unit: '%'],
+        button                  : [type: 'enum', levels: [released: -1, pushed: 1, double: 2, held: 3]],
+        buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
+        carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
+        carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+        color                   : [type: 'colorMap'],
+        colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
+        consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
+        contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
+        current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
+        daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
+        door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
+        energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
+        heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
+        hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
+        hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
+        humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
+        illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],
+        level                   : [type: 'number', decimalPlaces: 0, unit: ''],
+        lock                    : [type: 'enum', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
+        lqi                     : [type: 'number', decimalPlaces: 2, unit: 'dB'],
+        motion                  : [type: 'enum', levels: [inactive: -1, active: 1]],
+        mute                    : [type: 'enum', levels: [muted: -1, unmuted: 1]],
+        numberOfButtons         : [type: 'number', decimalPlaces: 0, unit: ''],
+        pH                      : [type: 'number', decimalPlaces: 1, unit: ''],
+        power                   : [type: 'number', decimalPlaces: 0, unit: 'W'],
+        powerSource             : [type: 'enum', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
+        presence                : [type: 'enum', levels: ['not present': -1, present: 1]],
+        pressure                : [type: 'number', decimalPlaces: 1, unit: 'mbar'],
+        reactiveEnergy          : [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
+        reactivePower           : [type: 'number', decimalPlaces: 3, unit: 'kVar'],
+        rssi                    : [type: 'number', decimalPlaces: 2, unit: 'dB'],
+        saturation              : [type: 'number', decimalPlaces: 0, unit: '%'],
+        shock                   : [type: 'enum', levels: [clear: -1, detected: 1]],
+        sleeping                : [type: 'enum', levels: [sleeping: -1, 'not sleeping': 1]],
+        smoke                   : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+        sound                   : [type: 'enum', levels: ['not detected': -1, detected: 1]],
+        soundPressureLevel      : [type: 'number', decimalPlaces: 0, unit: 'dB'],
+        status                  : [type: 'string'],
+        switch                  : [type: 'enum', levels: [off: -1, on: 1]],
+        tamper                  : [type: 'enum', levels: [clear: -1, detected: 1]],
+        temperature             : [type: 'number', decimalPlaces: 0, unit: 'C'],
+        thermostatFanMode       : [type: 'enum', levels: [on: 1, circulate: 2, auto: 3, followschedule: 4]],
+        thermostatMode          : [type: 'enum', levels: ['rush hour': -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
+        thermostatOperatingState: [type: 'enum', levels: [cooling: -3, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
+        thermostatSetpoint      : [type: 'number', decimalPlaces: 0, unit: 'C'],
+        threeAxis               : [type: 'vector3', decimalPlaces: 2, unit: 'g'],
+        totalEnergy             : [type: 'number', decimalPlaces: 2, unit: 'kVAh'],
+        touch                   : [type: 'enum', levels: [touched: 1]],
+        trackDescription        : [type: 'string'],
+        ultravioletIndex        : [type: 'number', decimalPlaces: 0, unit: ''],
+        valve                   : [type: 'enum', levels: [closed: -1, open: 1]],
+        voltage                 : [type: 'number', decimalPlaces: 0, unit: 'V'],
+        water                   : [type: 'enum', levels: [dry: -1, wet: 1]],
+        windowShade             : [type: 'enum', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
+] }

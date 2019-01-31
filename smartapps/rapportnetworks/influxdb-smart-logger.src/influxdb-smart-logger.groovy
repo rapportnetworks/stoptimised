@@ -148,10 +148,10 @@ private buildSummary(items) {
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() { // runs when the app is first installed
-    state.installedAt = now()
+    // state.installedAt = now() // TODO - Don't think this is needed?
     state.loggingLevelIDE = 5
     logger("installed: ${app.label} installed with settings: ${settings}", 'trace')
-    state.installed = true
+    // state.installed = true // TODO - Don't think this is needed?
 }
 
 def uninstalled() { // runs when the app is uninstalled
@@ -160,7 +160,7 @@ def uninstalled() { // runs when the app is uninstalled
 
 def updated() { // runs when app settings are changed
     logger("updated:", 'trace')
-    state.installed = true
+    // state.installed = true // TODO - Don't think this is needed?
 
     logger('updated: Setting logging lever', 'trace')
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
@@ -186,24 +186,28 @@ def updated() { // runs when app settings are changed
         }
     }
 
-    if (settings?.allowedAttributes) { // TODO What is this needed for?
-        state.attributesConfigured = true
-    } else {
-        logger("updated: Unconfigured - Choose Events", 'debug')
-    }
-
-    if (getSelectedDevices()) { // TODO What is this needed for?
+    if (getSelectedDevices()) {
+        logger('updated: Configured - Devices Selected', 'trace')
         state.devicesConfigured = true
     } else {
-        logger("updated: Unconfigured - Choose Devices", 'debug')
+        logger("updated: Unconfigured - Choose Devices", 'trace')
+    }
+
+    if (settings?.allowedAttributes) {
+        logger('updated: Configured - Events Selected', 'trace')
+        state.attributesConfigured = true
+    } else {
+        logger('updated: Unconfigured - Choose Events', 'trace')
     }
 
     manageSubscriptions()
     manageSchedules()
-    // runIn(100, pollLocations)
-    // runIn(300, pollDevices)
-    // runIn(600, pollAttributes)
-    // runIn(900, pollZwaves)
+
+    logger('updated: Scheduling first run of poll methods', 'trace')
+    // runIn(60, pollLocations)
+    // runIn(120, pollDevices)
+    // runIn(300, pollAttributes)
+    // runIn(600, pollZwaves)
 }
 
 /*****************************************************************************************************************
@@ -219,7 +223,7 @@ def handleEnumEvent(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleNumberEvent(evt) {
@@ -228,7 +232,7 @@ def handleNumberEvent(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleVector3Event(evt) {
@@ -237,7 +241,7 @@ def handleVector3Event(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleStringEvent(evt) {
@@ -246,16 +250,16 @@ def handleStringEvent(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
-def handleColorMapEvent() {
+def handleColorMapEvent(evt) {
     def measurementType = 'colorMap'
     def measurementName = 'values'
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 // def handleJsonObjectEvent() { } // TODO
@@ -266,7 +270,7 @@ def handleDaylight(evt) {
     def retentionPolicy = 'autogen'
     def multiple = false
     def superItem = false
-    influxLineProtocol(event, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(event, measurementName, measurementType, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
@@ -276,7 +280,7 @@ def handleHubStatus(evt) {
         def retentionPolicy = 'autogen'
         def multiple = false
         def superItem = false
-        influxLineProtocol(evt, measurementName, measurementType, multiple, retentionPolicy, superItem)
+        influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
     }
 }
 
@@ -285,10 +289,10 @@ def pollLocations() {
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
-    def multiple = false
-    def superItem = false
+    // def multiple = false
+    // def superItem = false
     def items = ['dummy'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
-    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
 def pollDevices() {
@@ -297,9 +301,9 @@ def pollDevices() {
     def measurementName = 'devices'
     def retentionPolicy = 'autogen' // TODO Check should it be 'metadata'?
     def multiple = true
-    def superItem = false
+    // def superItem = false
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy, superItem)
+    influxLineProtocol(items, measurementName, measurementType, multiple, retentionPolicy)
 }
 
 def pollAttributes() {
@@ -321,12 +325,12 @@ def pollZwaves() {
     def measurementName = 'devicesZw' // TODO need to check this
     def retentionPolicy = 'metadata'
     def multiple = true
-    def superItem = false
+    // def superItem = false
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple, superItem)
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple)
 }
 
-def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen', superItem) {
+def influxLineProtocol(items, measurementName, measurementType, multiple = false, retentionPolicy = 'autogen', superItem = false) {
     logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
     items.each { item ->
@@ -386,7 +390,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
                 fieldCount++
             }
         }
-        if (item?.respondsTo('isStateChange')) {
+        if (isEventObject(item)) {
             influxLP.append(' ')
             influxLP.append(timestamp(item))
         }
@@ -446,8 +450,8 @@ def getHubId() { return { -> hub().id } }
 
 def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ')) ?: state.houseType } }
 
-def getGroupId() { return { // TODO Redo with ? : plus create  def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
-    if (it?.respondsTo('isStateChange')) {
+def getGroupId() { return {
+    if (isEventObject(it)) {
         (it?.device?.device?.groupId) ? it.device.device.groupId  : 'unassigned' // for event objects
     }
     else {
@@ -455,8 +459,10 @@ def getGroupId() { return { // TODO Redo with ? : plus create  def getIsEventObj
     }
 } }
 
-def getDeviceCode() { return { // TODO Redo with ? :
-    if (it?.respondsTo('isStateChange')) {
+def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
+
+def getDeviceCode() { return {
+    if (isEventObject(it)) {
         (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned'
     }
     else {
@@ -464,16 +470,10 @@ def getDeviceCode() { return { // TODO Redo with ? :
     }
 } }
 
-def getDeviceId() { return { // TODO Redo with ? :
-    if (it?.respondsTo('isStateChange')) {
-        it.deviceId
-    } else {
-        it?.id
-    }
-} }
+def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
-def getDeviceLabel() { return { // TODO Redo with ? :
-    if (it?.respondsTo('isStateChange')) {
+def getDeviceLabel() { return {
+    if (isEventObject(it)) {
         (it?.device?.device?.label) ? it.device.device.label.replaceAll(' ', '\\\\ ') : 'unassigned'
     } else {
         (it?.label) ? it.label.replaceAll(' ', '\\\\ ') : 'unassigned'
@@ -483,12 +483,8 @@ def getDeviceLabel() { return { // TODO Redo with ? :
 def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
 
 def getEventName() { return {
-    if (it?.respondsTo('isStateChange')) {
-        if (it.name in ['sunrise', 'sunset']) { // TODO Redo with ? :
-            'daylight'
-        } else {
-            it.name
-        }
+    if (isEventObject(it)) {
+        (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name
     } else {
         it
     }
@@ -619,13 +615,7 @@ def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.
 
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
-def getCurrentEventValue() { return { // TODO redo with ? :
-    if (it?.name in ['sunrise', 'sunset']) {
-        it.name
-    } else {
-        it.value
-    }
-} }
+def getCurrentEventValue() { return { (it?.name in ['sunrise', 'sunset']) ? it.name : it.value } }
 
 def getCurrentState() { return { "\"${currentEventValue(it)}\"" } }
 
@@ -744,23 +734,11 @@ def getSunset() { return { -> "\"${daylight().sunset.format('HH:mm', location.ti
 
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 
-def getTimeLastEvent() { return { dev, attr -> // TODO Redo with ? :
-    if (dev?.latestState(attr)) {
-        dev.latestState(attr).date.time
-    } else {
-        0
-    }
-} }
+def getTimeLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? dev.latestState(attr).date.time : 0 } }
 
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
 
-def getValueLastEvent() { return { dev, attr -> // TODO Redo with ? :
-    if (dev?.latestState(attr)) {
-        "\"${dev.latestState(attr).value}\""
-    } else {
-        'null'
-    }
-} }
+def getValueLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? "\"${dev.latestState(attr).value}\"" : 'null' } }
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 

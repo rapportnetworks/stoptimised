@@ -424,7 +424,7 @@ def tags() { [
         [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['device', 'colorMap', 'enum', 'number', 'string', 'vector3', 'zwave']], // TODO Need a separate closure for 'attribute' with arguments: 2
+        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']], // TODO Need a separate closure for 'attribute' with arguments: 2
         [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
         [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // TODO check this out
@@ -546,7 +546,7 @@ def getUnit() { return {
 } }
 
 def fields() { [
-        [name: '', closure: 'configuredParameters', valueType: 'string', arguments: 1, type: ['zwave']],
+        [name: '', closure: 'configuredParametersList', valueType: 'string', arguments: 1, type: ['zwave']],
         [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
         [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
@@ -589,11 +589,11 @@ def fields() { [
         [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
         [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
-        [name: 'zwavePowerLevel', closure: 'longitude', valueType: 'string', arguments: 0, type: ['local']],
-        [name: '', closure: 'ccList', valueType: 'string', arguments: 1, type: ['zwave']],
+        [name: 'zwavePowerLevel', closure: 'zwavePowerLevel', valueType: 'string', arguments: 0, type: ['local']],
+        [name: '', closure: 'commandClassesList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
-def getConfiguredParameters() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
+def getConfiguredParametersList() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
@@ -748,7 +748,7 @@ def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel
 
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
-def getCcList() { return {
+def getCommandClassesList() { return {
     def info = zwInfo(it).clone()
     def cc = info.cc
     cc?.addAll(info?.ccOut)

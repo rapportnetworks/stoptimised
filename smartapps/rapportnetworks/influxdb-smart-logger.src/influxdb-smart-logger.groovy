@@ -442,9 +442,9 @@ def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') } }
 
 def getLocationId() { return { -> location.id } }
 
-def getHub() { return { -> location.hubs[0] } }
-
 def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ') } }
+
+def getHub() { return { -> location.hubs[0] } }
 
 def getHubId() { return { -> hub().id } }
 
@@ -554,9 +554,9 @@ def fields() { [
         [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'latitude', closure: 'latitude', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'longitude', closure: 'longitude', valueType: 'string', arguments: 0, type: ['local']],
-        [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day', 'hub', 'enum']],
-        [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'hub', 'enum']],
-        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'hub', 'enum', 'string']],
+        [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day','enum', 'hub']],
+        [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'enum', 'hub']],
+        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'enum', 'hub', 'string']],
         [name: 'nText', closure: 'currentStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
         [name: 'nText', closure: 'currentValueDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'nValue', closure: 'currentValue', valueType: 'float', arguments: 1, type: ['number']],
@@ -611,19 +611,19 @@ def getLongitude() { return { -> "\"${location.longitude}\"" } }
 
 def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
 
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentEventValue(it) }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentStateValue(it) }.value } }
 
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
-def getCurrentEventValue() { return { (it?.name in ['sunrise', 'sunset']) ? it.name : it.value } }
+def getCurrentStateValue() { return { (it?.name in ['sunrise', 'sunset']) ? it.name : it.value } }
 
-def getCurrentState() { return { "\"${currentEventValue(it)}\"" } }
+def getCurrentState() { return { "\"${currentStateValue(it)}\"" } }
 
-def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
+def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentStateValue(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
 def getCurrentValueDescription() { return { "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
-def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ?: removeUnit(it) } }
+def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ? it.numberValue.toBigDecimal() : removeUnit(it) } }
 
 def removeUnit() { return { // remove any units appending to end of event value property
     def length = it.value.length()
@@ -726,11 +726,9 @@ def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal(
 
 def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
 
-def getDaylight() { return { -> getSunriseAndSunset() } }
-
 def getSunrise() { return { -> "\"${daylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
-
 def getSunset() { return { -> "\"${daylight().sunset.format('HH:mm', location.timeZone)}\"" } }
+def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 

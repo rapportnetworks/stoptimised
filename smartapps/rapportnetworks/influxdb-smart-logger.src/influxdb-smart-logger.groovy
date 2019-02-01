@@ -410,16 +410,16 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
 }
 
 def tags() { [
-        [name: 'area', closure: 'locationName', arguments: 0, type: ['all']],
-        [name: 'areaId', closure: 'locationId', arguments: 0, type: ['all']],
+        [name: 'area', closure: 'locationName', arguments: 1, type: ['all']],
+        [name: 'areaId', closure: 'locationId', arguments: 1, type: ['all']],
         [name: 'building', closure: 'hubName', arguments: 0, type: ['all']],
-        [name: 'buildingId', closure: 'hubId', arguments: 0, type: ['all']],
+        [name: 'buildingId', closure: 'hubId', arguments: 1, type: ['all']],
         [name: 'chamber', closure: 'groupName', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'chamberId', closure: 'groupId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceCode', closure: 'deviceCode', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceId', closure: 'deviceId', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'colorMap', 'device', 'zwave'], super: true],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, type: ['attribute', 'device', 'zwave'], super: true],
         [name: 'event', closure: 'eventName', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
@@ -432,21 +432,24 @@ def tags() { [
         [name: 'secure', closure: 'secure', arguments: 1, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'status', closure: 'status', arguments: 1, type: ['attribute', 'device', 'zwave'], super: true], // TODO ?Included
-        [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
+        [name: 'tempScale', closure: 'tempScale', arguments: 0, type: ['local']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, type: ['attribute']],
         [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, type: ['local']],
+        [name: 'type', closure: 'zwType', arguments: 0, type: ['zwave']],
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
-def getLocationName() { return { -> location.name.replaceAll(' ', '\\\\ ') } }
+def getLocationName() { return { (isEventObject(it)) ? it.location.replaceAll(' ', '\\\\ ') : location.name.replaceAll(' ', '\\\\ ') } }
 
-def getLocationId() { return { -> location.id } }
+def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
+
+def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
 
 def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ') } }
 
-def getHub() { return { -> location.hubs[0] } }
+def getHub() { return { -> location.hubs[0] } } // TODO? - device.hub can get a device's hub
 
-def getHubId() { return { -> hub().id } }
+def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
 def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ')) ?: state.houseType } }
 
@@ -458,8 +461,6 @@ def getGroupId() { return {
         (it?.device?.groupId) ? it.device.groupId : 'unassigned' // for everything else
     }
 } }
-
-def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
 
 def getDeviceCode() { return {
     if (isEventObject(it)) {
@@ -525,7 +526,7 @@ def getSource() { return { "${it?.source}".toLowerCase() } }
 
 def getStatus() { return { "${it?.status}".toLowerCase() } }
 
-def getZwType() { return { 'zwave' } } // TODO Is this needed?
+def getTempScale() { return { -> location.temperatureScale } }
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -538,6 +539,8 @@ def getDaysElapsed() { return { dev, attr ->
 } }
 
 def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
+
+def getZwType() { return { 'zwave' } } // TODO Is this needed?
 
 def getUnit() { return {
     def unit = (it?.unit) ? it.unit : getEventDetails(it).unit // TODO is a unit already present for threeaxes?

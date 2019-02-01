@@ -166,9 +166,10 @@ def updated() { // runs when app settings are changed
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
     logger('updated: Setting database parameters', 'trace')
+    state.dbLocation = (settings.prefDatabaseRemote) ? 'Remote' : 'Local'
     state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", "Content-Type": "application/x-www-form-urlencoded"]
     state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
-    state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms']
+    state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms', rp: 'autogen']
     state.path = '/write'
 
     logger('updated: Building state map of group Ids and group names', 'debug')
@@ -407,6 +408,7 @@ def influxLineProtocol(items, measurementName, measurementType, multiple = false
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
+    "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy)
 }
 
 def tags() { [
@@ -439,7 +441,7 @@ def tags() { [
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
-def getLocationName() { return { (isEventObject(it)) ? it.location.replaceAll(' ', '\\\\ ') : location.name.replaceAll(' ', '\\\\ ') } }
+def getLocationName() { return { location.name.replaceAll(' ', '\\\\ ') } }
 
 def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
 
@@ -447,7 +449,7 @@ def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id
 
 def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ') } }
 
-def getHub() { return { -> location.hubs[0] } } // TODO? - device.hub can get a device's hub
+def getHub() { return { -> location.hubs[0] } } // note device.hub can get a device's hub
 
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
@@ -583,7 +585,7 @@ def fields() { [
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
-        [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
+        [name: 'tElapsedText', closure: 'timeElapsedDescription', valueType: 'string', arguments: 1, type: ['enum', 'number']],
         [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute']],
         [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
@@ -679,6 +681,8 @@ def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
 
 def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
 
+def getTimeElapsedDescription() { return { "\"${timeElapsedText(it)}\"" } }
+
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
     def phrase
@@ -716,12 +720,14 @@ def getPreviousValueDescription() { return {
     "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
 } }
 
-def getDifferenceText() { return { // TODO Redo with < = > operator
+def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
+    /*
     def changeText = 'unchanged' // text description of change
     if (difference(it) > 0) changeText = 'increased'
     else if (difference(it) < 0) changeText = 'decreased'
     changeText
 } }
+*/
 
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
@@ -770,7 +776,7 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
     try {
-        def query = state.query.clone()
+        def query = state.query
         query.rp = retentionPolicy
         def hubAction = new physicalgraph.device.HubAction([
             method : 'POST',
@@ -795,9 +801,9 @@ def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) { //
 }
 
 def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
-    def query = state.query.clone()
+    def query = state.query
     query.rp = retentionPolicy
-    def params = [
+    def params = [ // headers: is also potential item in map - Why not required?
         uri               : state.uri,
         path              : state.path,
         query             : query,

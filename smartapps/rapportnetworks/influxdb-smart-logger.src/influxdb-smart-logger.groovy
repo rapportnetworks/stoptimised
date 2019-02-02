@@ -769,7 +769,7 @@ def getCommandClassesList() { return {
     info.remove('sec')
     info.endpointInfo.replaceAll('[', '')
     info.endpointInfo.replaceAll(']', '')
-    info.endpointInfo.replaceAll(',', '') // TODO - Need to sort ','
+    info.endpointInfo.replaceAll(',', ':') // TODO - Need to sort ','
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"

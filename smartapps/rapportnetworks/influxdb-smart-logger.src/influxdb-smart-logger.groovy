@@ -598,7 +598,7 @@ def fields() { [
         [name: '', closure: 'commandClassesList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
-def getConfiguredParametersList() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } }
+def getConfiguredParametersList() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } } // TODO ? Try to insert 'i' for integer after each value?
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
@@ -767,6 +767,9 @@ def getCommandClassesList() { return {
     info.remove('cc')
     info.remove('ccOut')
     info.remove('sec')
+    info.endpointInfo.replaceAll('[', '')
+    info.endpointInfo.replaceAll(']', '')
+    info.endpointInfo.replaceAll(',', '') // TODO - Need to sort ','
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"

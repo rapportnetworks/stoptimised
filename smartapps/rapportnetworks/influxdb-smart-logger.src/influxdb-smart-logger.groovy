@@ -579,7 +579,7 @@ def fields() { [
         [name: 'pText', closure: 'previousValueDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
+        [name: 'rChangeText', closure: 'differenceDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device']], // TODO Convert to a tag?
         [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
@@ -626,7 +626,7 @@ def getCurrentState() { return { "\"${currentStateValue(it)}\"" } }
 
 def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentStateValue(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
-def getCurrentValueDescription() { return { "\"At ${locationName()} ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
+def getCurrentValueDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
 
 def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ? it.numberValue.toBigDecimal() : removeUnit(it) } }
 
@@ -719,6 +719,8 @@ def getPreviousValueDescription() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
 } }
+
+def getDifferenceDescription() { return { "\"${differenceText(it)}\"" } }
 
 def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
     /*

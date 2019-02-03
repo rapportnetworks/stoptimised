@@ -334,6 +334,7 @@ def pollZwaves() {
 def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', multiple = false, superItem = false) {
     logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
+    def count = 1
     items.each { item ->
         influxLP.append(measurementName)
         tags().each { tag ->
@@ -361,7 +362,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                  }
             }
         }
-        influxLP.append(' ')
+        influxLP.append(" ") // TODO - Seems to get missed out if it is only ' ' ?
         def fieldCount = 0
         fields().each { field ->
             if ('all' in field.type || measurementType in field.type) {
@@ -387,6 +388,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                         catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.closure}", 'error') }
                         break
                 }
+                // TODO - change above code to a variable - then do appending here at end - then can check for string and add escaped quotes here (and not need separate enclosures below
                 if (field.valueType == 'integer') influxLP.append('i')
                 fieldCount++
             }
@@ -395,7 +397,12 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
             influxLP.append(' ')
             influxLP.append(timestamp(item))
         }
-        if (multiple) influxLP.append('\n')
+        if (multiple) {
+            if (count < items?.size()) {
+                influxLP.append('\n')
+                count++
+            }
+        }
     }
     logger ("${influxLP.toString()}", 'trace')
 /*
@@ -441,35 +448,35 @@ def tags() { [
         [name: 'unit', closure: 'unit', arguments: 1, type: ['number', 'vector3']],
 ] }
 
-def getLocationName() { return { location.name.replaceAll(' ', '\\\\ ') } }
+def getLocationName() { return { location.name.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') } }
 
 def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
 
 def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
 
-def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ') } }
+def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') } }
 
 def getHub() { return { -> location.hubs[0] } } // note device.hub can get a device's hub
 
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
-def getGroupName() { return { (state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ')) ?: state.houseType } }
+def getGroupName() { return { state?.groupNames?."${groupId(it)}".replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') ?: state.houseType } }
 
 def getGroupId() { return {
     if (isEventObject(it)) {
-        (it?.device?.device?.groupId) ? it.device.device.groupId  : 'unassigned' // for event objects
+        it?.device?.device?.groupId ?: 'unassigned' // for event objects
     }
     else {
-        (it?.device?.groupId) ? it.device.groupId : 'unassigned' // for everything else
+        it?.device?.groupId ?: 'unassigned' // for everything else
     }
 } }
 
 def getDeviceCode() { return {
     if (isEventObject(it)) {
-        (it?.device?.device?.name) ? it.device.device.name.replaceAll(' ', '\\\\ ') : 'unassigned'
+        it?.device?.device?.name.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') ?: 'unassigned'
     }
     else {
-        (it?.name) ? it.name.replaceAll(' ', '\\\\ ') : 'unassigned'
+        it?.name.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') ?: 'unassigned'
     }
 } }
 
@@ -477,13 +484,13 @@ def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
 def getDeviceLabel() { return {
     if (isEventObject(it)) {
-        (it?.device?.device?.label) ? it.device.device.label.replaceAll(' ', '\\\\ ') : 'unassigned'
+        it?.device?.device?.label.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') ?: 'unassigned'
     } else {
-        (it?.label) ? it.label.replaceAll(' ', '\\\\ ') : 'unassigned'
+        it?.label.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') ?: 'unassigned'
     }
 } }
 
-def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ') } }
+def getDeviceType() { return { it?.typeName.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') } }
 
 def getEventName() { return {
     if (isEventObject(it)) {
@@ -501,7 +508,7 @@ def getHubStatus() { return { -> "${hub().status}".toLowerCase() } }
 
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
-def getIdentifierGlobal() { return { "${locationName()}\\ .\\${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
+def getIdentifierGlobal() { return { "${locationName()}\\ .\\ ${hubName()}\\ .\\ ${identifierLocal(it)}\\ .\\ ${eventName(it)}" } }
 
 def getIdentifierLocal() { return { "${groupName(it)}\\ .\\ ${deviceLabel(it)}" } }
 
@@ -534,7 +541,7 @@ def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
         def daysElapsed = ((new Date().time - dev.latestState(attr).date.time) / 86_400_000) / 30
         daysElapsed = daysElapsed.toDouble().trunc().round()
-        "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
+        "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days".replaceAll(' ', '\\\\ ')
     } else {
         'null'
     }
@@ -545,7 +552,7 @@ def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
 def getZwType() { return { 'zwave' } } // TODO Is this needed?
 
 def getUnit() { return {
-    def unit = (it?.unit) ? it.unit : getEventDetails(it).unit // TODO is a unit already present for threeaxes?
+    def unit = it?.unit ?: getEventDetails(it).unit // TODO is a unit already present for threeaxes?
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
 } }
@@ -580,7 +587,7 @@ def fields() { [
         [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChangeText', closure: 'differenceDescription', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device']], // TODO Convert to a tag?
+        [name: 'statusLevel', closure: 'statusLevel', valueType: 'float', arguments: 1, type: ['device']], // TODO Convert to a tag?
         [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
@@ -598,7 +605,7 @@ def fields() { [
         [name: '', closure: 'commandClassesList', valueType: 'string', arguments: 1, type: ['zwave']],
 ] }
 
-def getConfiguredParametersList() { return { (it?.device?.getDataValue('configuredParameters')) ?: '' } } // TODO ? Try to insert 'i' for integer after each value?
+def getConfiguredParametersList() { return { it?.device?.getDataValue('configuredParameters') ?: '' } } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
@@ -735,7 +742,7 @@ def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), Big
 
 def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : 0 } }
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? "\"10\"" : "\"0\"" } } // TODO Bug in InfluxDB - converted to number
 
 def getSunrise() { return { -> "\"${daylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
 def getSunset() { return { -> "\"${daylight().sunset.format('HH:mm', location.timeZone)}\"" } }
@@ -767,9 +774,11 @@ def getCommandClassesList() { return {
     info.remove('cc')
     info.remove('ccOut')
     info.remove('sec')
-    info.endpointInfo.replaceAll('[', '')
-    info.endpointInfo.replaceAll(']', '')
-    info.endpointInfo.replaceAll(',', '') // TODO - Need to sort ','
+    logger("commandClassesList: ${info.inspect()}", 'trace')
+    info.remove('endpointInfo')
+    // info.endpointInfo.replaceAll('[', '')
+    // info.endpointInfo.replaceAll(']', '')
+    // info.endpointInfo.replaceAll(',', '') // TODO - Need to sort ','
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"

@@ -561,7 +561,7 @@ def fields() { [
         [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'statusLevel', closure: 'statusLevel', valueType: 'float', arguments: 1, type: ['device']], // TODO Convert to a tag?
+        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device']], // TODO Convert to a tag?
         [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
@@ -712,7 +712,14 @@ def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
 
-def getConfiguredParametersList() { return { it?.device?.getDataValue('configuredParameters').replaceAll(',', ',i').append('i') ?: '' } } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
+def getConfiguredParametersList() { return {
+    def params = it?.device?.getDataValue('configuredParameters')
+    if (params) {
+        params.replaceAll(',', 'i,') + 'i'
+    } else {
+        ''
+    }
+} } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
@@ -726,7 +733,7 @@ def getLongitude() { return { -> location.longitude } }
 
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? "\"10\"" : "\"0\"" } } // TODO Bug in InfluxDB - converted to number
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO Bug in InfluxDB - converted to number
 
 def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } }
 def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } }

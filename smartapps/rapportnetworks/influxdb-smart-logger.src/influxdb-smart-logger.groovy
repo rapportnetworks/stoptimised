@@ -222,8 +222,6 @@ def handleEnumEvent(evt) {
     def measurementType = 'enum'
     def measurementName = 'states'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
@@ -231,8 +229,6 @@ def handleNumberEvent(evt) {
     def measurementType = 'number'
     def measurementName = 'values'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
@@ -240,8 +236,6 @@ def handleVector3Event(evt) {
     def measurementType = 'vector3'
     def measurementName = 'threeaxes'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
@@ -249,8 +243,6 @@ def handleStringEvent(evt) {
     def measurementType = 'string'
     def measurementName = 'statuses'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
@@ -258,8 +250,6 @@ def handleColorMapEvent(evt) {
     def measurementType = 'colorMap'
     def measurementName = 'values'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
@@ -269,9 +259,7 @@ def handleDaylight(evt) {
     def measurementType = 'enum'
     def measurementName = 'states'
     def retentionPolicy = 'autogen'
-    def multiple = false
-    def superItem = false
-    influxLineProtocol(event, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
@@ -279,8 +267,6 @@ def handleHubStatus(evt) {
         def measurementType = 'hub'
         def measurementName = 'hubStatus'
         def retentionPolicy = 'autogen'
-        def multiple = false
-        def superItem = false
         influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
     }
 }
@@ -290,8 +276,6 @@ def pollLocations() {
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
-    // def multiple = false
-    // def superItem = false
     def items = ['dummy'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
@@ -301,10 +285,9 @@ def pollDevices() {
     def measurementType = 'device'
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
-    def multiple = true
-    // def superItem = false
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple)
+    items.each { influxLineProtocol(it, measurementName, measurementType, retentionPolicy) }
+    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
 def pollAttributes() {
@@ -312,11 +295,10 @@ def pollAttributes() {
     def measurementType = 'attribute'
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
-    def multiple = true
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
         def items = getDeviceAllowedAttrs(dev)
         def superItem = dev
-        if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple, superItem)
+        if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, superItem)
     }
 }
 
@@ -325,16 +307,13 @@ def pollZwaves() {
     def measurementType = 'zwave'
     def measurementName = 'devicesZw' // TODO need to check this
     def retentionPolicy = 'metadata'
-    def multiple = true
-    // def superItem = false
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy, multiple)
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
-def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', multiple = false, superItem = false) {
+def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', superItem = false) {
     logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
-    def count = 1
     items.each { item ->
         influxLP.append(measurementName)
         tags().each { tag ->
@@ -362,49 +341,44 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                  }
             }
         }
-        influxLP.append(" ") // TODO - Seems to get missed out if it is only ' ' ?
+        influxLP.append(' ')
         def fieldCount = 0
         fields().each { field ->
             if ('all' in field.type || measurementType in field.type) {
                 influxLP.append((fieldCount) ? ',' : '')
                 if (field.name) influxLP.append("${field.name}=")
+                def fieldValue
                 switch(field.arguments) {
                     case 0:
-                        try { influxLP.append("$field.closure"()) }
+                        try { fieldValue = "$field.closure"() }
                         catch(e) { logger("influxLP: Error with field closure 0 (${measurementType}): ${field.closure}", 'error') }
                         break
                     case 1:
                         try {
                             if (superItem && field.super) {
-                                influxLP.append("$field.closure"(superItem))
+                                fieldValue = "$field.closure"(superItem)
                             } else {
-                                influxLP.append("$field.closure"(item))
+                                fieldValue = "$field.closure"(item)
                             }
                         }
                         catch(e) { logger("influxLP: Error with field closure 1 (${measurementType}): ${field.closure}", 'error') }
                         break
                     case 2:
-                        try { influxLP.append("$field.closure"(superItem, item)) }
+                        try { fieldValue = "$field.closure"(superItem, item) }
                         catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.closure}", 'error') }
                         break
                 }
-                // TODO - change above code to a variable - then do appending here at end - then can check for string and add escaped quotes here (and not need separate enclosures below
+                if (field.valueType == 'string') influxLP.append('\"')
+                influxLP.append(fieldValue)
+                if (field.valueType == 'string') influxLP.append('\"')
                 if (field.valueType == 'integer') influxLP.append('i')
                 fieldCount++
             }
         }
-        if (isEventObject(item)) {
-            influxLP.append(' ')
-            influxLP.append(timestamp(item))
-        }
-        if (multiple) {
-            if (count < items?.size()) {
-                influxLP.append('\n')
-                count++
-            }
-        }
+        if (isEventObject(item)) influxLP.append(' ').append(timestamp(item))
+        influxLP.append('\n')
     }
-    logger ("${influxLP.toString()}", 'trace')
+    // logger ("${influxLP.toString()}", 'trace')
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
@@ -433,8 +407,8 @@ def tags() { [
         [name: 'eventType', closure: 'eventType', arguments: 1, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
         [name: 'hubStatus', closure: 'hubStatus', arguments: 0, type: ['local']],
         [name: 'hubType', closure: 'hubType', arguments: 0, type: ['local']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']], // TODO Need a separate closure for 'attribute' with arguments: 2
-        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        // [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, type: ['colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave']], // TODO Need a separate closure for 'attribute' with arguments: 2
+        // [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'isChange', closure: 'isChange', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
         [name: 'onBattery', closure: 'onBattery', arguments: 0, type: ['local']], // TODO check this out
         [name: 'power', closure: 'power', arguments: 1, type: ['zwave']],
@@ -456,7 +430,7 @@ def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id
 
 def getHubName() { return { -> hub().name.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,') } }
 
-def getHub() { return { -> location.hubs[0] } } // note device.hub can get a device's hub
+def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
 
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
@@ -496,7 +470,7 @@ def getEventName() { return {
     if (isEventObject(it)) {
         (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name
     } else {
-        it
+        it.replaceAll(' ', '\\\\ ').replaceAll(',', '\\\\,')
     }
 } }
 
@@ -533,7 +507,7 @@ def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure
 
 def getSource() { return { "${it?.source}".toLowerCase() } }
 
-def getStatus() { return { "${it?.status}".toLowerCase() } }
+def getStatus() { return { "${it?.status}".toLowerCase() } } // TODO - replace '_' with '\\\\ '
 
 def getTempScale() { return { -> location.temperatureScale } }
 
@@ -558,7 +532,7 @@ def getUnit() { return {
 } }
 
 def fields() { [
-        [name: '', closure: 'configuredParametersList', valueType: 'string', arguments: 1, type: ['zwave']],
+        [name: '', closure: 'configuredParametersList', valueType: 'multiple', arguments: 1, type: ['zwave']],
         [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
         [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
@@ -586,13 +560,13 @@ def fields() { [
         [name: 'pText', closure: 'previousValueDescription', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'rChangeText', closure: 'differenceDescription', valueType: 'string', arguments: 1, type: ['number']],
+        [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
         [name: 'statusLevel', closure: 'statusLevel', valueType: 'float', arguments: 1, type: ['device']], // TODO Convert to a tag?
         [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
         [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
-        [name: 'tElapsedText', closure: 'timeElapsedDescription', valueType: 'string', arguments: 1, type: ['enum', 'number']],
+        [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
         [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute']],
         [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
         [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
@@ -602,40 +576,29 @@ def fields() { [
         [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
         [name: 'zwavePowerLevel', closure: 'zwavePowerLevel', valueType: 'string', arguments: 0, type: ['local']],
-        [name: '', closure: 'commandClassesList', valueType: 'string', arguments: 1, type: ['zwave']],
+        [name: '', closure: 'commandClassesList', valueType: 'multiple', arguments: 1, type: ['zwave']],
+        // [name: 'testField', closure: 'testField', valueType: 'string', arguments: 0, type: ['device', 'zwave']]
 ] }
 
-def getConfiguredParametersList() { return { it?.device?.getDataValue('configuredParameters') ?: '' } } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
+def getEventDescription() { return { it?.descriptionText } }
 
-def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
+def getEventId() { return { it.id } }
 
-def getEventDescription() { return { "\"${it?.descriptionText}\"" } }
+def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 'true' : 'false' } }
 
-def getEventId() { return { "\"${it.id}\"" } }
-
-def getFirmware() { return { -> "\"${hub().firmwareVersionString}\"" } }
-
-def getHubIP() { return { -> "\"${hub().localIP}\"" } }
-
-def getLatitude() { return { -> location.latitude } }
-
-def getLongitude() { return { -> location.longitude } }
-
-def getCurrentStateBinary() { return { (currentStateLevel(it) > 0) ? 'true' : 'false' } }
-
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentStateValue(it) }.value } }
+def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentState(it) }.value } }
 
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
-def getCurrentStateValue() { return { (it?.name in ['sunrise', 'sunset']) ? it.name : it.value } }
+def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
-def getCurrentState() { return { "\"${currentStateValue(it)}\"" } }
+// def getCurrentState() { return { "\"${currentStateValue(it)}\"" } } // Not needed now add \" \" in loop
 
-def getCurrentStateDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentStateValue(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
+def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.".replaceAll('\\\\', '') } }
 
-def getCurrentValueDescription() { return { "\"At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.\"".replaceAll('\\\\', '') } }
+def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.".replaceAll('\\\\', '') } }
 
-def getCurrentValue() { return { (it?.numberValue?.toBigDecimal()) ? it.numberValue.toBigDecimal() : removeUnit(it) } }
+def getCurrentValue() { return { it?.numberValue?.toBigDecimal() ?: removeUnit(it) } }
 
 def removeUnit() { return { // remove any units appending to end of event value property
     def length = it.value.length()
@@ -666,9 +629,11 @@ def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
 def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 def getGravityFactor() { return { -> (1024) } }
 
-def getPreviousStateBinary() { return { (previousStateLevel(it) > 0) ? 'true' : 'false' } }
+def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 'true' : 'false' } }
 
-def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousEvent(it).value }.value } }
+def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousState(it) }.value } }
+
+def getPreviousState() { return { previousEvent(it).value } }
 
 def getPreviousEvent() { return { // TODO - Would this work with device.currentState(it.name)? - i.e. event handler called before event log updated? - Need to test it out
     def eventData = parseJson(it?.data)
@@ -682,13 +647,9 @@ def getPreviousEvent() { return { // TODO - Would this work with device.currentS
     }
 } }
 
-def getPortTCP() { return { -> hub().localSrvPortTCP } }
+def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
-def getPreviousState() { return { "\"${previousEvent(it).value}\"" } }
-
-def getPreviousStateDescription() { return { "\"This is a change from ${previousState(it)} ${timeElapsedText(it)}.\"" } } // Has got quotes round previousState(it)
-
-def getTimeElapsedDescription() { return { "\"${timeElapsedText(it)}\"" } }
+// def getTimeElapsedDescription() { return { "\"${timeElapsedText(it)}\"" } } // not need due to \" \" added in loop
 
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
@@ -716,18 +677,18 @@ def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - pr
 
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
-def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
-def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == "\"inactive\"") ? timeOffsetAmount() : 0 } }
+def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 def getPreviousValueDescription() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
-    "\"This is ${changeAbs} compared to ${timeElapsedText(it)}.\""
+    "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
-def getDifferenceDescription() { return { "\"${differenceText(it)}\"" } }
+// def getDifferenceDescription() { return { "\"${differenceText(it)}\"" } }
 
 def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
     /*
@@ -742,27 +703,42 @@ def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), Big
 
 def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? "\"10\"" : "\"0\"" } } // TODO Bug in InfluxDB - converted to number
-
-def getSunrise() { return { -> "\"${daylight().sunrise.format('HH:mm', location.timeZone)}\"" } }
-def getSunset() { return { -> "\"${daylight().sunset.format('HH:mm', location.timeZone)}\"" } }
-def getDaylight() { return { -> getSunriseAndSunset() } }
-
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
 
-def getTimeLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? dev.latestState(attr).date.time : 0 } }
-
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event
-
-def getValueLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? "\"${dev.latestState(attr).value}\"" : 'null' } }
 
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
+
+def getConfiguredParametersList() { return { it?.device?.getDataValue('configuredParameters').replaceAll(',', ',i').append('i') ?: '' } } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
+
+def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
+
+def getFirmware() { return { -> hub().firmwareVersionString } }
+
+def getHubIP() { return { -> hub().localIP } }
+
+def getLatitude() { return { -> location.latitude } }
+
+def getLongitude() { return { -> location.longitude } }
+
+def getPortTCP() { return { -> hub().localSrvPortTCP } }
+
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? "\"10\"" : "\"0\"" } } // TODO Bug in InfluxDB - converted to number
+
+def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } }
+def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } }
+def getDaylight() { return { -> getSunriseAndSunset() } }
+
+def getTimeLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? dev.latestState(attr).date.time : 0 } }
+
+def getValueLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? "${dev.latestState(attr).value}" : 'null' } }
+
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
-def getZwavePowerLevel() { return { -> "\"${hub().hub.getDataValue('zwavePowerLevel')}\"" } }
+def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
 def getCommandClassesList() { return {
     def info = zwInfo(it).clone()
@@ -784,6 +760,8 @@ def getCommandClassesList() { return {
     info = toKeyValue(info) + ',' + "${ccList}"
     info
 } }
+
+def getTestField() { return { -> 'testfield' } }
 
 /*****************************************************************************************************************
  *  Main Commands:

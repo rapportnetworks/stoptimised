@@ -271,6 +271,34 @@ def handleHubStatus(evt) {
     }
 }
 
+/*****************************************************************************************************************
+ *  Poll Status:
+ *****************************************************************************************************************/
+def pollStatus() {
+    pollStatusHubs()
+    pollStatusDevices()
+}
+
+def pollStatusHubs() {
+    def measurementType = 'statusHub'
+    def measurementName = 'statusHubs'
+    def retentionPolicy = 'autogen'
+    def items = ['dummy']
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+}
+
+def pollStatusDevices() {
+    def measurementType = 'statusDevice'
+    def measurementName = 'statusDevices'
+    def retentionPolicy = 'autogen'
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+}
+
+/*****************************************************************************************************************
+ *  Poll Metadata:
+ *****************************************************************************************************************/
+
 def pollLocations() {
     logger('pollLocations:', 'trace')
     def measurementType = 'local'
@@ -286,8 +314,7 @@ def pollDevices() {
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    items.each { influxLineProtocol(it, measurementName, measurementType, retentionPolicy) }
-    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
 def pollAttributes() {
@@ -305,12 +332,15 @@ def pollAttributes() {
 def pollZwaves() {
     logger('pollZwaves:', 'trace')
     def measurementType = 'zwave'
-    def measurementName = 'devicesZw' // TODO need to check this
+    def measurementName = 'zwaves' // TODO need to check this
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
+/*****************************************************************************************************************
+ *  InfluxDB Line Protocol:
+ *****************************************************************************************************************/
 def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', superItem = false) {
     logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
@@ -336,13 +366,12 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                         catch (e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.closure}", 'error') }
                         break
                     case 2:
-                        try { itagValue = "$tag.closure"(superItem, item) }
+                        try { tagValue = "$tag.closure"(superItem, item) }
                         catch (e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.closure}", 'error') }
                         break
                 }
-                logger("influxLP: tagValue: ${tagValue}", 'trace')
                 if (tag.escape) {
-                    influxLP.append("${tagValue.replaceAll(' ', '\\\\ ')}") // TODO check - .replaceAll(',', '\\\\,')
+                    influxLP.append("${tagValue.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
                 } else {
                     influxLP.append(tagValue)
                 }
@@ -376,10 +405,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                         break
                 }
                 if (field.valueType == 'string') {
-                    influxLP.append('\"')
-                    // fieldValue // .replaceAll(' ', '\\\\ ') TODO Is this needed?
-                    influxLP.append(fieldValue)
-                    influxLP.append('\"')
+                    influxLP.append('\"').append(fieldValue).append('\"')
                 } else {
                     influxLP.append(fieldValue)
                 }
@@ -409,18 +435,18 @@ def tags() { [
         [name: 'areaId', closure: 'locationId', arguments: 1, escape: false, type: ['all']],
         [name: 'building', closure: 'hubName', arguments: 0, escape: true, type: ['all']],
         [name: 'buildingId', closure: 'hubId', arguments: 1, escape: false, type: ['all']],
-        [name: 'chamber', closure: 'groupName', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'chamberId', closure: 'groupId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceId', closure: 'deviceId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, escape: true, type: ['attribute', 'device', 'zwave'], super: true],
+        [name: 'chamber', closure: 'groupName', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'chamberId', closure: 'groupId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceId', closure: 'deviceId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceType', closure: 'deviceType', arguments: 1, escape: true, type: ['attribute', 'device', 'statusDevice', 'zwave'], super: true],
         [name: 'event', closure: 'eventName', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'eventType', closure: 'eventType', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
-        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, escape: true, type: ['local']],
-        [name: 'hubType', closure: 'hubType', arguments: 0, escape: false, type: ['local']],
+        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, escape: true, type: ['local', 'statusHub']],
+        [name: 'hubType', closure: 'hubType', arguments: 0, escape: false, type: ['local', 'statusHub']],
         [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, escape: true, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
-        [name: 'identifierGlobal', closure: 'identifierGlobalDevice', arguments: 1, escape: true, type: ['device', 'zwave'], super: true],
+        [name: 'identifierGlobal', closure: 'identifierGlobalDevice', arguments: 1, escape: true, type: ['device', 'statusDevice', 'zwave']],
         [name: 'identifierGlobal', closure: 'identifierGlobalAttribute', arguments: 2, escape: true, type: ['attribute']],
         [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
         [name: 'isChange', closure: 'isChange', arguments: 1, escape: false, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
@@ -428,7 +454,7 @@ def tags() { [
         [name: 'power', closure: 'power', arguments: 1, escape: false, type: ['zwave']],
         [name: 'secure', closure: 'secure', arguments: 1, escape: false, type: ['zwave']],
         [name: 'source', closure: 'source', arguments: 1, escape: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status', closure: 'status', arguments: 1, escape: true, type: ['attribute', 'device', 'zwave'], super: true], // TODO ?Included
+        [name: 'status', closure: 'status', arguments: 1, escape: true, type: ['attribute', 'device', 'statusDevice', 'zwave'], super: true], // TODO ?Included
         [name: 'tempScale', closure: 'tempScale', arguments: 0, escape: false, type: ['local']],
         [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, escape: true, type: ['attribute']],
         [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, escape: false, type: ['local']],
@@ -502,8 +528,6 @@ def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . $
 
 def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr}" } }
 
-def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${attr}" } }
-
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } }
@@ -557,7 +581,7 @@ def fields() { [
         [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['local']],
-        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local']],
+        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local', 'statusHub']],
         [name: 'latitude', closure: 'latitude', valueType: 'float', arguments: 0, type: ['local']],
         [name: 'longitude', closure: 'longitude', valueType: 'float', arguments: 0, type: ['local']],
         [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day','enum', 'hub']],
@@ -581,7 +605,7 @@ def fields() { [
         [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
         [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device']], // TODO Convert to a tag?
+        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device', 'statusDevice']],
         [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
         [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
@@ -614,9 +638,9 @@ def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : i
 
 // def getCurrentState() { return { "\"${currentStateValue(it)}\"" } } // Not needed now add \" \" in loop
 
-def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}.".replaceAll('\\\\', '') } }
+def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } }
 
-def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}.".replaceAll('\\\\', '') } }
+def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}." } }
 
 def getCurrentValue() { return { it?.numberValue?.toBigDecimal() ?: removeUnit(it) } }
 
@@ -739,7 +763,7 @@ def getConfiguredParametersList() { return {
     } else {
         ''
     }
-} } // TODO ? Try to insert 'i' for integer after each value? .replaceAll(',', ',i').append('i')
+} }
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
@@ -753,7 +777,7 @@ def getLongitude() { return { -> location.longitude } }
 
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO Bug in InfluxDB - converted to number
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } }
 
 def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } }
 def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } }
@@ -778,10 +802,7 @@ def getCommandClassesList() { return {
     info.remove('ccOut')
     info.remove('sec')
     logger("commandClassesList: ${info.inspect()}", 'trace')
-    info.remove('endpointInfo')
-    // info.endpointInfo.replaceAll('[', '')
-    // info.endpointInfo.replaceAll(']', '')
-    // info.endpointInfo.replaceAll(',', '') // TODO - Need to sort ','
+    info.endpointInfo.replaceAll("'", '').replaceAll(',', '') // TODO - Need to sort this later
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"
@@ -844,6 +865,14 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
  *****************************************************************************************************************/
 private manageSchedules() {
     logger('manageSchedules', 'trace')
+
+    try { unschedule(pollStatus) }
+    catch (e) { logger('manageSchedules: Unschedule pollStatus failed!', 'error') }
+    runEvery1Hour(pollStatus)
+
+    try { unschedule(pollLocations) }
+    catch (e) { logger('manageSchedules: Unschedule pollLocation failed!', 'error') }
+    // runEvery3Hours(pollLocations)
 
     try { unschedule(pollLocations) }
     catch (e) { logger('manageSchedules: Unschedule pollLocation failed!', 'error') }

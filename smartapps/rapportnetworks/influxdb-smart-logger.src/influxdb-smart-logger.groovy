@@ -241,7 +241,7 @@ def handleVector3Event(evt) {
 
 def handleStringEvent(evt) {
     def measurementType = 'string'
-    def measurementName = 'statuses'
+    def measurementName = 'statuses' // TODO - Alternative name - a bit confusing
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
@@ -256,19 +256,17 @@ def handleColorMapEvent(evt) {
 // def handleJsonObjectEvent() { } // TODO
 
 def handleDaylight(evt) {
-    def measurementType = 'enum'
+    def measurementType = 'day' // TODO - Need to check tags/fields
     def measurementName = 'states'
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
-    if (evt.value == 'active' || evt.value == 'disconnected') {
-        def measurementType = 'hub'
-        def measurementName = 'hubStatus'
-        def retentionPolicy = 'autogen'
-        influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
-    }
+    def measurementType = 'hub' // TODO - Need to check tags/fields
+    def measurementName = 'hubStatus'
+    def retentionPolicy = 'autogen'
+    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 /*****************************************************************************************************************
@@ -280,7 +278,7 @@ def pollStatus() {
 }
 
 def pollStatusHubs() {
-    def measurementType = 'statusHub'
+    def measurementType = 'statHub'
     def measurementName = 'statusHubs'
     def retentionPolicy = 'autogen'
     def items = ['dummy']
@@ -288,7 +286,7 @@ def pollStatusHubs() {
 }
 
 def pollStatusDevices() {
-    def measurementType = 'statusDevice'
+    def measurementType = 'statDev'
     def measurementName = 'statusDevices'
     def retentionPolicy = 'autogen'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
@@ -350,27 +348,27 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
             if ('all' in tag.type || measurementType in tag.type) {
                 influxLP.append(",${tag.name}=")
                 def tagValue
-                switch (tag.arguments) {
+                switch (tag.args) {
                     case 0:
-                        try { tagValue = "$tag.closure"() }
-                        catch (e) { logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.closure}", 'error') }
+                        try { tagValue = "$tag.clos"() }
+                        catch (e) { logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.clos}", 'error') }
                         break
                     case 1:
                         try {
                             if (superItem && tag.super) {
-                                tagValue = "$tag.closure"(superItem)
+                                tagValue = "$tag.clos"(superItem)
                             } else {
-                                tagValue = "$tag.closure"(item)
+                                tagValue = "$tag.clos"(item)
                             }
                         }
-                        catch (e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.closure}", 'error') }
+                        catch (e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.clos}", 'error') }
                         break
                     case 2:
-                        try { tagValue = "$tag.closure"(superItem, item) }
-                        catch (e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.closure}", 'error') }
+                        try { tagValue = "$tag.clos"(superItem, item) }
+                        catch (e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.clos}", 'error') }
                         break
                 }
-                if (tag.escape) {
+                if (tag.esc) {
                     influxLP.append("${tagValue.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
                 } else {
                     influxLP.append(tagValue)
@@ -384,32 +382,32 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                 influxLP.append((fieldCount) ? ',' : '')
                 if (field.name) influxLP.append("${field.name}=")
                 def fieldValue
-                switch(field.arguments) {
+                switch(field.args) {
                     case 0:
-                        try { fieldValue = "$field.closure"() }
-                        catch(e) { logger("influxLP: Error with field closure 0 (${measurementType}): ${field.closure}", 'error') }
+                        try { fieldValue = "$field.clos"() }
+                        catch(e) { logger("influxLP: Error with field closure 0 (${measurementType}): ${field.clos}", 'error') }
                         break
                     case 1:
                         try {
                             if (superItem && field.super) {
-                                fieldValue = "$field.closure"(superItem)
+                                fieldValue = "$field.clos"(superItem)
                             } else {
-                                fieldValue = "$field.closure"(item)
+                                fieldValue = "$field.clos"(item)
                             }
                         }
-                        catch(e) { logger("influxLP: Error with field closure 1 (${measurementType}): ${field.closure}", 'error') }
+                        catch(e) { logger("influxLP: Error with field closure 1 (${measurementType}): ${field.clos}", 'error') }
                         break
                     case 2:
-                        try { fieldValue = "$field.closure"(superItem, item) }
-                        catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.closure}", 'error') }
+                        try { fieldValue = "$field.clos"(superItem, item) }
+                        catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.clos}", 'error') }
                         break
                 }
-                if (field.valueType == 'string') {
+                if (field.var == 'string') {
                     influxLP.append('\"').append(fieldValue).append('\"')
                 } else {
                     influxLP.append(fieldValue)
                 }
-                if (field.valueType == 'integer') influxLP.append('i')
+                if (field.var == 'integer') influxLP.append('i')
                 fieldCount++
             }
         }
@@ -431,35 +429,35 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
 }
 
 def tags() { [
-        [name: 'area', closure: 'locationName', arguments: 1, escape: true, type: ['all']],
-        [name: 'areaId', closure: 'locationId', arguments: 1, escape: false, type: ['all']],
-        [name: 'building', closure: 'hubName', arguments: 0, escape: true, type: ['all']],
-        [name: 'buildingId', closure: 'hubId', arguments: 1, escape: false, type: ['all']],
-        [name: 'chamber', closure: 'groupName', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'chamberId', closure: 'groupId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceCode', closure: 'deviceCode', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceId', closure: 'deviceId', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceLabel', closure: 'deviceLabel', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statusDevice', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceType', closure: 'deviceType', arguments: 1, escape: true, type: ['attribute', 'device', 'statusDevice', 'zwave'], super: true],
-        [name: 'event', closure: 'eventName', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3']],
-        [name: 'eventType', closure: 'eventType', arguments: 1, escape: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
-        [name: 'hubStatus', closure: 'hubStatus', arguments: 0, escape: true, type: ['local', 'statusHub']],
-        [name: 'hubType', closure: 'hubType', arguments: 0, escape: false, type: ['local', 'statusHub']],
-        [name: 'identifierGlobal', closure: 'identifierGlobal', arguments: 1, escape: true, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
-        [name: 'identifierGlobal', closure: 'identifierGlobalDevice', arguments: 1, escape: true, type: ['device', 'statusDevice', 'zwave']],
-        [name: 'identifierGlobal', closure: 'identifierGlobalAttribute', arguments: 2, escape: true, type: ['attribute']],
-        [name: 'identifierLocal', closure: 'identifierLocal', arguments: 1, escape: true, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'isChange', closure: 'isChange', arguments: 1, escape: false, type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
-        [name: 'onBattery', closure: 'onBattery', arguments: 0, escape: false, type: ['local']], // TODO check this out
-        [name: 'power', closure: 'power', arguments: 1, escape: false, type: ['zwave']],
-        [name: 'secure', closure: 'secure', arguments: 1, escape: false, type: ['zwave']],
-        [name: 'source', closure: 'source', arguments: 1, escape: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status', closure: 'status', arguments: 1, escape: true, type: ['attribute', 'device', 'statusDevice', 'zwave'], super: true], // TODO ?Included
-        [name: 'tempScale', closure: 'tempScale', arguments: 0, escape: false, type: ['local']],
-        [name: 'timeElapsed', closure: 'daysElapsed', arguments: 2, escape: true, type: ['attribute']],
-        [name: 'timeZone', closure: 'timeZoneCode', arguments: 0, escape: false, type: ['local']],
-        [name: 'type', closure: 'zwType', arguments: 0, escape: false, type: ['zwave']],
-        [name: 'unit', closure: 'unit', arguments: 1, escape: false, type: ['number', 'vector3']],
+        [name: 'area',             clos: 'locationName',              args: 1, esc: true,  type: ['all']],
+        [name: 'areaId',           clos: 'locationId',                args: 1, esc: false, type: ['all']],
+        [name: 'building',         clos: 'hubName',                   args: 0, esc: true,  type: ['all']],
+        [name: 'buildingId',       clos: 'hubId',                     args: 1, esc: false, type: ['all']],
+        [name: 'chamber',          clos: 'groupName',                 args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'chamberId',        clos: 'groupId',                   args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceCode',       clos: 'deviceCode',                args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceId',         clos: 'deviceId',                  args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
+        [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
+        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
+        [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']],
+        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
+        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
+        [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
+        [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
+        [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO check this out
+        [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
+        [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
+        [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
+        [name: 'status',           clos: 'status',                    args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included
+        [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
+        [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']],
+        [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
+        [name: 'type',             clos: 'zwType',                    args: 0, esc: false, type: ['zwave']],
+        [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
 
 def getLocationName() { return { location.name } }
@@ -576,52 +574,52 @@ def getUnit() { return {
 } }
 
 def fields() { [
-        [name: '', closure: 'configuredParametersList', valueType: 'multiple', arguments: 1, type: ['zwave']],
-        [name: 'checkInterval', closure: 'checkInterval', valueType: 'integer', arguments: 1, type: ['zwave']],
-        [name: 'eventDescription', closure: 'eventDescription', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
-        [name: 'eventId', closure: 'eventId', valueType: 'string', arguments: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
-        [name: 'firmwareVersion', closure: 'firmware', valueType: 'string', arguments: 0, type: ['local']],
-        [name: 'hubIP', closure: 'hubIP', valueType: 'string', arguments: 0, type: ['local', 'statusHub']],
-        [name: 'latitude', closure: 'latitude', valueType: 'float', arguments: 0, type: ['local']],
-        [name: 'longitude', closure: 'longitude', valueType: 'float', arguments: 0, type: ['local']],
-        [name: 'nBinary', closure: 'currentStateBinary', valueType: 'boolean', arguments: 1, type: ['day','enum', 'hub']],
-        [name: 'nLevel', closure: 'currentStateLevel', valueType: 'integer', arguments: 1, type: ['day', 'enum', 'hub']],
-        [name: 'nState', closure: 'currentState', valueType: 'string', arguments: 1, type: ['day', 'enum', 'hub', 'string']],
-        [name: 'nText', closure: 'currentStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
-        [name: 'nText', closure: 'currentValueDescription', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'nValue', closure: 'currentValue', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'nValueDisplay', closure: 'currentValueDisplay', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'nValueHue', closure: 'currentValueHue', valueType: 'integer', arguments: 1, type: ['colorMap']],
-        [name: 'nValueSat', closure: 'currentValueSat', valueType: 'integer', arguments: 1, type: ['colorMap']],
-        [name: 'nValueX', closure: 'currentValueX', valueType: 'float', arguments: 1, type: ['vector3']],
-        [name: 'nValueY', closure: 'currentValueY', valueType: 'float', arguments: 1, type: ['vector3']],
-        [name: 'nValueZ', closure: 'currentValueZ', valueType: 'float', arguments: 1, type: ['vector3']],
-        [name: 'pBinary', closure: 'previousStateBinary', valueType: 'boolean', arguments: 1, type: ['enum']],
-        [name: 'pLevel', closure: 'previousStateLevel', valueType: 'integer', arguments: 1, type: ['enum']],
-        [name: 'portTCP', closure: 'portTCP', valueType: 'integer', arguments: 0, type: ['local']],
-        [name: 'pState', closure: 'previousState', valueType: 'string', arguments: 1, type: ['enum']],
-        [name: 'pText', closure: 'previousStateDescription', valueType: 'string', arguments: 1, type: ['enum']],
-        [name: 'pText', closure: 'previousValueDescription', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'pValue', closure: 'previousValue', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'rChange', closure: 'difference', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'rChangeText', closure: 'differenceText', valueType: 'string', arguments: 1, type: ['number']],
-        [name: 'statusLevel', closure: 'statusLevel', valueType: 'integer', arguments: 1, type: ['device', 'statusDevice']],
-        [name: 'sunrise', closure: 'sunrise', valueType: 'string', arguments: 0, type: ['local']],
-        [name: 'sunset', closure: 'sunset', valueType: 'string', arguments: 0, type: ['local']],
-        [name: 'tDay', closure: 'timeOfDay', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
-        [name: 'tElapsed', closure: 'timeElapsed', valueType: 'integer', arguments: 1, type: ['enum', 'number']],
-        [name: 'tElapsedText', closure: 'timeElapsedText', valueType: 'string', arguments: 1, type: ['enum', 'number']],
-        [name: 'timeLastEvent', closure: 'timeLastEvent', valueType: 'integer', arguments: 2, type: ['attribute']],
-        [name: 'timestamp', closure: 'timestamp', valueType: 'integer', arguments: 1, type: ['enum', 'number', 'vector3']],
-        [name: 'tOffset', closure: 'currentTimeOffset', valueType: 'integer', arguments: 1, type: ['enum']],
-        [name: 'tWrite', closure: 'timeWrite', valueType: 'integer', arguments: 0, type: ['enum', 'number', 'vector3']],
-        [name: 'valueLastEvent', closure: 'valueLastEvent', valueType: 'string', arguments: 2, type: ['attribute']],
-        [name: 'wLevel', closure: 'weightedLevel', valueType: 'integer', arguments: 1, type: ['enum']],
-        [name: 'wValue', closure: 'weightedValue', valueType: 'float', arguments: 1, type: ['number']],
-        [name: 'zigbeePowerLevel', closure: 'zigbeePowerLevel', valueType: 'integer', arguments: 0, type: ['local']],
-        [name: 'zwavePowerLevel', closure: 'zwavePowerLevel', valueType: 'string', arguments: 0, type: ['local']],
-        [name: '', closure: 'commandClassesList', valueType: 'multiple', arguments: 1, type: ['zwave']],
-        // [name: 'testField', closure: 'testField', valueType: 'string', arguments: 0, type: ['device', 'zwave']]
+        [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwave']],
+        [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['zwave']],
+        [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
+        [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
+        [name: 'firmwareVersion',  clos: 'firmware',                 var: 'string',   args: 0, type: ['local']],
+        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']],
+        [name: 'latitude',         clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
+        [name: 'longitude',        clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
+        [name: 'nBinary',          clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
+        [name: 'nLevel',           clos: 'currentStateLevel',        var: 'integer',  args: 1, type: ['day', 'enum', 'hub']],
+        [name: 'nState',           clos: 'currentState',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string']],
+        [name: 'nText',            clos: 'currentStateDescription',  var: 'string',   args: 1, type: ['enum']],
+        [name: 'nText',            clos: 'currentValueDescription',  var: 'string',   args: 1, type: ['number']],
+        [name: 'nValue',           clos: 'currentValue',             var: 'float',    args: 1, type: ['number']],
+        [name: 'nValueDisplay',    clos: 'currentValueDisplay',      var: 'float',    args: 1, type: ['number']],
+        [name: 'nValueHue',        clos: 'currentValueHue',          var: 'integer',  args: 1, type: ['colorMap']],
+        [name: 'nValueSat',        clos: 'currentValueSat',          var: 'integer',  args: 1, type: ['colorMap']],
+        [name: 'nValueX',          clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
+        [name: 'nValueY',          clos: 'currentValueY',            var: 'float',    args: 1, type: ['vector3']],
+        [name: 'nValueZ',          clos: 'currentValueZ',            var: 'float',    args: 1, type: ['vector3']],
+        [name: 'pBinary',          clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum', 'hub']],
+        [name: 'pLevel',           clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum', 'hub']],
+        [name: 'portTCP',          clos: 'portTCP',                  var: 'integer',  args: 0, type: ['local']],
+        [name: 'pState',           clos: 'previousState',            var: 'string',   args: 1, type: ['enum', 'hub']],
+        [name: 'pText',            clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum']],
+        [name: 'pText',            clos: 'previousValueDescription', var: 'string',   args: 1, type: ['number']],
+        [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
+        [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
+        [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
+        [name: 'statusLevel',      clos: 'statusLevel',              var: 'integer',  args: 1, type: ['device', 'statDev']],
+        [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
+        [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
+        [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
+        [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'hub', 'number']],
+        [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number']],
+        [name: 'timeLastEvent',    clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
+        [name: 'timestamp',        clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'tOffset',          clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
+        [name: 'tWrite',           clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
+        [name: 'valueLastEvent',   clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
+        [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum', 'hub']],
+        [name: 'wValue',           clos: 'weightedValue',            var: 'float',    args: 1, type: ['number']],
+        [name: 'zigbeePowerLevel', clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']],
+        [name: 'zwavePowerLevel',  clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']],
+        [name: '',                 clos: 'commandClassesList',       var: 'multiple', args: 1, type: ['zwave']],
+        // [name: 'testField', clos: 'testField', var: 'string', args: 0, type: ['device', 'zwave']]
 ] }
 
 def getEventDescription() { return { it?.descriptionText } }
@@ -866,33 +864,23 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
 private manageSchedules() {
     logger('manageSchedules', 'trace')
 
-    try { unschedule(pollStatus) }
-    catch (e) { logger('manageSchedules: Unschedule pollStatus failed!', 'error') }
-    runEvery1Hour(pollStatus)
+    def polls = [
+            pollStatus: 'runEvery1Hour',
+            pollLocations: 'runEvery3Hours',
+            pollDevices: 'runEvery3Hours',
+            pollAttributes: 'runEvery3Hours',
+            pollZwaves: 'runEvery3Hours'
+    ]
 
-    try { unschedule(pollLocations) }
-    catch (e) { logger('manageSchedules: Unschedule pollLocation failed!', 'error') }
-    // runEvery3Hours(pollLocations)
-
-    try { unschedule(pollLocations) }
-    catch (e) { logger('manageSchedules: Unschedule pollLocation failed!', 'error') }
-    // runEvery3Hours(pollLocations)
-    runEvery15Minutes(pollLocations)
-
-    try { unschedule(pollDevices) }
-    catch (e) { logger('manageSchedules: Unschedule pollDevices failed!', 'error') }
-    // runEvery3Hours(pollDevices)
-    runEvery15Minutes(pollDevices)
-
-    try { unschedule(pollAttributes) }
-    catch (e) { logger('manageSchedules: Unschedule pollAttributes failed!', 'error') }
-    // runEvery3Hours(pollAttributes)
-    runEvery15Minutes(pollAttributes)
-
-    try { unschedule(pollZwaves) }
-    catch (e) { logger('manageSchedules: Unschedule pollZwaves failed!', 'error') }
-    // runEvery3Hours(pollZwaves)
-    runEvery15Minutes(pollZwaves)
+    polls.each {
+        try {
+            unschedule(it.key)
+        }
+        catch (e) {
+            logger("manageSchedules: Unschedule ${it.key} failed!", 'error')
+        }
+        "${it.value}"(it.key)
+    }
 }
 
 private manageSubscriptions() {

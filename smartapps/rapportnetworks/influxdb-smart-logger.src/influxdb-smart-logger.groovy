@@ -319,26 +319,28 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         tags().each { tag ->
             if ('all' in tag.type || measurementType in tag.type) {
                 influxLP.append(",${tag.name}=")
+                def tagValue
                 switch(tag.arguments) {
                     case 0:
-                        try { influxLP.append("$tag.closure"()) }
+                        try { tagValue = "$tag.closure"() }
                         catch(e) { logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.closure}", 'error') }
                         break
                     case 1:
                         try {
                             if (superItem && tag.super) {
-                                influxLP.append("$tag.closure"(superItem))
+                                tagValue = "$tag.closure"(superItem)
                             } else {
-                                influxLP.append("$tag.closure"(item))
+                                tagValue = "$tag.closure"(item)
                             }
                         }
                         catch(e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.closure}", 'error') }
                         break
                     case 2:
-                        try { influxLP.append("$tag.closure"(superItem, item)) }
+                        try { itagValue = "$tag.closure"(superItem, item) }
                         catch(e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.closure}", 'error') }
                         break
                  }
+                influxLP.append(tagValue)
             }
         }
         influxLP.append(' ')
@@ -368,9 +370,13 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                         catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.closure}", 'error') }
                         break
                 }
-                if (field.valueType == 'string') influxLP.append('\"')
-                influxLP.append(fieldValue)
-                if (field.valueType == 'string') influxLP.append('\"')
+                if (field.valueType == 'string') {
+                    influxLP.append('\"')
+                    influxLP.append(fieldValue) // .replaceAll(' ', '\\\\ ')
+                    influxLP.append('\"')
+                } else {
+                    influxLP.append(fieldValue)
+                }
                 if (field.valueType == 'integer') influxLP.append('i')
                 fieldCount++
             }

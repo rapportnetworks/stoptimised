@@ -429,7 +429,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
 }
 
 def tags() { [
-        [name: 'area',             clos: 'locationName',              args: 1, esc: true,  type: ['all']],
+        [name: 'area',             clos: 'locationName',              args: 0, esc: true,  type: ['all']],
         [name: 'areaId',           clos: 'locationId',                args: 1, esc: false, type: ['all']],
         [name: 'building',         clos: 'hubName',                   args: 0, esc: true,  type: ['all']],
         [name: 'buildingId',       clos: 'hubId',                     args: 1, esc: false, type: ['all']],
@@ -441,8 +441,8 @@ def tags() { [
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
-        [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']],
-        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
+        [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - ? should this chage to 'status'
+        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type'
         [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
@@ -454,25 +454,34 @@ def tags() { [
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
         [name: 'status',           clos: 'status',                    args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
-        [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']],
+        [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - ? Look at best way to do this/info to present ?
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
-        [name: 'type',             clos: 'zwType',                    args: 0, esc: false, type: ['zwave']],
+        [name: 'type',             clos: 'zwType',                    args: 0, esc: false, type: ['zwave']], // TODO - ? Is this needed?
         [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
 
-def getLocationName() { return { location.name } }
-
-def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
+/*****************************************************************************************************************
+ *  Tags Location Details:
+ *****************************************************************************************************************/
+def getLocationName() { return { -> location.name } }
 
 def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
 
+def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
+
+/*****************************************************************************************************************
+ *  Tags Hub Details:
+ *****************************************************************************************************************/
 def getHubName() { return { -> hub().name } }
 
-def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
+def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub - leave for now
 
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
-def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.houseType } }
+/*****************************************************************************************************************
+ *  Tags Group Details:
+ *****************************************************************************************************************/
+def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.houseType } } // gets group name from created state.groupNames map
 
 def getGroupId() { return {
     if (isEventObject(it)) {
@@ -483,6 +492,9 @@ def getGroupId() { return {
     }
 } }
 
+/*****************************************************************************************************************
+ *  Tags Device Details:
+ *****************************************************************************************************************/
 def getDeviceCode() { return {
     if (isEventObject(it)) {
         it?.device?.device?.name ?: 'unassigned'
@@ -502,11 +514,14 @@ def getDeviceLabel() { return {
     }
 } }
 
-def getDeviceType() { return { it?.typeName } }
+def getDeviceType() { return { it?.typeName } } // name of device handler
 
+/*****************************************************************************************************************
+ *  Tags Event Details:
+ *****************************************************************************************************************/
 def getEventName() { return {
     if (isEventObject(it)) {
-        (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name
+        (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name // puts sunrise and sunset events into common 'daylight' event
     } else {
         it
     }
@@ -516,21 +531,28 @@ def getEventType() { return { eventDetails(it).type } }
 
 def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
-def getHubStatus() { return { -> "${hub().status}".toLowerCase() } }
-
-def getHubType() { return { -> "${hub().type}".toLowerCase() } }
-
 def getIdentifierGlobal() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it)}" } }
-
-def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
-
-def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr}" } }
 
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } }
 
-def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
+def getSource() { return { "${it?.source}".toLowerCase() } } // TODO - ? Drop GString?
+
+def getUnit() { return {
+    def unit = it?.unit ?: getEventDetails(it).unit // TODO - check is a unit already present for threeaxes?
+    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
+    unit
+} }
+
+/*****************************************************************************************************************
+ *  Tags Metadata:
+ *****************************************************************************************************************/
+def getHubType() { return { -> "${hub().type}".toLowerCase() } } // TODO - ? Drop GString?
+
+def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
+
+def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } } // TODO - Check this capitalises first letter of attribute
 
 def getPower() { return {
     switch(zwInfo(it)?.zw.take(1)) {
@@ -547,11 +569,11 @@ def getZwInfo() { return { it?.getZwaveInfo() } }
 
 def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure' } } // TODO - Changed from 'true' : 'false'
 
-def getSource() { return { "${it?.source}".toLowerCase() } }
-
-def getStatus() { return { "${it?.status}".toLowerCase() } } // TODO - replace '_' with '\\\\ '
-
 def getTempScale() { return { -> location.temperatureScale } }
+
+def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } } // TODO - ? Drop GString?
+
+def getZwType() { return { 'zwave' } } // TODO Is this needed?
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -563,15 +585,15 @@ def getDaysElapsed() { return { dev, attr ->
     }
 } }
 
-def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } }
+/*****************************************************************************************************************
+ *  Tags Statuses:
+ *****************************************************************************************************************/
+def getHubStatus() { return { -> "${hub().status}".toLowerCase() } } // TODO - ? Drop GString?
 
-def getZwType() { return { 'zwave' } } // TODO Is this needed?
+def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
 
-def getUnit() { return {
-    def unit = it?.unit ?: getEventDetails(it).unit // TODO is a unit already present for threeaxes?
-    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
-    unit
-} }
+def getStatus() { return { "${it?.status}".replaceAll("_", ' ').toLowerCase() } } // TODO - check replacement of '_'
+
 
 def fields() { [
         [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwave']],
@@ -616,12 +638,14 @@ def fields() { [
         [name: 'valueLastEvent',   clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
         [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum', 'hub']],
         [name: 'wValue',           clos: 'weightedValue',            var: 'float',    args: 1, type: ['number']],
-        [name: 'zigbeePowerLevel', clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']],
-        [name: 'zwavePowerLevel',  clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']],
+        [name: 'zigbeePowerLevel', clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']], // TODO - shorten name?
+        [name: 'zwavePowerLevel',  clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']], // TODO - shorten name?
         [name: '',                 clos: 'commandClassesList',       var: 'multiple', args: 1, type: ['zwave']],
-        // [name: 'testField', clos: 'testField', var: 'string', args: 0, type: ['device', 'zwave']]
 ] }
 
+/*****************************************************************************************************************
+ *  Fields Event Details - Current:
+ *****************************************************************************************************************/
 def getEventDescription() { return { it?.descriptionText } }
 
 def getEventId() { return { it.id } }
@@ -634,15 +658,13 @@ def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array 
 
 def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
-// def getCurrentState() { return { "\"${currentStateValue(it)}\"" } } // Not needed now add \" \" in loop
-
 def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } }
 
 def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}." } }
 
 def getCurrentValue() { return { it?.numberValue?.toBigDecimal() ?: removeUnit(it) } }
 
-def removeUnit() { return { // remove any units appending to end of event value property
+def removeUnit() { return { // remove any units appending to end of event value property by device handler
     def length = it.value.length()
     def value
     def i = 2
@@ -671,6 +693,9 @@ def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
 def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
 def getGravityFactor() { return { -> (1024) } }
 
+/*****************************************************************************************************************
+ *  Fields Event Details - Previous:
+ *****************************************************************************************************************/
 def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 'true' : 'false' } }
 
 def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousState(it) }.value } }
@@ -691,8 +716,16 @@ def getPreviousEvent() { return { // TODO - Would this work with device.currentS
 
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
-// def getTimeElapsedDescription() { return { "\"${timeElapsedText(it)}\"" } } // not need due to \" \" added in loop
+def getPreviousValueDescription() { return {
+    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    "This is ${changeAbs} compared to ${timeElapsedText(it)}."
+} }
 
+def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
+
+/*****************************************************************************************************************
+ *  Fields Event Details - Time Difference:
+ *****************************************************************************************************************/
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
     def phrase
@@ -725,14 +758,10 @@ def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
 def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
-def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
-    "This is ${changeAbs} compared to ${timeElapsedText(it)}."
-} }
-
-// def getDifferenceDescription() { return { "\"${differenceText(it)}\"" } }
-
-def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
+/*****************************************************************************************************************
+ *  Fields Event Details - Value Difference:
+ *****************************************************************************************************************/
+def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } } // TODO - Check that this works -> delete old code
     /*
     def changeText = 'unchanged' // text description of change
     if (difference(it) > 0) changeText = 'increased'
@@ -743,17 +772,23 @@ def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (differe
 
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
-def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
+/*****************************************************************************************************************
+ *  Fields Event Details - Time Values:
+ *****************************************************************************************************************/
+def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculates elapsed time of day in milliseconds
 
-def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculate time of day in elapsed milliseconds
+def getTimeWrite() { return { -> new Date().time } } // time of processing the event by Smart App
 
-def getTimeWrite() { return { -> new Date().time } } // time of processing the event
-
+/*****************************************************************************************************************
+ *  Fields Event Details - Weighted Values:
+ *****************************************************************************************************************/
 def getWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
-
+/*****************************************************************************************************************
+ *  Fields Metadata:
+ *****************************************************************************************************************/
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
@@ -767,18 +802,14 @@ def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
 def getFirmware() { return { -> hub().firmwareVersionString } }
 
-def getHubIP() { return { -> hub().localIP } }
-
 def getLatitude() { return { -> location.latitude } }
 
 def getLongitude() { return { -> location.longitude } }
 
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } }
-
-def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } }
-def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } }
+def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } } // TODO - ? Drop GString ?
+def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } } // TODO - ? Drop GString ?
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getTimeLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? dev.latestState(attr).date.time : 0 } }
@@ -794,20 +825,25 @@ def getCommandClassesList() { return {
     def cc = info.cc
     cc?.addAll(info?.ccOut)
     cc?.addAll(info?.sec)
-    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true'
+    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true' // TODO - change 'true' to 'to' - check LP - will shorten it a bit
     info.remove('zw')
     info.remove('cc')
     info.remove('ccOut')
     info.remove('sec')
     logger("commandClassesList: ${info.inspect()}", 'trace')
-    info.endpointInfo.replaceAll("'", '').replaceAll(',', '') // TODO - Need to sort this later
+    info.endpointInfo.replaceAll("'", '').replaceAll(',', '') // TODO - Need to sort this out - leave for now until understand data format better
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"
     info
 } }
 
-def getTestField() { return { -> 'testfield' } }
+/*****************************************************************************************************************
+ *  Fields Statuses:
+ *****************************************************************************************************************/
+def getHubIP() { return { -> hub().localIP } }
+
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } }
 
 /*****************************************************************************************************************
  *  Main Commands:

@@ -440,19 +440,19 @@ def tags() { [
         [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // ? rename to eventClass ? TODO - ? Is this really needed?
+        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - ? Is this really needed? - or only for 'attribute' ?
         [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - ? should this chage to 'status'
         [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type'
-        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // TODO day, hub??
+        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // TODO day, hub?? - generated 'device' identifier -> 'Hub', 'Daylight'
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
         [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO day, hub??
-        [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
+        [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO ??Handle null values? or does it always have a value?
         [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO check this out
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
         [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status',           clos: 'status',                    args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included
+        [name: 'status',           clos: 'status',                    args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included - Is it needed for 'attribute' ?
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
         [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - ? Look at best way to do this/info to present ?
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
@@ -540,7 +540,7 @@ def getIsChange() { return { it?.isStateChange } }
 def getSource() { return { "${it?.source}".toLowerCase() } } // TODO - ? Drop GString?
 
 def getUnit() { return {
-    def unit = it?.unit ?: getEventDetails(it).unit // TODO - check is a unit already present for threeaxes?
+    def unit = it?.unit ?: getEventDetails(it).unit // TODO - check is a unit ('g') already present for threeaxes?
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
 } }
@@ -581,7 +581,7 @@ def getDaysElapsed() { return { dev, attr ->
         daysElapsed = daysElapsed.toDouble().trunc().round()
         "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
     } else {
-        null
+        null // TODO - check this is okay ? - or should it be '' or 'null'
     }
 } }
 
@@ -601,7 +601,7 @@ def fields() { [
         [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'firmwareVersion',  clos: 'firmware',                 var: 'string',   args: 0, type: ['local']],
-        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']],
+        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']], // TODO - duplication of information in 'local'
         [name: 'latitude',         clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
         [name: 'longitude',        clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
         [name: 'nBinary',          clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
@@ -625,7 +625,7 @@ def fields() { [
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
         [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-        [name: 'statusLevel',      clos: 'statusLevel',              var: 'integer',  args: 1, type: ['device', 'statDev']],
+        [name: 'statusLevel',      clos: 'statusLevel',              var: 'integer',  args: 1, type: ['device', 'statDev']], // TODO - ? should there be a status binary? (also for statHub ?)
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
         [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
@@ -646,7 +646,7 @@ def fields() { [
 /*****************************************************************************************************************
  *  Fields Event Details - Current:
  *****************************************************************************************************************/
-def getEventDescription() { return { it?.descriptionText } }
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ') } } // remove circle from C unit
 
 def getEventId() { return { it.id } }
 
@@ -658,7 +658,7 @@ def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array 
 
 def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
-def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } }
+def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
 
 def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}." } }
 
@@ -680,7 +680,7 @@ def removeUnit() { return { // remove any units appending to end of event value 
     }
 } }
 
-def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } }
+def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } } // TODO - Drop GString??
 
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
@@ -708,16 +708,16 @@ def getPreviousEvent() { return { // TODO - Would this work with device.currentS
         [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
     }
     else {
-        def history = it.device.statesSince("${it.name}", it.date - 7, [max: 5])
-        def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it.device.latestState("${it.name}")
-        historySorted.find { previous -> previous.date.time < it.date.time }
+        def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
+        def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it?.device?.latestState("${it.name}") // TODO - Will have a problem if no history i.e. current event is only event
+        historySorted.find { previous -> previous.date.time < it.date.time } // TODO - Will have a problem if no previous event
     }
 } }
 
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
 def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
@@ -812,9 +812,9 @@ def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.ti
 def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } } // TODO - ? Drop GString ?
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
-def getTimeLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? dev.latestState(attr).date.time : 0 } }
+def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
 
-def getValueLastEvent() { return { dev, attr -> (dev?.latestState(attr)) ? "${dev.latestState(attr).value}" : 'null' } }
+def getValueLastEvent() { return { dev, attr -> "${dev?.latestState(attr).value}" ?: 'null' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
@@ -825,12 +825,11 @@ def getCommandClassesList() { return {
     def cc = info.cc
     cc?.addAll(info?.ccOut)
     cc?.addAll(info?.sec)
-    def ccList = 'zz' + cc.sort().join('=true,zz') + '=true' // TODO - change 'true' to 'to' - check LP - will shorten it a bit
+    def ccList = 'zz' + cc.sort().join('=t,zz') + '=t' // 't' is InfluxLP for 'true'
     info.remove('zw')
     info.remove('cc')
     info.remove('ccOut')
     info.remove('sec')
-    logger("commandClassesList: ${info.inspect()}", 'trace')
     info.endpointInfo.replaceAll("'", '').replaceAll(',', '') // TODO - Need to sort this out - leave for now until understand data format better
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
@@ -843,7 +842,7 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIP() { return { -> hub().localIP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } }
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO - ? Could change to == 'ONLINE' -> but pattern for multiple states
 
 /*****************************************************************************************************************
  *  Main Commands:

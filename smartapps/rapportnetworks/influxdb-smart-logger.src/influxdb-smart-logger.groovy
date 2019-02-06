@@ -440,13 +440,13 @@ def tags() { [
         [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // ? rename to eventClass ?
+        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // ? rename to eventClass ? TODO - ? Is this really needed?
         [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - ? should this chage to 'status'
         [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type'
-        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
+        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // TODO day, hub??
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true],
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO day, hub??
         [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // ??Handle null values? or does it always have a value?
         [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO check this out
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
@@ -616,11 +616,11 @@ def fields() { [
         [name: 'nValueX',          clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
         [name: 'nValueY',          clos: 'currentValueY',            var: 'float',    args: 1, type: ['vector3']],
         [name: 'nValueZ',          clos: 'currentValueZ',            var: 'float',    args: 1, type: ['vector3']],
-        [name: 'pBinary',          clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum', 'hub']],
-        [name: 'pLevel',           clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum', 'hub']],
+        [name: 'pBinary',          clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'pLevel',           clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
         [name: 'portTCP',          clos: 'portTCP',                  var: 'integer',  args: 0, type: ['local']],
-        [name: 'pState',           clos: 'previousState',            var: 'string',   args: 1, type: ['enum', 'hub']],
-        [name: 'pText',            clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum']],
+        [name: 'pState',           clos: 'previousState',            var: 'string',   args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'pText',            clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
         [name: 'pText',            clos: 'previousValueDescription', var: 'string',   args: 1, type: ['number']],
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
@@ -629,14 +629,14 @@ def fields() { [
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
         [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
-        [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'hub', 'number']],
-        [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number']],
+        [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'hub', 'number']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'hub', 'number']], // TODO - check this - added in for 'hub' to enable monitoring
         [name: 'timeLastEvent',    clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
-        [name: 'timestamp',        clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'number', 'vector3']],
+        [name: 'timestamp',        clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'hub', 'number', 'vector3']],
         [name: 'tOffset',          clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
         [name: 'tWrite',           clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
         [name: 'valueLastEvent',   clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
-        [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum', 'hub']],
+        [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
         [name: 'wValue',           clos: 'weightedValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'zigbeePowerLevel', clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']], // TODO - shorten name?
         [name: 'zwavePowerLevel',  clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']], // TODO - shorten name?
@@ -1110,11 +1110,11 @@ private getAttributeDetail() { [
         consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
         contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
         current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-        daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]],
+        daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]], // TODO - ? Should this be type: 'daylight' ?
         door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
         energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
         heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]],
+        hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]], // TODO - ? Should this be type: 'hubStatus' ?
         hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
         humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
         illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

@@ -706,12 +706,14 @@ def getPreviousEvent() { return { // TODO - Would this work with device.currentS
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
         [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
-    }
-    else {
+    } else {
         def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
         def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it?.device?.latestState("${it.name}") // TODO - Will have a problem if no history i.e. current event is only event
         historySorted.find { previous -> previous.date.time < it.date.time } // TODO - Will have a problem if no previous event
     }
+    // } else {
+    //      it?.device?.currentState(it.name)
+    // }
 } }
 
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }

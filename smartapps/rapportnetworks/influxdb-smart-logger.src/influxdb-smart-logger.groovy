@@ -205,10 +205,11 @@ def updated() { // runs when app settings are changed
     manageSchedules()
 
     logger('updated: Scheduling first run of poll methods', 'trace')
-    // runIn(60, pollLocations)
-    // runIn(120, pollDevices)
-    // runIn(300, pollAttributes)
-    // runIn(600, pollZwaves)
+    runIn(100, pollLocations)
+    runIn(200, pollDevices)
+    runIn(300, pollAttributes)
+    runIn(400, pollZwaves)
+    runIn(500, pollStatus)
 }
 
 /*****************************************************************************************************************
@@ -832,7 +833,7 @@ def getCommandClassesList() { return {
     info.remove('cc')
     info.remove('ccOut')
     info.remove('sec')
-    info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
+    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
     info = toKeyValue(info) + ',' + "${ccList}"

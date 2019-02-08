@@ -258,14 +258,14 @@ def handleColorMapEvent(evt) {
 
 def handleDaylight(evt) {
     def measurementType = 'day' // TODO - Need to check tags/fields
-    def measurementName = 'states'
+    def measurementName = 'daylight'
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
     def measurementType = 'hub' // TODO - Need to check tags/fields
-    def measurementName = 'hubStatus'
+    def measurementName = 'hubEvents'
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
@@ -441,23 +441,22 @@ def tags() { [
         [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - ? Is this really needed? - or only for 'attribute' ?
-        [name: 'hubStatus',        clos: 'hubStatus',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - ? should this chage to 'status'
-        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type'
-        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'enum', 'number', 'string', 'vector3']], // TODO day, hub?? - generated 'device' identifier -> 'Hub', 'Daylight'
+        // [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - ? Is this really needed? - or only for 'attribute' ? - Also 'physical' and 'digital'?
+        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type' - see event/device objects
+        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Hub', 'Daylight'
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO day, hub??
-        [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO ??Handle null values? or does it always have a value?
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO check -> 'Hub', 'Daylight'
+        [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO check this out
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
         [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status',           clos: 'status',                    args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included - Is it needed for 'attribute' ?
+        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included - Is it needed for 'attribute' ?
+        [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
         [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - ? Look at best way to do this/info to present ?
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
-        [name: 'type',             clos: 'zwType',                    args: 0, esc: false, type: ['zwave']], // TODO - ? Is this needed?
         [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
 
@@ -509,7 +508,13 @@ def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
 def getDeviceLabel() { return {
     if (isEventObject(it)) {
-        it?.device?.device?.label ?: 'unassigned'
+        if (eventName(it) == 'daylight') {
+            'Day'
+        } else if (eventName(it) == 'hubStatus') {
+            'Hub'
+        } else {
+            it?.device?.device?.label ?: 'unassigned'
+        }
     } else {
         it?.label ?: 'unassigned'
     }
@@ -538,7 +543,7 @@ def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } }
 
-def getSource() { return { "${it?.source}".toLowerCase() } } // TODO - ? Drop GString?
+def getSource() { return { "${it?.source}".toLowerCase() } }
 
 def getUnit() { return {
     def unit = it?.unit ?: getEventDetails(it).unit // TODO - check is a unit ('g') already present for threeaxes?
@@ -549,11 +554,11 @@ def getUnit() { return {
 /*****************************************************************************************************************
  *  Tags Metadata:
  *****************************************************************************************************************/
-def getHubType() { return { -> "${hub().type}".toLowerCase() } } // TODO - ? Drop GString?
+def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
 def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
-def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } } // TODO - Check this capitalises first letter of attribute
+def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
 
 def getPower() { return {
     switch(zwInfo(it)?.zw.take(1)) {
@@ -568,13 +573,11 @@ def getPower() { return {
 
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
-def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure' } } // TODO - Changed from 'true' : 'false'
+def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure' } }
 
 def getTempScale() { return { -> location.temperatureScale } }
 
-def getTimeZoneCode() { return { -> "${location.timeZone.ID}" } } // TODO - ? Drop GString?
-
-def getZwType() { return { 'zwave' } } // TODO Is this needed?
+def getTimeZoneCode() { return { -> location.timeZone.ID } }
 
 def getDaysElapsed() { return { dev, attr ->
     if (dev?.latestState(attr)) {
@@ -589,11 +592,11 @@ def getDaysElapsed() { return { dev, attr ->
 /*****************************************************************************************************************
  *  Tags Statuses:
  *****************************************************************************************************************/
-def getHubStatus() { return { -> "${hub().status}".toLowerCase() } } // TODO - ? Drop GString?
-
 def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
 
-def getStatus() { return { "${it?.status}".replaceAll("_", ' ').toLowerCase() } } // TODO - check replacement of '_'
+def getStatusDevice() { return { "${it?.status}".replaceAll("_", ' ').toLowerCase() } } // TODO - check replacement of '_'
+
+def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
 
 
 def fields() { [
@@ -601,8 +604,8 @@ def fields() { [
         [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['zwave']],
         [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'firmwareVersion',  clos: 'firmware',                 var: 'string',   args: 0, type: ['local']],
-        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']], // TODO - duplication of information in 'local'
+        [name: 'firmware',         clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
+        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['statHub']],
         [name: 'latitude',         clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
         [name: 'longitude',        clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
         [name: 'nBinary',          clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
@@ -617,11 +620,11 @@ def fields() { [
         [name: 'nValueX',          clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
         [name: 'nValueY',          clos: 'currentValueY',            var: 'float',    args: 1, type: ['vector3']],
         [name: 'nValueZ',          clos: 'currentValueZ',            var: 'float',    args: 1, type: ['vector3']],
-        [name: 'pBinary',          clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
-        [name: 'pLevel',           clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'pBinary',          clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum']],
+        [name: 'pLevel',           clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum']],
         [name: 'portTCP',          clos: 'portTCP',                  var: 'integer',  args: 0, type: ['local']],
-        [name: 'pState',           clos: 'previousState',            var: 'string',   args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
-        [name: 'pText',            clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'pState',           clos: 'previousState',            var: 'string',   args: 1, type: ['enum']],
+        [name: 'pText',            clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum']],
         [name: 'pText',            clos: 'previousValueDescription', var: 'string',   args: 1, type: ['number']],
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
@@ -630,17 +633,17 @@ def fields() { [
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
         [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
-        [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'hub', 'number']], // TODO - check this - added in for 'hub' to enable monitoring
-        [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'hub', 'number']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'number']],
+        [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number']],
         [name: 'timeLastEvent',    clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
         [name: 'timestamp',        clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'hub', 'number', 'vector3']],
         [name: 'tOffset',          clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
         [name: 'tWrite',           clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
         [name: 'valueLastEvent',   clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
-        [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum', 'hub']], // TODO - check this - added in for 'hub' to enable monitoring
+        [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum']],
         [name: 'wValue',           clos: 'weightedValue',            var: 'float',    args: 1, type: ['number']],
-        [name: 'zigbeePowerLevel', clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']], // TODO - shorten name?
-        [name: 'zwavePowerLevel',  clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']], // TODO - shorten name?
+        [name: 'zigbeeP',          clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']],
+        [name: 'zwaveP',           clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']],
         [name: '',                 clos: 'commandClassesList',       var: 'multiple', args: 1, type: ['zwave']],
 ] }
 
@@ -681,7 +684,7 @@ def removeUnit() { return { // remove any units appending to end of event value 
     }
 } }
 
-def getCurrentValueDisplay() { return { "${currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)}" } } // TODO - Drop GString??
+def getCurrentValueDisplay() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
@@ -703,7 +706,7 @@ def getPreviousStateLevel() { return { attributeStates(it).find { level -> level
 
 def getPreviousState() { return { previousEvent(it).value } }
 
-def getPreviousEvent() { return { // TODO - Would this work with device.currentState(it.name)? - i.e. event handler called before event log updated? - Need to test it out
+def getPreviousEvent() { return {
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
         [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
@@ -712,15 +715,12 @@ def getPreviousEvent() { return { // TODO - Would this work with device.currentS
         def historySorted = (history) ? history.sort { a, b -> b.date.time <=> a.date.time } : it?.device?.latestState("${it.name}") // TODO - Will have a problem if no history i.e. current event is only event
         historySorted.find { previous -> previous.date.time < it.date.time } // TODO - Will have a problem if no previous event
     }
-    // } else {
-    //      it?.device?.currentState(it.name)
-    // }
 } }
 
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
 def getPreviousValueDescription() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ?: "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
@@ -764,14 +764,7 @@ def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousSta
 /*****************************************************************************************************************
  *  Fields Event Details - Value Difference:
  *****************************************************************************************************************/
-def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } } // TODO - Check that this works -> delete old code
-    /*
-    def changeText = 'unchanged' // text description of change
-    if (difference(it) > 0) changeText = 'increased'
-    else if (difference(it) < 0) changeText = 'decreased'
-    changeText
-} }
-*/
+def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
 
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
@@ -803,7 +796,7 @@ def getConfiguredParametersList() { return {
 
 def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
 
-def getFirmware() { return { -> hub().firmwareVersionString } }
+def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
 def getLatitude() { return { -> location.latitude } }
 
@@ -811,8 +804,8 @@ def getLongitude() { return { -> location.longitude } }
 
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
-def getSunrise() { return { -> "${daylight().sunrise.format('HH:mm', location.timeZone)}" } } // TODO - ? Drop GString ?
-def getSunset() { return { -> "${daylight().sunset.format('HH:mm', location.timeZone)}" } } // TODO - ? Drop GString ?
+def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
+def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
@@ -845,7 +838,7 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIP() { return { -> hub().localIP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO - ? Could change to == 'ONLINE' -> but pattern for multiple states
+def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO - ? Could change to == 'ONLINE' -> but pattern for multiple states, convert to boolean?
 
 /*****************************************************************************************************************
  *  Main Commands:
@@ -1112,11 +1105,11 @@ private getAttributeDetail() { [
         consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
         contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
         current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-        daylight                : [type: 'enum', levels: [ sunset: -1, sunrise: 1]], // TODO - ? Should this be type: 'daylight' ?
+        daylight                : [type: 'daylight', levels: [ sunset: -1, sunrise: 1]], // TODO - update database type: 'daylight'
         door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
         energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
         heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        hubStatus               : [type: 'enum', levels: [disconnected: -1, active: 1]], // TODO - ? Should this be type: 'hubStatus' ?
+        hubStatus               : [type: 'hub', levels: [disconnected: -1, active: 1]], // TODO - update database type: 'hubStatus'
         hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
         humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
         illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

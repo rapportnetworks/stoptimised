@@ -441,19 +441,21 @@ def tags() { [
         [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        // [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - ? Is this really needed? - or only for 'attribute' ? - Also 'physical' and 'digital'?
-        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']], // TODO - ? should this chage to 'type' - see event/device objects
-        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Hub', 'Daylight'
+        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
+        [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
+        [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Daylight'
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
         [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO check -> 'Hub', 'Daylight'
         [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO check this out
+        // [name: 'isDigital',        clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
+        // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
+        [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO - Move to field?
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
         [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO ?Included - Is it needed for 'attribute' ?
-        [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
+        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO - Needed for 'attribute'? Move to field?
+        [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - Move to field?
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
         [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - ? Look at best way to do this/info to present ?
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
@@ -537,11 +539,15 @@ def getEventType() { return { eventDetails(it).type } }
 
 def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
-def getIdentifierGlobal() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it)}" } }
+def getIdentifierGlobal() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it).capitalize()}" } } // TODO - added capitalize() - remove for production
 
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 
 def getIsChange() { return { it?.isStateChange } }
+
+def getIsDigital() { return { it?.isDigital } }
+
+def getIsPhysical() { return { it?.isPhysical } }
 
 def getSource() { return { "${it?.source}".toLowerCase() } }
 
@@ -592,7 +598,7 @@ def getDaysElapsed() { return { dev, attr ->
 /*****************************************************************************************************************
  *  Tags Statuses:
  *****************************************************************************************************************/
-def getOnBattery() { return { -> hub().hub.getDataValue('batteryInUse') } }
+def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse')) ?: 'false' } }
 
 def getStatusDevice() { return { "${it?.status}".replaceAll("_", ' ').toLowerCase() } } // TODO - check replacement of '_'
 
@@ -605,7 +611,7 @@ def fields() { [
         [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'firmware',         clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
-        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['statHub']],
+        [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']],
         [name: 'latitude',         clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
         [name: 'longitude',        clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
         [name: 'nBinary',          clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
@@ -629,7 +635,8 @@ def fields() { [
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
         [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-        [name: 'statusLevel',      clos: 'statusLevel',              var: 'integer',  args: 1, type: ['device', 'statDev']], // TODO - ? should there be a status binary? (also for statHub ?)
+        [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwave']],
+        [name: 'statusBinary',     clos: 'statusHubBinary',          var: 'boolean',  args: 1, type: ['local', 'statHub']],
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
         [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
@@ -838,7 +845,9 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIP() { return { -> hub().localIP } }
 
-def getStatusLevel() { return { (it?.status.toUpperCase() in ["ONLINE"]) ? 1 : -1 } } // TODO - ? Could change to == 'ONLINE' -> but pattern for multiple states, convert to boolean?
+def getStatusDeviceBinary() { return { (statusDevice(it) == 'online') ? 't' : 'f' } }
+
+def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 
 /*****************************************************************************************************************
  *  Main Commands:
@@ -1109,7 +1118,7 @@ private getAttributeDetail() { [
         door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
         energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
         heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        hubStatus               : [type: 'hub', levels: [disconnected: -1, active: 1]], // TODO - update database type: 'hubStatus'
+        hubStatus               : [type: 'hub', levels: [inactive: -2, disconnected: -1, active: 1]], // TODO - update database type: 'hubStatus' and add/change levels
         hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
         humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
         illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],

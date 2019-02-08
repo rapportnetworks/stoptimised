@@ -380,7 +380,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         def fieldCount = 0
         fields().each { field ->
             if ('all' in field.type || measurementType in field.type) {
-                influxLP.append((fieldCount) ? ',' : '')
+                influxLP.append((fieldCount > 1) ? ',' : '') // first field is optional
                 if (field.name) influxLP.append("${field.name}=")
                 def fieldValue
                 switch(field.args) {
@@ -452,12 +452,13 @@ def tags() { [
         // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
         [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO - Move to field?
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
+        [name: 'powerSource',      clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwave']],
         [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
         [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO - Needed for 'attribute'? Move to field?
         [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - Move to field?
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
-        [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - ? Look at best way to do this/info to present ?
+        // [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - Drop - varies so much between attributes
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
         [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
@@ -577,6 +578,8 @@ def getPower() { return {
     }
 } }
 
+def getPowerSource() { return { it?.latestValue('powerSource') ?: 'unknown' } }
+
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
 def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure' } }
@@ -606,6 +609,7 @@ def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
 
 
 def fields() { [
+        [name: '',                 clos: 'battery',                  var: 'single',   args: 1, type: ['device', 'statDev', 'zwave']],
         [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwave']],
         [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['zwave']],
         [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
@@ -642,6 +646,7 @@ def fields() { [
         [name: 'tDay',             clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
         [name: 'tElapsed',         clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'number']],
         [name: 'tElapsedText',     clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number']],
+        [name: 'timeLastActivity', clos: 'timeLastActivity',         var: 'integer',  args: 1, type: ['device']],
         [name: 'timeLastEvent',    clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
         [name: 'timestamp',        clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'hub', 'number', 'vector3']],
         [name: 'tOffset',          clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
@@ -792,6 +797,14 @@ def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 /*****************************************************************************************************************
  *  Fields Metadata:
  *****************************************************************************************************************/
+def getBattery() { return {
+    if (it?.hasAttribute('battery')) {
+        "battery=${it?.latestValue('battery') ?: 100}i,"
+    } else {
+        ''
+    }
+}}
+
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
@@ -801,7 +814,7 @@ def getConfiguredParametersList() { return {
     }
 } }
 
-def getCheckInterval() { return { it?.latestState('checkInterval')?.value } }
+def getCheckInterval() { return { it?.latestValue('checkInterval') } }
 
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
@@ -815,9 +828,11 @@ def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZ
 def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
+def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
+
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
 
-def getValueLastEvent() { return { dev, attr -> "${dev?.latestState(attr).value}" ?: 'null' } }
+def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: '' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
@@ -874,7 +889,7 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
 }
 
 def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) { // TODO - Check / tidy up
-    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}", 'trace')
+    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
@@ -894,7 +909,7 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
 }
 
 def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy up
-    if (response.status == 204) logger("postToInfluxDBRemote: Success! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'trace')
+    if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'error')
 }
 

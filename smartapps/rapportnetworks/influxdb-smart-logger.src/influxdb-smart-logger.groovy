@@ -380,13 +380,15 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         def fieldCount = 0
         fields().each { field ->
             if ('all' in field.type || measurementType in field.type) {
-                influxLP.append((fieldCount > 1) ? ',' : '') // first field is optional
-                if (field.name) influxLP.append("${field.name}=")
                 def fieldValue
-                switch(field.args) {
+                switch (field.args) {
                     case 0:
-                        try { fieldValue = "$field.clos"() }
-                        catch(e) { logger("influxLP: Error with field closure 0 (${measurementType}): ${field.clos}", 'error') }
+                        try {
+                            fieldValue = "$field.clos"()
+                        }
+                        catch (e) {
+                            logger("influxLP: Error with field closure 0 (${measurementType}): ${field.clos}", 'error')
+                        }
                         break
                     case 1:
                         try {
@@ -396,20 +398,34 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                                 fieldValue = "$field.clos"(item)
                             }
                         }
-                        catch(e) { logger("influxLP: Error with field closure 1 (${measurementType}): ${field.clos}", 'error') }
+                        catch (e) {
+                            logger("influxLP: Error with field closure 1 (${measurementType}): ${field.clos}", 'error')
+                        }
                         break
                     case 2:
-                        try { fieldValue = "$field.clos"(superItem, item) }
-                        catch(e) { logger("influxLP: Error with field closure 2 (${measurementType}): ${field.clos}", 'error') }
+                        try {
+                            fieldValue = "$field.clos"(superItem, item)
+                        }
+                        catch (e) {
+                            logger("influxLP: Error with field closure 2 (${measurementType}): ${field.clos}", 'error')
+                        }
                         break
                 }
-                if (field.var == 'string') {
-                    influxLP.append('\"').append(fieldValue).append('\"')
-                } else {
-                    influxLP.append(fieldValue)
+                if (fieldValue || fieldValue == 0) {
+
+                    influxLP.append((fieldCount) ? ',' : '')
+
+                    if (field.name) influxLP.append("${field.name}=")
+
+                    if (field.var == 'string') {
+                        influxLP.append('\"').append(fieldValue).append('\"')
+                    } else {
+                        influxLP.append(fieldValue)
+                    }
+                    if (field.var == 'integer') influxLP.append('i')
+
+                    fieldCount++
                 }
-                if (field.var == 'integer') influxLP.append('i')
-                fieldCount++
             }
         }
         if (isEventObject(item)) influxLP.append(' ').append(timestamp(item))
@@ -666,7 +682,7 @@ def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', '
 
 def getEventId() { return { it.id } }
 
-def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 'true' : 'false' } }
+def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 't' : 'f' } }
 
 def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentState(it) }.value } }
 
@@ -712,7 +728,7 @@ def getGravityFactor() { return { -> (1024) } }
 /*****************************************************************************************************************
  *  Fields Event Details - Previous:
  *****************************************************************************************************************/
-def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 'true' : 'false' } }
+def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 't' : 'f' } }
 
 def getPreviousStateLevel() { return { attributeStates(it).find { level -> level.key == previousState(it) }.value } }
 
@@ -799,7 +815,7 @@ def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
  *****************************************************************************************************************/
 def getBattery() { return {
     if (it?.hasAttribute('battery')) {
-        "battery=${it?.latestValue('battery') ?: 100}i,"
+        "battery=${it?.latestValue('battery') ?: 100}i"
     } else {
         ''
     }
@@ -832,7 +848,7 @@ def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
 
-def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: '' } }
+def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 

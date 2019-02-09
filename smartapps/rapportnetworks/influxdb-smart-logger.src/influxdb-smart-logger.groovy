@@ -205,12 +205,13 @@ def updated() { // runs when app settings are changed
     manageSchedules()
 
     logger('updated: Scheduling first run of poll methods', 'trace')
-    runIn(100, pollLocations)
-    runIn(200, pollDevices)
-    runIn(300, pollAttributes)
-    runIn(400, pollZwavesCcs)
-    runIn(500, pollZwavesCfg)
-    runIn(600, pollStatus)
+
+    def runInTime = 20
+    def runInInterval = 20
+    pollingMethods().each {
+        runIn(runInTime, it.key)
+        runInTime += runInInterval
+    }
 
 }
 
@@ -842,7 +843,7 @@ def getConfiguredParametersList() { return {
     }
 } }
 
-def getCheckInterval() { return { it?.latestValue('checkInterval') } }
+def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
 
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
@@ -862,7 +863,7 @@ def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time 
 
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
 
-def getWakeUpInterval() { return { it?.getDataValue('wakeUpInterval') } }
+def getWakeUpInterval() { return { it?.getDataValue('wakeUpInterval') ?: '' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
@@ -949,16 +950,7 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
 private manageSchedules() {
     logger('manageSchedules', 'trace')
 
-    def polls = [
-            pollStatus: 'runEvery1Hour',
-            pollLocations: 'runEvery3Hours',
-            pollDevices: 'runEvery3Hours',
-            pollAttributes: 'runEvery3Hours',
-            pollZwavesCcs: 'runEvery3Hours',
-            pollZwavesCfg: 'runEvery3Hours'
-    ]
-
-    polls.each {
+    pollingMethods().each {
         try {
             unschedule(it.key)
         }
@@ -968,6 +960,15 @@ private manageSchedules() {
         "${it.value}"(it.key)
     }
 }
+
+def pollingMethods() { [
+    pollStatus:     'runEvery1Hour',
+    pollLocations:  'runEvery3Hours',
+    pollDevices:    'runEvery3Hours',
+    pollAttributes: 'runEvery3Hours',
+    pollZwavesCcs:  'runEvery3Hours',
+    pollZwavesCfg:  'runEvery3Hours'
+] }
 
 private manageSubscriptions() {
     logger('manageSubscriptions: Subscribing listeners to events', 'trace')

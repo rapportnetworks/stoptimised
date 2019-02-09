@@ -282,6 +282,7 @@ def pollStatus() {
 }
 
 def pollStatusHubs() {
+    logger('pollStatusHubs:', 'trace')
     def measurementType = 'statHub'
     def measurementName = 'statusHubs'
     def retentionPolicy = 'autogen'
@@ -290,6 +291,7 @@ def pollStatusHubs() {
 }
 
 def pollStatusDevices() {
+    logger('pollStatusDevices:', 'trace')
     def measurementType = 'statDev'
     def measurementName = 'statusDevices'
     def retentionPolicy = 'autogen'
@@ -306,7 +308,7 @@ def pollLocations() {
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
-    def items = ['dummy'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
+    def items = ['placeholder'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
@@ -332,7 +334,7 @@ def pollAttributes() {
 }
 
 def pollZwavesCcs() {
-    logger('pollZwaves:', 'trace')
+    logger('pollZwavesCcs:', 'trace')
     def measurementType = 'zwCcs'
     def measurementName = 'zwavesCcs' // TODO need to check this
     def retentionPolicy = 'metadata'
@@ -341,7 +343,7 @@ def pollZwavesCcs() {
 }
 
 def pollZwavesCfg() {
-    logger('pollZwaves:', 'trace')
+    logger('pollZwavesCfg:', 'trace')
     def measurementType = 'zwCfg'
     def measurementName = 'zwavesCfg' // TODO need to check this
     def retentionPolicy = 'metadata'
@@ -472,9 +474,9 @@ def tags() { [
         [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
         [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
         [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Daylight'
-        [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'statHub', 'zwCcs', 'zwCfg']],
+        [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'statHub', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true], // TODO check -> 'Hub', 'Daylight'
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true], // TODO check -> 'Hub', 'Daylight'
         [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         // [name: 'isDigital',        clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
         // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
@@ -863,7 +865,7 @@ def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time 
 
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
 
-def getWakeUpInterval() { return { it?.getDataValue('wakeUpInterval') ?: '' } }
+def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 

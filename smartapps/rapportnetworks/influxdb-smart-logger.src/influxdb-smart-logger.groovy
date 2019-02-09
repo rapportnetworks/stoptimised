@@ -208,8 +208,10 @@ def updated() { // runs when app settings are changed
     runIn(100, pollLocations)
     runIn(200, pollDevices)
     runIn(300, pollAttributes)
-    runIn(400, pollZwaves)
-    runIn(500, pollStatus)
+    runIn(400, pollZwavesCcs)
+    runIn(500, pollZwavesCfg)
+    runIn(600, pollStatus)
+
 }
 
 /*****************************************************************************************************************
@@ -328,10 +330,19 @@ def pollAttributes() {
     }
 }
 
-def pollZwaves() {
+def pollZwavesCcs() {
     logger('pollZwaves:', 'trace')
-    def measurementType = 'zwave'
-    def measurementName = 'zwaves' // TODO need to check this
+    def measurementType = 'zwCcs'
+    def measurementName = 'zwavesCcs' // TODO need to check this
+    def retentionPolicy = 'metadata'
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+}
+
+def pollZwavesCfg() {
+    logger('pollZwaves:', 'trace')
+    def measurementType = 'zwCfg'
+    def measurementName = 'zwavesCfg' // TODO need to check this
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
@@ -415,7 +426,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
 
                     influxLP.append((fieldCount) ? ',' : '')
 
-                    if (field.name) influxLP.append("${field.name}=")
+                    if (field.var != 'multiple') influxLP.append("${field.name}=")
 
                     if (field.var == 'string') {
                         influxLP.append('\"').append(fieldValue).append('\"')
@@ -450,28 +461,28 @@ def tags() { [
         [name: 'areaId',           clos: 'locationId',                args: 1, esc: false, type: ['all']],
         [name: 'building',         clos: 'hubName',                   args: 0, esc: true,  type: ['all']],
         [name: 'buildingId',       clos: 'hubId',                     args: 1, esc: false, type: ['all']],
-        [name: 'chamber',          clos: 'groupName',                 args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'chamberId',        clos: 'groupId',                   args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceCode',       clos: 'deviceCode',                args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceId',         clos: 'deviceId',                  args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave'], super: true],
-        [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true],
+        [name: 'chamber',          clos: 'groupName',                 args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+        [name: 'chamberId',        clos: 'groupId',                   args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+        [name: 'deviceCode',       clos: 'deviceCode',                args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+        [name: 'deviceId',         clos: 'deviceId',                  args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+        [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+        [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
         [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
         [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Daylight'
-        [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwave']],
+        [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'statHub', 'zwCcs', 'zwCfg']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'string', 'vector3', 'zwave'], super: true], // TODO check -> 'Hub', 'Daylight'
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'statHub', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true], // TODO check -> 'Hub', 'Daylight'
         [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         // [name: 'isDigital',        clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
         // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
         [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO - Move to field?
-        [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwave']],
-        [name: 'powerSource',      clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwave']],
-        [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwave']],
+        [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwCcs', 'zwCfg']],
+        [name: 'powerSource',      clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
+        [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwCcs']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwave'], super: true], // TODO - Needed for 'attribute'? Move to field?
+        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true], // TODO - Needed for 'attribute'? Move to field?
         [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - Move to field?
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
         // [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - Drop - varies so much between attributes
@@ -535,7 +546,7 @@ def getDeviceLabel() { return {
             it?.device?.device?.label ?: 'unassigned'
         }
     } else {
-        it?.label ?: 'unassigned'
+        it?.label ?: 'Hub'
     }
 } }
 
@@ -625,9 +636,9 @@ def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
 
 
 def fields() { [
-        [name: '',                 clos: 'battery',                  var: 'single',   args: 1, type: ['device', 'statDev', 'zwave']],
-        [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwave']],
-        [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['zwave']],
+        [name: 'battery',          clos: 'battery',                  var: 'integer',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
+        [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
+        [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['statDev','zwCfg']],
         [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         [name: 'firmware',         clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
@@ -655,7 +666,7 @@ def fields() { [
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
         [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-        [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwave']],
+        [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: 'statusBinary',     clos: 'statusHubBinary',          var: 'boolean',  args: 1, type: ['local', 'statHub']],
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
@@ -668,11 +679,12 @@ def fields() { [
         [name: 'tOffset',          clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
         [name: 'tWrite',           clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
         [name: 'valueLastEvent',   clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
+        [name: 'wakeUpInterval',   clos: 'wakeUpInterval',           var: 'integer',  args: 1, type: ['statDev', 'zwCfg']],
         [name: 'wLevel',           clos: 'weightedLevel',            var: 'integer',  args: 1, type: ['enum']],
         [name: 'wValue',           clos: 'weightedValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'zigbeeP',          clos: 'zigbeePowerLevel',         var: 'integer',  args: 0, type: ['local']],
         [name: 'zwaveP',           clos: 'zwavePowerLevel',          var: 'string',   args: 0, type: ['local']],
-        [name: '',                 clos: 'commandClassesList',       var: 'multiple', args: 1, type: ['zwave']],
+        [name: '',                 clos: 'commandClassesList',       var: 'multiple', args: 1, type: ['zwCcs']],
 ] }
 
 /*****************************************************************************************************************
@@ -815,7 +827,7 @@ def getWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
  *****************************************************************************************************************/
 def getBattery() { return {
     if (it?.hasAttribute('battery')) {
-        "battery=${it?.latestValue('battery') ?: 100}i"
+        it?.latestValue('battery') ?: 100 // in case battery is still 100 and no battery report has been sent
     } else {
         ''
     }
@@ -849,6 +861,8 @@ def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
 
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
+
+def getWakeUpInterval() { return { it?.getDataValue('wakeUpInterval') } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
@@ -940,7 +954,8 @@ private manageSchedules() {
             pollLocations: 'runEvery3Hours',
             pollDevices: 'runEvery3Hours',
             pollAttributes: 'runEvery3Hours',
-            pollZwaves: 'runEvery3Hours'
+            pollZwavesCcs: 'runEvery3Hours',
+            pollZwavesCfg: 'runEvery3Hours'
     ]
 
     polls.each {

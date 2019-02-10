@@ -205,12 +205,13 @@ def updated() { // runs when app settings are changed
     manageSchedules()
 
     logger('updated: Scheduling first run of poll methods', 'trace')
-    runIn(100, pollLocations)
-    runIn(200, pollDevices)
-    runIn(300, pollAttributes)
-    runIn(400, pollZwavesCcs)
-    runIn(500, pollZwavesCfg)
-    runIn(600, pollStatus)
+
+    def runInTime = 20
+    def runInInterval = 20
+    pollingMethods().each {
+        runIn(runInTime, it.key)
+        runInTime += runInInterval
+    }
 
 }
 
@@ -281,6 +282,7 @@ def pollStatus() {
 }
 
 def pollStatusHubs() {
+    logger('pollStatusHubs:', 'trace')
     def measurementType = 'statHub'
     def measurementName = 'statusHubs'
     def retentionPolicy = 'autogen'
@@ -289,6 +291,7 @@ def pollStatusHubs() {
 }
 
 def pollStatusDevices() {
+    logger('pollStatusDevices:', 'trace')
     def measurementType = 'statDev'
     def measurementName = 'statusDevices'
     def retentionPolicy = 'autogen'
@@ -305,7 +308,7 @@ def pollLocations() {
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
-    def items = ['dummy'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
+    def items = ['placeholder'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
@@ -331,7 +334,7 @@ def pollAttributes() {
 }
 
 def pollZwavesCcs() {
-    logger('pollZwaves:', 'trace')
+    logger('pollZwavesCcs:', 'trace')
     def measurementType = 'zwCcs'
     def measurementName = 'zwavesCcs' // TODO need to check this
     def retentionPolicy = 'metadata'
@@ -340,7 +343,7 @@ def pollZwavesCcs() {
 }
 
 def pollZwavesCfg() {
-    logger('pollZwaves:', 'trace')
+    logger('pollZwavesCfg:', 'trace')
     def measurementType = 'zwCfg'
     def measurementName = 'zwavesCfg' // TODO need to check this
     def retentionPolicy = 'metadata'
@@ -456,9 +459,6 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
     "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy)
 }
 
-/*****************************************************************************************************************
- *  Tags Map:
- *****************************************************************************************************************/
 def tags() { [
         [name: 'area',             clos: 'locationName',              args: 0, esc: true,  type: ['all']],
         [name: 'areaId',           clos: 'locationId',                args: 1, esc: false, type: ['all']],
@@ -471,23 +471,22 @@ def tags() { [
         [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
         [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true],
         [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
+        [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
         [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
         [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Daylight'
-        [name: 'identifierGlobal', clos: 'identifierGlobalHub',       args: 1, esc: true,  type: ['statHub']],
         [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'statHub', 'string', 'vector3'], super: true], // TODO check -> 'Hub', 'Daylight'
+        [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true], // TODO check -> 'Hub', 'Daylight'
         [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
         // [name: 'isDigital',        clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
         // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
-        [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']],
+        [name: 'onBattery',        clos: 'onBattery',                 args: 0, esc: false, type: ['local']], // TODO - Move to field?
         [name: 'power',            clos: 'power',                     args: 1, esc: false, type: ['zwCcs', 'zwCfg']],
         [name: 'powerSource',      clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwCcs']],
         [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true], // TODO - Needed for 'attribute'?
-        [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
+        [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true], // TODO - Needed for 'attribute'? Move to field?
+        [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']], // TODO - Move to field?
         [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
         // [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - Drop - varies so much between attributes
         [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
@@ -550,7 +549,7 @@ def getDeviceLabel() { return {
             it?.device?.device?.label ?: 'unassigned'
         }
     } else {
-        it?.label
+        it?.label ?: 'Hub'
     }
 } }
 
@@ -593,8 +592,6 @@ def getUnit() { return {
  *  Tags Metadata:
  *****************************************************************************************************************/
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
-
-def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.houseType} . Hub" } }
 
 def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
@@ -640,9 +637,7 @@ def getStatusDevice() { return { "${it?.status}".replaceAll("_", ' ').toLowerCas
 
 def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
 
-/*****************************************************************************************************************
- *  Fields Map:
- *****************************************************************************************************************/
+
 def fields() { [
         [name: 'battery',          clos: 'battery',                  var: 'integer',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
@@ -659,7 +654,7 @@ def fields() { [
         [name: 'nText',            clos: 'currentStateDescription',  var: 'string',   args: 1, type: ['enum']],
         [name: 'nText',            clos: 'currentValueDescription',  var: 'string',   args: 1, type: ['number']],
         [name: 'nValue',           clos: 'currentValue',             var: 'float',    args: 1, type: ['number']],
-        [name: 'nValueDisplay',    clos: 'currentValueDisplay',      var: 'string',    args: 1, type: ['number']], // changed from 'float'
+        [name: 'nValueDisplay',    clos: 'currentValueDisplay',      var: 'float',    args: 1, type: ['number']],
         [name: 'nValueHue',        clos: 'currentValueHue',          var: 'integer',  args: 1, type: ['colorMap']],
         [name: 'nValueSat',        clos: 'currentValueSat',          var: 'integer',  args: 1, type: ['colorMap']],
         [name: 'nValueX',          clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
@@ -674,7 +669,7 @@ def fields() { [
         [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
         [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
         [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-        [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev']],
+        [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
         [name: 'statusBinary',     clos: 'statusHubBinary',          var: 'boolean',  args: 1, type: ['local', 'statHub']],
         [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
         [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
@@ -698,10 +693,7 @@ def fields() { [
 /*****************************************************************************************************************
  *  Fields Event Details - Current:
  *****************************************************************************************************************/
-def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}") } } // remove circle from C unit
-// TODO .replace('{{ locationName }}', "${locationName()}")
-// TODO .replace('{{ linkText }}', "${deviceLabel(it)}") // ? error with daylight and hubStatus events - or not evaluated as {{ linkText }} not found?
-// TODO .replace('{{ value }}', "${it.value}")
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ') } } // remove circle from C unit
 
 def getEventId() { return { it.id } }
 
@@ -853,7 +845,7 @@ def getConfiguredParametersList() { return {
     }
 } }
 
-def getCheckInterval() { return { it?.latestValue('checkInterval') } }
+def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
 
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
@@ -873,7 +865,7 @@ def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time 
 
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
 
-def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') } }
+def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
 
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
@@ -921,7 +913,7 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
             null,
             [callback: handleInfluxResponseLocal]
         )
-        logger("postToInfluxDBhubAction(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+        logger("postToInfluxDB(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
         sendHubCommand(hubAction)
     }
     catch (e) {
@@ -929,7 +921,7 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
     }
 }
 
-def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) { // TODO - Check / tidy up
     if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
@@ -945,11 +937,11 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
         requestContentType: "application/x-www-form-urlencoded",
         body              : data
     ]
-    logger("postToInfluxDBAsynchttp(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+    logger("postToInfluxDB(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
     asynchttp_v1.post(handleInfluxResponseRemote, params)
 }
 
-def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy up
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'error')
 }
@@ -960,16 +952,7 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
 private manageSchedules() {
     logger('manageSchedules', 'trace')
 
-    def polls = [
-            pollStatus: 'runEvery1Hour',
-            pollLocations: 'runEvery3Hours',
-            pollDevices: 'runEvery3Hours',
-            pollAttributes: 'runEvery3Hours',
-            pollZwavesCcs: 'runEvery3Hours',
-            pollZwavesCfg: 'runEvery3Hours'
-    ]
-
-    polls.each {
+    pollingMethods().each {
         try {
             unschedule(it.key)
         }
@@ -979,6 +962,15 @@ private manageSchedules() {
         "${it.value}"(it.key)
     }
 }
+
+def pollingMethods() { [
+    pollStatus:     'runEvery1Hour',
+    pollLocations:  'runEvery3Hours',
+    pollDevices:    'runEvery3Hours',
+    pollAttributes: 'runEvery3Hours',
+    pollZwavesCcs:  'runEvery3Hours',
+    pollZwavesCfg:  'runEvery3Hours'
+] }
 
 private manageSubscriptions() {
     logger('manageSubscriptions: Subscribing listeners to events', 'trace')

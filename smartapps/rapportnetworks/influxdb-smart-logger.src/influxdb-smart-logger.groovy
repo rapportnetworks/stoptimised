@@ -148,10 +148,8 @@ private buildSummary(items) {
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() { // runs when the app is first installed
-    // state.installedAt = now() // TODO - Don't think this is needed?
     state.loggingLevelIDE = 5
     logger("installed: ${app.label} installed with settings: ${settings}", 'trace')
-    // state.installed = true // TODO - Don't think this is needed?
 }
 
 def uninstalled() { // runs when the app is uninstalled
@@ -159,9 +157,6 @@ def uninstalled() { // runs when the app is uninstalled
 }
 
 def updated() { // runs when app settings are changed
-    logger("updated:", 'trace')
-    // state.installed = true // TODO - Don't think this is needed?
-
     logger('updated: Setting logging lever', 'trace')
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
@@ -191,23 +186,22 @@ def updated() { // runs when app settings are changed
         logger('updated: Configured - Devices Selected', 'trace')
         state.devicesConfigured = true
     } else {
-        logger("updated: Unconfigured - Choose Devices", 'trace')
+        logger("updated: Unconfigured - Choose Devices", 'debug')
     }
 
     if (settings?.allowedAttributes) {
         logger('updated: Configured - Events Selected', 'trace')
         state.attributesConfigured = true
     } else {
-        logger('updated: Unconfigured - Choose Events', 'trace')
+        logger('updated: Unconfigured - Choose Events', 'debug')
     }
 
     manageSubscriptions()
     manageSchedules()
 
     logger('updated: Scheduling first run of poll methods', 'trace')
-
-    def runInTime = 20
-    def runInInterval = 20
+    def runInTime = 30
+    def runInInterval = 30
     pollingMethods().each {
         runIn(runInTime, it.key)
         runInTime += runInInterval
@@ -260,14 +254,14 @@ def handleColorMapEvent(evt) {
 // def handleJsonObjectEvent() { } // TODO
 
 def handleDaylight(evt) {
-    def measurementType = 'day' // TODO - Need to check tags/fields
+    def measurementType = 'day'
     def measurementName = 'daylight'
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
 }
 
 def handleHubStatus(evt) {
-    def measurementType = 'hub' // TODO - Need to check tags/fields
+    def measurementType = 'hub'
     def measurementName = 'hubEvents'
     def retentionPolicy = 'autogen'
     influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
@@ -282,16 +276,16 @@ def pollStatus() {
 }
 
 def pollStatusHubs() {
-    logger('pollStatusHubs:', 'trace')
+    logger('pollStatusHubs: running now', 'trace')
     def measurementType = 'statHub'
     def measurementName = 'statusHubs'
     def retentionPolicy = 'autogen'
-    def items = ['dummy']
+    def items = ['placeholder']
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
 def pollStatusDevices() {
-    logger('pollStatusDevices:', 'trace')
+    logger('pollStatusDevices: running now', 'trace')
     def measurementType = 'statDev'
     def measurementName = 'statusDevices'
     def retentionPolicy = 'autogen'
@@ -302,9 +296,8 @@ def pollStatusDevices() {
 /*****************************************************************************************************************
  *  Poll Metadata:
  *****************************************************************************************************************/
-
 def pollLocations() {
-    logger('pollLocations:', 'trace')
+    logger('pollLocations: running now', 'trace')
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
@@ -313,7 +306,7 @@ def pollLocations() {
 }
 
 def pollDevices() {
-    logger('pollDevices:', 'trace')
+    logger('pollDevices: running now', 'trace')
     def measurementType = 'device'
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
@@ -322,7 +315,7 @@ def pollDevices() {
 }
 
 def pollAttributes() {
-    logger('pollAttributes:', 'trace')
+    logger('pollAttributes: running now', 'trace')
     def measurementType = 'attribute'
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
@@ -334,18 +327,18 @@ def pollAttributes() {
 }
 
 def pollZwavesCcs() {
-    logger('pollZwavesCcs:', 'trace')
+    logger('pollZwavesCcs: running now', 'trace')
     def measurementType = 'zwCcs'
-    def measurementName = 'zwavesCcs' // TODO need to check this
+    def measurementName = 'zwaveCcs'
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
 }
 
 def pollZwavesCfg() {
-    logger('pollZwavesCfg:', 'trace')
+    logger('pollZwavesCfg: running now', 'trace')
     def measurementType = 'zwCfg'
-    def measurementName = 'zwavesCfg' // TODO need to check this
+    def measurementName = 'zwaveCfg'
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
     influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
@@ -355,7 +348,6 @@ def pollZwavesCfg() {
  *  InfluxDB Line Protocol:
  *****************************************************************************************************************/
 def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', superItem = false) {
-    logger("influxLP: type: ${measurementType} items: ${items}", 'trace')
     def influxLP = new StringBuilder()
     items.each { item ->
         influxLP.append(measurementName)
@@ -445,7 +437,6 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         if (isEventObject(item)) influxLP.append(' ').append(timestamp(item))
         influxLP.append('\n')
     }
-    // logger ("${influxLP.toString()}", 'trace')
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
@@ -474,13 +465,13 @@ def tags() { [
     [name: 'deviceLabel',      clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
     [name: 'deviceType',       clos: 'deviceType',                args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true],
     [name: 'event',            clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-    [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
+    [name: 'eventType',        clos: 'eventType',                 args: 1, esc: false, type: ['attribute']], // , 'colorMap', 'enum', 'number', 'string', 'vector3', ]], // TODO - Drop for everything except 'attribute' (production?)
     [name: 'hubType',          clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
-    [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // TODO check -> 'Daylight'
+    [name: 'identifierGlobal', clos: 'identifierGlobal',          args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'identifierGlobal', clos: 'identifierGlobalHub',       args: 1, esc: true,  type: ['statHub']],
     [name: 'identifierGlobal', clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
     [name: 'identifierGlobal', clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-    [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'statHub', 'string', 'vector3'], super: true], // TODO check -> 'Hub', 'Daylight'
+    [name: 'identifierLocal',  clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], super: true],
     [name: 'isChange',         clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     // [name: 'isDigital',        clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
     // [name: 'isPhysical',       clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
@@ -489,10 +480,9 @@ def tags() { [
     [name: 'powerSource',      clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
     [name: 'secure',           clos: 'secure',                    args: 1, esc: false, type: ['zwCcs']],
     [name: 'source',           clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-    [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true], // TODO - Needed for 'attribute'?
+    [name: 'status',           clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true],
     [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
     [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
-    // [name: 'timeElapsed',      clos: 'daysElapsed',               args: 2, esc: true,  type: ['attribute']], // TODO - Drop - varies so much between attributes
     [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
     [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
@@ -624,16 +614,6 @@ def getTempScale() { return { -> location.temperatureScale } }
 
 def getTimeZoneCode() { return { -> location.timeZone.ID } }
 
-def getDaysElapsed() { return { dev, attr ->
-    if (dev?.latestState(attr)) {
-        def daysElapsed = ((new Date().time - dev.latestState(attr).date.time) / 86_400_000) / 30
-        daysElapsed = daysElapsed.toDouble().trunc().round()
-        "${daysElapsed * 30}-${(daysElapsed + 1) * 30} days"
-    } else {
-        null // TODO - check this is okay ? - or should it be '' or 'null'
-    }
-} }
-
 /*****************************************************************************************************************
  *  Tags Statuses:
  *****************************************************************************************************************/
@@ -701,10 +681,7 @@ def fields() { [
 /*****************************************************************************************************************
  *  Fields Event Details - Current:
  *****************************************************************************************************************/
-def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}") } } // remove circle from C unit
-// TODO .replace('{{ locationName }}', "${locationName()}")
-// TODO .replace('{{ linkText }}', "${deviceLabel(it)}") // ? error with daylight and hubStatus events - or not evaluated as {{ linkText }} not found?
-// TODO .replace('{{ value }}', "${it.value}")
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}") } } // remove circle from C unit, tidy up description text by replacing placeholders
 
 def getEventId() { return { it.id } }
 
@@ -961,8 +938,7 @@ def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy u
  *  Private Helper Functions:
  *****************************************************************************************************************/
 private manageSchedules() {
-    logger('manageSchedules', 'trace')
-
+    logger('manageSchedules: Schedulling polling methods', 'trace')
     pollingMethods().each {
         try {
             unschedule(it.key)
@@ -1110,113 +1086,113 @@ private getSelectedDevices() { // creates list of device Objects from devices se
 }
 
 private getCapabilities() { [
-        [title: 'Actuators', cap: 'actuator'],
-        [title: 'Bridges', cap: 'bridge'],
-        [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
-        [title: 'Acceleration Sensors', cap: 'accelerationSensor', attr: 'acceleration'],
-        [title: 'Alarms', cap: 'alarm', attr: 'alarm'],
-        [title: 'Batteries', cap: 'battery', attr: 'battery'],
-        [title: 'Beacons', cap: 'beacon', attr: 'presence'],
-        [title: 'Bulbs', cap: 'bulb', attr: 'switch'],
-        [title: 'Buttons', cap: 'button', attr: ['button', 'numberOfButtons']],
-        [title: 'Carbon Dioxide Measurement Sensors', cap: 'carbonDioxideMeasurement', attr: 'carbonDioxide'],
-        [title: 'Carbon Monoxide Detectors', cap: 'carbonMonoxideDetector', attr: 'carbonMonoxide'],
-        [title: 'Color Control Devices', cap: 'colorControl', attr: ['color', 'hue', 'saturation']],
-        [title: 'Color Temperature Devices', cap: 'colorTemperature', attr: 'colorTemperature'],
-        [title: 'Consumable Devices', cap: 'consumable', attr: 'consumableStatus'],
-        [title: 'Contact Sensors', cap: 'contactSensor', attr: 'contact'],
-        [title: 'Doors', cap: 'doorControl', attr: 'door'],
-        [title: 'Energy Meters', cap: 'energyMeter', attr: 'energy'],
-        [title: 'Garage Doors', cap: 'garageDoorControl', attr: 'door'],
-        [title: 'Holdable Buttons', cap: 'holdableButton', attr: ['button', 'numberOfButtons']],
-        [title: 'Illuminance Measurement Sensors', cap: 'illuminanceMeasurement', attr: 'illuminance'],
-        [title: 'Lights', cap: 'light', attr: 'switch'],
-        [title: 'Locks', cap: 'lock', attr: 'lock'],
-        [title: 'Motion Sensors', cap: 'motionSensor', attr: 'motion'],
-        [title: 'Music Players', cap: 'musicPlayer', attr: ['level', 'mute', 'status', 'trackDescription']],
-        [title: 'Outlets', cap: 'outlet', attr: 'switch'],
-        [title: 'Power Meters', cap: 'powerMeter', attr: 'power'],
-        [title: 'Power Sources', cap: 'powerSource', attr: 'powerSource'],
-        [title: 'Power', cap: 'power', attr: 'powerSource'],
-        [title: 'Presence Sensors', cap: 'presenceSensor', attr: 'presence'],
-        [title: 'Relative Humidity Measurement Sensors', cap: 'relativeHumidityMeasurement', attr: 'humidity'],
-        [title: 'Relay Switches', cap: 'relaySwitch', attr: 'switch'],
-        [title: 'Shock Sensors', cap: 'shockSensor', attr: 'shock'],
-        [title: 'Signal Strength Sensors', cap: 'signalStrength', attr: ['lqi', 'rssi']],
-        [title: 'Sleep Sensors', cap: 'sleepSensor', attr: 'sleeping'],
-        [title: 'Smoke Detectors', cap: 'smokeDetector', attr: 'smoke'],
-        [title: 'Sound Pressure Level Sensors', cap: 'soundPressureLevel', attr: 'soundPressureLevel'],
-        [title: 'Sound Sensors', cap: 'soundSensor', attr: 'sound'],
-        [title: 'Switch Level Sensors', cap: 'switchLevel', attr: 'level'],
-        [title: 'Switches', cap: 'switch', attr: 'switch'],
-        [title: 'Tamper Alert Sensors', cap: 'tamperAlert', attr: 'tamper'],
-        [title: 'Temperature Measurement Sensors', cap: 'temperatureMeasurement', attr: 'temperature'],
-        [title: 'Thermostats', cap: 'thermostat', attr: ['heatingSetpoint', 'temperature', 'thermostatFanMode', 'thermostatMode', 'thermostatOperatingState', 'thermostatSetpoint']],
-        [title: 'Three Axis Sensors', cap: 'threeAxis', attr: 'threeAxis'],
-        [title: 'Touch Sensors', cap: 'touchSensor', attr: 'touch'],
-        [title: 'Ultraviolet Index Sensors', cap: 'ultravioletIndex', attr: 'ultravioletIndex'],
-        [title: 'Valves', cap: 'valve', attr: 'valve'],
-        [title: 'Voltage Measurement Sensors', cap: 'voltageMeasurement', attr: 'voltage'],
-        [title: 'Water Sensors', cap: 'waterSensor', attr: 'water'],
-        [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
+    [title: 'Actuators', cap: 'actuator'],
+    [title: 'Bridges', cap: 'bridge'],
+    [title: 'Sensors', cap: 'sensor', attr: ['buttonClicks', 'current', 'pressure', 'reactiveEnergy', 'reactivePower', 'totalEnergy']],
+    [title: 'Acceleration Sensors', cap: 'accelerationSensor', attr: 'acceleration'],
+    [title: 'Alarms', cap: 'alarm', attr: 'alarm'],
+    [title: 'Batteries', cap: 'battery', attr: 'battery'],
+    [title: 'Beacons', cap: 'beacon', attr: 'presence'],
+    [title: 'Bulbs', cap: 'bulb', attr: 'switch'],
+    [title: 'Buttons', cap: 'button', attr: ['button', 'numberOfButtons']],
+    [title: 'Carbon Dioxide Measurement Sensors', cap: 'carbonDioxideMeasurement', attr: 'carbonDioxide'],
+    [title: 'Carbon Monoxide Detectors', cap: 'carbonMonoxideDetector', attr: 'carbonMonoxide'],
+    [title: 'Color Control Devices', cap: 'colorControl', attr: ['color', 'hue', 'saturation']],
+    [title: 'Color Temperature Devices', cap: 'colorTemperature', attr: 'colorTemperature'],
+    [title: 'Consumable Devices', cap: 'consumable', attr: 'consumableStatus'],
+    [title: 'Contact Sensors', cap: 'contactSensor', attr: 'contact'],
+    [title: 'Doors', cap: 'doorControl', attr: 'door'],
+    [title: 'Energy Meters', cap: 'energyMeter', attr: 'energy'],
+    [title: 'Garage Doors', cap: 'garageDoorControl', attr: 'door'],
+    [title: 'Holdable Buttons', cap: 'holdableButton', attr: ['button', 'numberOfButtons']],
+    [title: 'Illuminance Measurement Sensors', cap: 'illuminanceMeasurement', attr: 'illuminance'],
+    [title: 'Lights', cap: 'light', attr: 'switch'],
+    [title: 'Locks', cap: 'lock', attr: 'lock'],
+    [title: 'Motion Sensors', cap: 'motionSensor', attr: 'motion'],
+    [title: 'Music Players', cap: 'musicPlayer', attr: ['level', 'mute', 'status', 'trackDescription']],
+    [title: 'Outlets', cap: 'outlet', attr: 'switch'],
+    [title: 'Power Meters', cap: 'powerMeter', attr: 'power'],
+    [title: 'Power Sources', cap: 'powerSource', attr: 'powerSource'],
+    [title: 'Power', cap: 'power', attr: 'powerSource'],
+    [title: 'Presence Sensors', cap: 'presenceSensor', attr: 'presence'],
+    [title: 'Relative Humidity Measurement Sensors', cap: 'relativeHumidityMeasurement', attr: 'humidity'],
+    [title: 'Relay Switches', cap: 'relaySwitch', attr: 'switch'],
+    [title: 'Shock Sensors', cap: 'shockSensor', attr: 'shock'],
+    [title: 'Signal Strength Sensors', cap: 'signalStrength', attr: ['lqi', 'rssi']],
+    [title: 'Sleep Sensors', cap: 'sleepSensor', attr: 'sleeping'],
+    [title: 'Smoke Detectors', cap: 'smokeDetector', attr: 'smoke'],
+    [title: 'Sound Pressure Level Sensors', cap: 'soundPressureLevel', attr: 'soundPressureLevel'],
+    [title: 'Sound Sensors', cap: 'soundSensor', attr: 'sound'],
+    [title: 'Switch Level Sensors', cap: 'switchLevel', attr: 'level'],
+    [title: 'Switches', cap: 'switch', attr: 'switch'],
+    [title: 'Tamper Alert Sensors', cap: 'tamperAlert', attr: 'tamper'],
+    [title: 'Temperature Measurement Sensors', cap: 'temperatureMeasurement', attr: 'temperature'],
+    [title: 'Thermostats', cap: 'thermostat', attr: ['heatingSetpoint', 'temperature', 'thermostatFanMode', 'thermostatMode', 'thermostatOperatingState', 'thermostatSetpoint']],
+    [title: 'Three Axis Sensors', cap: 'threeAxis', attr: 'threeAxis'],
+    [title: 'Touch Sensors', cap: 'touchSensor', attr: 'touch'],
+    [title: 'Ultraviolet Index Sensors', cap: 'ultravioletIndex', attr: 'ultravioletIndex'],
+    [title: 'Valves', cap: 'valve', attr: 'valve'],
+    [title: 'Voltage Measurement Sensors', cap: 'voltageMeasurement', attr: 'voltage'],
+    [title: 'Water Sensors', cap: 'waterSensor', attr: 'water'],
+    [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
 ] }
 
 private getAttributeDetail() { [
-        acceleration            : [type: 'enum', levels: [inactive: -1, active: 1]],
-        alarm                   : [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
-        battery                 : [type: 'number', decimalPlaces: 0, unit: '%'],
-        button                  : [type: 'enum', levels: [released: -1, pushed: 1, double: 2, held: 3]],
-        buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
-        carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
-        carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-        color                   : [type: 'colorMap'],
-        colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
-        consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
-        contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
-        current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
-        daylight                : [type: 'daylight', levels: [ sunset: -1, sunrise: 1]], // TODO - update database type: 'daylight'
-        door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
-        energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
-        heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        hubStatus               : [type: 'hub', levels: [inactive: -2, disconnected: -1, active: 1]], // TODO - update database type: 'hubStatus' and add/change levels
-        hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
-        humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
-        illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],
-        level                   : [type: 'number', decimalPlaces: 0, unit: ''],
-        lock                    : [type: 'enum', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
-        lqi                     : [type: 'number', decimalPlaces: 2, unit: 'dB'],
-        motion                  : [type: 'enum', levels: [inactive: -1, active: 1]],
-        mute                    : [type: 'enum', levels: [muted: -1, unmuted: 1]],
-        numberOfButtons         : [type: 'number', decimalPlaces: 0, unit: ''],
-        pH                      : [type: 'number', decimalPlaces: 1, unit: ''],
-        power                   : [type: 'number', decimalPlaces: 0, unit: 'W'],
-        powerSource             : [type: 'enum', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
-        presence                : [type: 'enum', levels: ['not present': -1, present: 1]],
-        pressure                : [type: 'number', decimalPlaces: 1, unit: 'mbar'],
-        reactiveEnergy          : [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
-        reactivePower           : [type: 'number', decimalPlaces: 3, unit: 'kVar'],
-        rssi                    : [type: 'number', decimalPlaces: 2, unit: 'dB'],
-        saturation              : [type: 'number', decimalPlaces: 0, unit: '%'],
-        shock                   : [type: 'enum', levels: [clear: -1, detected: 1]],
-        sleeping                : [type: 'enum', levels: [sleeping: -1, 'not sleeping': 1]],
-        smoke                   : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-        sound                   : [type: 'enum', levels: ['not detected': -1, detected: 1]],
-        soundPressureLevel      : [type: 'number', decimalPlaces: 0, unit: 'dB'],
-        status                  : [type: 'string'],
-        switch                  : [type: 'enum', levels: [off: -1, on: 1]],
-        tamper                  : [type: 'enum', levels: [clear: -1, detected: 1]],
-        temperature             : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        thermostatFanMode       : [type: 'enum', levels: [on: 1, circulate: 2, auto: 3, followschedule: 4]],
-        thermostatMode          : [type: 'enum', levels: ['rush hour': -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
-        thermostatOperatingState: [type: 'enum', levels: [cooling: -3, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
-        thermostatSetpoint      : [type: 'number', decimalPlaces: 0, unit: 'C'],
-        threeAxis               : [type: 'vector3', decimalPlaces: 2, unit: 'g'],
-        totalEnergy             : [type: 'number', decimalPlaces: 2, unit: 'kVAh'],
-        touch                   : [type: 'enum', levels: [touched: 1]],
-        trackDescription        : [type: 'string'],
-        ultravioletIndex        : [type: 'number', decimalPlaces: 0, unit: ''],
-        valve                   : [type: 'enum', levels: [closed: -1, open: 1]],
-        voltage                 : [type: 'number', decimalPlaces: 0, unit: 'V'],
-        water                   : [type: 'enum', levels: [dry: -1, wet: 1]],
-        windowShade             : [type: 'enum', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
+    acceleration            : [type: 'enum', levels: [inactive: -1, active: 1]],
+    alarm                   : [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],
+    battery                 : [type: 'number', decimalPlaces: 0, unit: '%'],
+    button                  : [type: 'enum', levels: [released: -1, pushed: 1, double: 2, held: 3]],
+    buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
+    carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
+    carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+    color                   : [type: 'colorMap'],
+    colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
+    consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
+    contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],
+    current                 : [type: 'number', decimalPlaces: 2, unit: 'A'],
+    daylight                : [type: 'daylight', levels: [ sunset: -1, sunrise: 1]], // TODO - update database type: 'daylight'
+    door                    : [type: 'enum', levels: [closing: -2, closed: -1, open: 1, opening: 2, unknown: 5]],
+    energy                  : [type: 'number', decimalPlaces: 2, unit: 'kWh'],
+    heatingSetpoint         : [type: 'number', decimalPlaces: 0, unit: 'C'],
+    hubStatus               : [type: 'hub', levels: [inactive: -2, disconnected: -1, active: 1]], // TODO - update database type: 'hubStatus' and add/change levels
+    hue                     : [type: 'number', decimalPlaces: 0, unit: '%'],
+    humidity                : [type: 'number', decimalPlaces: 0, unit: '%'],
+    illuminance             : [type: 'number', decimalPlaces: 0, unit: 'lux'],
+    level                   : [type: 'number', decimalPlaces: 0, unit: ''],
+    lock                    : [type: 'enum', levels: [locked: -1, unlocked: 1, 'unlocked with timeout': 2, unknown: 5]],
+    lqi                     : [type: 'number', decimalPlaces: 2, unit: 'dB'],
+    motion                  : [type: 'enum', levels: [inactive: -1, active: 1]],
+    mute                    : [type: 'enum', levels: [muted: -1, unmuted: 1]],
+    numberOfButtons         : [type: 'number', decimalPlaces: 0, unit: ''],
+    pH                      : [type: 'number', decimalPlaces: 1, unit: ''],
+    power                   : [type: 'number', decimalPlaces: 0, unit: 'W'],
+    powerSource             : [type: 'enum', levels: [mains: -2, dc: -1, battery: 1, unknown: 5]],
+    presence                : [type: 'enum', levels: ['not present': -1, present: 1]],
+    pressure                : [type: 'number', decimalPlaces: 1, unit: 'mbar'],
+    reactiveEnergy          : [type: 'number', decimalPlaces: 2, unit: 'kVarh'],
+    reactivePower           : [type: 'number', decimalPlaces: 3, unit: 'kVar'],
+    rssi                    : [type: 'number', decimalPlaces: 2, unit: 'dB'],
+    saturation              : [type: 'number', decimalPlaces: 0, unit: '%'],
+    shock                   : [type: 'enum', levels: [clear: -1, detected: 1]],
+    sleeping                : [type: 'enum', levels: [sleeping: -1, 'not sleeping': 1]],
+    smoke                   : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
+    sound                   : [type: 'enum', levels: ['not detected': -1, detected: 1]],
+    soundPressureLevel      : [type: 'number', decimalPlaces: 0, unit: 'dB'],
+    status                  : [type: 'string'],
+    switch                  : [type: 'enum', levels: [off: -1, on: 1]],
+    tamper                  : [type: 'enum', levels: [clear: -1, detected: 1]],
+    temperature             : [type: 'number', decimalPlaces: 0, unit: 'C'],
+    thermostatFanMode       : [type: 'enum', levels: [on: 1, circulate: 2, auto: 3, followschedule: 4]],
+    thermostatMode          : [type: 'enum', levels: ['rush hour': -4, cool: -3, off: -1, heat: 1, 'emergency heat': 2, auto: 3]],
+    thermostatOperatingState: [type: 'enum', levels: [cooling: -3, 'pending cool': -2, idle: -1, heating: 1, 'pending heat': 2, 'fan only': 3]],
+    thermostatSetpoint      : [type: 'number', decimalPlaces: 0, unit: 'C'],
+    threeAxis               : [type: 'vector3', decimalPlaces: 2, unit: 'g'],
+    totalEnergy             : [type: 'number', decimalPlaces: 2, unit: 'kVAh'],
+    touch                   : [type: 'enum', levels: [touched: 1]],
+    trackDescription        : [type: 'string'],
+    ultravioletIndex        : [type: 'number', decimalPlaces: 0, unit: ''],
+    valve                   : [type: 'enum', levels: [closed: -1, open: 1]],
+    voltage                 : [type: 'number', decimalPlaces: 0, unit: 'V'],
+    water                   : [type: 'enum', levels: [dry: -1, wet: 1]],
+    windowShade             : [type: 'enum', levels: [closing: -2, closed: -1, opening: 2, 'partially open': 3, unknown: 5]]
 ] }

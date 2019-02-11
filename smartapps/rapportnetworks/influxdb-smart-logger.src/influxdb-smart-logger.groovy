@@ -845,7 +845,7 @@ def getLatitude() { return { -> location.latitude } }
 
 def getLongitude() { return { -> location.longitude } }
 
-def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel') ?: 'unknown' } }
+def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
 
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
@@ -887,7 +887,7 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIP() { return { -> hub().localIP } }
 
-def getStatusDeviceBinary() { return { (statusDevice(it) == 'online') ? 't' : 'f' } }
+def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
 def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 
@@ -1151,7 +1151,7 @@ private getAttributeDetail() { [
     buttonClicks            : [type: 'enum', levels: ['hold start': -1, 'hold release': 0, 'one click': 1, 'two clicks': 2, 'three clicks': 3, 'four clicks': 4, 'five clicks': 5]],
     carbonDioxide           : [type: 'number', decimalPlaces: 0, unit: 'ppm'],
     carbonMonoxide          : [type: 'enum', levels: [clear: -1, detected: 1, tested: 4]],
-    color                   : [type: 'colorMap'],
+    color                   : [type: 'string'], // TODO - changed from colorMap
     colorTemperature        : [type: 'number', decimalPlaces: 0, unit: 'K'],
     consumableStatus        : [type: 'enum', levels: [replace: -1, good: 1, order: 3, 'maintenance required': 4, missing: 5]],
     contact                 : [type: 'enum', levels: [closed: -1, empty: -1, full: -1, vacant: -1, flushing: 1, occupied: 1, open: 1]],

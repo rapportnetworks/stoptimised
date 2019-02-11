@@ -331,8 +331,11 @@ def pollZwavesCcs() {
     def measurementType = 'zwCcs'
     def measurementName = 'zwaveCcs'
     def retentionPolicy = 'metadata'
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    // def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }.each {
+        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+    }
 }
 
 def pollZwavesCfg() {
@@ -577,7 +580,7 @@ def getIsPhysical() { return { it?.isPhysical } }
 def getSource() { return { "${it?.source}".toLowerCase() } }
 
 def getUnit() { return {
-    def unit = it?.unit ?: getEventDetails(it).unit // TODO - check is a unit ('g') already present for threeaxes?
+    def unit = it?.unit ?: eventDetails(it).unit // TODO - check is a unit ('g') already present for threeaxes?
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
     unit
 } }
@@ -630,6 +633,7 @@ def fields() { [
     [name: 'battery',          clos: 'battery',                  var: 'integer',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
     [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
     [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['statDev','zwCfg']],
+    [name: 'cLevel',           clos: 'networkSecurityLevel',     var: 'string',   args: 1, type: ['zwCcs']],
     [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'firmware',         clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
@@ -841,6 +845,8 @@ def getLatitude() { return { -> location.latitude } }
 
 def getLongitude() { return { -> location.longitude } }
 
+def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel') ?: 'unknown' } }
+
 def getPortTCP() { return { -> hub().localSrvPortTCP } }
 
 def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
@@ -849,9 +855,9 @@ def getDaylight() { return { -> getSunriseAndSunset() } }
 
 def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 
-def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr).date.time ?: 0 } }
+def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.time ?: 0 } }
 
-def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: ' ' } }
+def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
 
 def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
 
@@ -862,16 +868,16 @@ def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel')
 def getCommandClassesList() { return {
     def info = zwInfo(it).clone()
     def cc = info.cc
-    cc?.addAll(info?.ccOut)
-    cc?.addAll(info?.sec)
+    if (info?.ccOut) cc.addAll(info.ccOut)
+    if (info?.sec) cc.addAll(info.sec)
     def ccList = 'zz' + cc.sort().join('=t,zz') + '=t' // 't' is InfluxLP for 'true'
     info.remove('zw')
     info.remove('cc')
-    info.remove('ccOut')
-    info.remove('sec')
+    if (info?.ccOut) info.remove('ccOut')
+    if (info?.sec) info.remove('sec')
     // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
     info = info.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join "," }
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join ',' }
     info = toKeyValue(info) + ',' + "${ccList}"
     info
 } }

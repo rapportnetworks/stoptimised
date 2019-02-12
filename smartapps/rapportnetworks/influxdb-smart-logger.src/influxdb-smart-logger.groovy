@@ -290,7 +290,10 @@ def pollStatusDevices() {
     def measurementName = 'statusDevices'
     def retentionPolicy = 'autogen'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    items.each {
+        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+    }
 }
 
 /*****************************************************************************************************************
@@ -311,7 +314,10 @@ def pollDevices() {
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    items.each {
+        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+    }
 }
 
 def pollAttributes() {
@@ -322,7 +328,12 @@ def pollAttributes() {
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
         def items = getDeviceAllowedAttrs(dev)
         def superItem = dev
-        if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, superItem)
+        // if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, superItem)
+        if (items) {
+            items.each {
+                influxLineProtocol(it, measurementName, measurementType, retentionPolicy, superItem)
+            }
+        }
     }
 }
 
@@ -331,9 +342,9 @@ def pollZwavesCcs() {
     def measurementType = 'zwCcs'
     def measurementName = 'zwaveCcs'
     def retentionPolicy = 'metadata'
-    // def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
     // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
-    getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }.each {
+    items.each {
         influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
     }
 }
@@ -344,7 +355,10 @@ def pollZwavesCfg() {
     def measurementName = 'zwaveCfg'
     def retentionPolicy = 'metadata'
     def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    items.each {
+        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+    }
 }
 
 /*****************************************************************************************************************

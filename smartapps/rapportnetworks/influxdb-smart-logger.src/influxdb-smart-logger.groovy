@@ -687,7 +687,7 @@ def fields() { [
 /*****************************************************************************************************************
  *  Fields Event Details - Current:
  *****************************************************************************************************************/
-def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}") } } // remove circle from C unit, tidy up description text by replacing placeholders
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } } // remove circle from C unit, tidy up description text by replacing placeholders
 
 def getEventId() { return { it.id } }
 

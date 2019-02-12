@@ -162,7 +162,7 @@ def updated() { // runs when app settings are changed
 
     logger('updated: Setting database parameters', 'trace')
     state.dbLocation = (settings.prefDatabaseRemote) ? 'Remote' : 'Local'
-    state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", "Content-Type": "application/x-www-form-urlencoded"]
+    state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", 'Content-Type': 'application/octet-stream', 'Request-Content-Type': 'application/json'] // 'application/x-www-form-urlencoded']
     state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
     state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms', rp: 'autogen']
     state.path = '/write'
@@ -356,7 +356,6 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         influxLP.append(measurementName)
         tags().each { tag ->
             if ('all' in tag.type || measurementType in tag.type) {
-                influxLP.append(",${tag.name}=")
                 def tagValue
                 switch (tag.args) {
                     case 0:
@@ -378,10 +377,13 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
                         catch (e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.clos}", 'error') }
                         break
                 }
-                if (tag.esc) {
-                    influxLP.append("${tagValue.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
-                } else {
-                    influxLP.append(tagValue)
+                if (tagValue) {
+                    influxLP.append(",${tag.name}=")
+                    if (tag.esc) {
+                        influxLP.append("${tagValue.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
+                    } else {
+                        influxLP.append(tagValue)
+                    }
                 }
             }
         }
@@ -701,7 +703,13 @@ def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName(
 
 def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueDisplay(it)} ${unit(it)} in the ${groupName(it)}." } }
 
-def getCurrentValue() { return { it?.numberValue?.toBigDecimal() ?: removeUnit(it) } }
+def getCurrentValue() { return { // done this way in case value is 0
+    try {
+        it.numberValue.toBigDecimal()
+    } catch(e) {
+        removeUnit(it)
+    }
+} }
 
 def removeUnit() { return { // remove any units appending to end of event value property by device handler
     def length = it.value.length()
@@ -759,7 +767,13 @@ def getPreviousValueDescription() { return {
     "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
-def getPreviousValue() { return { (previousEvent(it)?.numberValue?.toBigDecimal()) ?: removeUnit(previousEvent(it)) } }
+def getPreviousValue() { return {
+    try {
+        previousEvent(it).numberValue.toBigDecimal()
+    } catch(e) {
+        removeUnit(previousEvent(it))
+    }
+} }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Time Difference:
@@ -927,8 +941,8 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
         uri               : state.uri,
         path              : state.path,
         query             : query,
-        contentType       : "application/x-www-form-urlencoded",
-        requestContentType: "application/x-www-form-urlencoded",
+        contentType       : 'application/octet-stream', // 'application/x-www-form-urlencoded',
+        requestContentType: 'application/json', // 'application/x-www-form-urlencoded',
         body              : data
     ]
     logger("postToInfluxDBAsynchttp(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')

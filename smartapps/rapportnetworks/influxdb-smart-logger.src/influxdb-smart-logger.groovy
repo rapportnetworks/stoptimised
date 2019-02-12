@@ -326,12 +326,12 @@ def pollAttributes() {
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = getDeviceAllowedAttrs(dev)
+        def items = getDeviceAllowedAttrs(dev) as List
         def superItem = dev
         // if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, superItem)
         if (items) {
             items.each {
-                influxLineProtocol(it, measurementName, measurementType, retentionPolicy, superItem)
+                influxLineProtocol(["${it}"], measurementName, measurementType, retentionPolicy, superItem)
             }
         }
     }
@@ -662,7 +662,7 @@ def fields() { [
     [name: 'nText',            clos: 'currentStateDescription',  var: 'string',   args: 1, type: ['enum']],
     [name: 'nText',            clos: 'currentValueDescription',  var: 'string',   args: 1, type: ['number']],
     [name: 'nValue',           clos: 'currentValue',             var: 'float',    args: 1, type: ['number']],
-    [name: 'nValueDisplay',    clos: 'currentValueDisplay',      var: 'string',    args: 1, type: ['number']], // changed from 'float'
+    [name: 'nValueDisplay',    clos: 'currentValueDisplay',      var: 'string',   args: 1, type: ['number']], // changed from 'float'
     [name: 'nValueHue',        clos: 'currentValueHue',          var: 'integer',  args: 1, type: ['colorMap']],
     [name: 'nValueSat',        clos: 'currentValueSat',          var: 'integer',  args: 1, type: ['colorMap']],
     [name: 'nValueX',          clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
@@ -677,7 +677,7 @@ def fields() { [
     [name: 'pValue',           clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
     [name: 'rChange',          clos: 'difference',               var: 'float',    args: 1, type: ['number']],
     [name: 'rChangeText',      clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-    [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev']],
+    [name: 'statusBinary',     clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwCfg']], // zwCfg in case no other valid fields
     [name: 'statusBinary',     clos: 'statusHubBinary',          var: 'boolean',  args: 1, type: ['local', 'statHub']],
     [name: 'sunrise',          clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
     [name: 'sunset',           clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],

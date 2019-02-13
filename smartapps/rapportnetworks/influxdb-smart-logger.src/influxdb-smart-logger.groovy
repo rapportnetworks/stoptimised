@@ -503,6 +503,7 @@ def tags() { [
     [name: 'status',           clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
     [name: 'tempScale',        clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
     [name: 'timeZone',         clos: 'timeZoneCode',              args: 0, esc: false, type: ['local']],
+    [name: 'type',             clos: 'typeDevice',                args: 1, esc: false, type: ['device','statDev']],
     [name: 'unit',             clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
 ] }
 
@@ -632,6 +633,16 @@ def getSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 'secure' : 'insecure
 def getTempScale() { return { -> location.temperatureScale } }
 
 def getTimeZoneCode() { return { -> location.timeZone.ID } }
+
+def getTypeDevice() { return {
+    if (zwInfo(it)) {
+        'zwave'
+    } else if (it?.zigbeeId) {
+        'zigbee'
+    } else {
+        'lan'
+    }
+} }
 
 /*****************************************************************************************************************
  *  Tags Statuses:

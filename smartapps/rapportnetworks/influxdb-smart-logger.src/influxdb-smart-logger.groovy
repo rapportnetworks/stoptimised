@@ -637,7 +637,7 @@ def getTimeZoneCode() { return { -> location.timeZone.ID } }
 def getTypeDevice() { return {
     if (zwInfo(it)) {
         'zwave'
-    } else if (it?.zigbeeId) {
+    } else if (it?.device?.zigbeeId) {
         'zigbee'
     } else {
         'lan'

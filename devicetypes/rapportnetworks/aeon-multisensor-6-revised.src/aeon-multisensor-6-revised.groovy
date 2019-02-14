@@ -16,29 +16,29 @@
 metadata {
     definition(name: "Aeon Multisensor 6 Revised", namespace: "rapportnetworks", author: "Alasdair Thin") {
         capability "Sensor"
-        capability "Battery" // attribute "battery", "number"
-        capability "Configuration" // command "configure"
-        capability "Health Check" // attribute "checkInterval", "number"; attribute "DeviceWatch-DeviceStatus", "string"; attribute "healthStatus", "?"; command "ping"
-        capability "Illuminance Measurement" // attribute "illuminance", "number"
-        capability "Motion Sensor" // attribute "motion", "enum", ["inactive", "active"]
-        capability "Power Source" // attribute "powerSource", "enum", ["battery", "dc", "mains", "unknown"]
-        capability "Relative Humidity Measurement" // attribute "humidity", "number"
-        capability "Tamper Alert" // attribute "tamper", "enum", ["detected", "clear"]
-        capability "Temperature Measurement" // attribute "temperature", "number"
-        capability "Ultraviolet Index" // attribute "ultravioletIndex", "number"
+        capability "Battery"                       // attribute 'battery' (number)
+        capability "Configuration"                 // command 'configure'
+        capability "Health Check"                  // attribute 'checkInterval' (number); attribute 'DeviceWatch-DeviceStatus' (string); attribute 'healthStatus' (?); command 'ping'
+        capability "Illuminance Measurement"       // attribute 'illuminance' (number)
+        capability "Motion Sensor"                 // attribute 'motion' (enum: ['inactive', 'active'])
+        capability "Power Source"                  // attribute 'powerSource' (enum: ['battery', 'dc', 'mains', 'unknown']
+        capability "Relative Humidity Measurement" // attribute 'humidity' (number)
+        capability "Tamper Alert"                  // attribute 'tamper' (enum: ['detected', 'clear'])
+        capability "Temperature Measurement"       // attribute 'temperature' (number)
+        capability "Ultraviolet Index"             // attribute 'ultravioletIndex' (number)
 
         // Custom Attributes
-        attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
-        attribute "configure", "string" // Reports on configuration command status.
-        attribute "logMessage", "string"        // Important log messages.
-        attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
+        attribute "batteryStatus", "string" // Indicates DC-power or battery %.
+        attribute "configure", "string"     // Reports on configuration command status.
+        attribute "logMessage", "string"    // Important log messages.
+        attribute "syncPending", "number"   // Number of config items that need to be synced with the physical device.
 
-        // Custom Commands:
+        // Custom Commands
         command "resetLog"
         command "resetTamper"
         command "syncAll"
         command "syncRemaining"
-        command "test"
+        command "test" // TODO - change to "profile" ?
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -131,7 +131,7 @@ metadata {
     }
 
     preferences {
-        if (configHandler()) input(name: 'paraGeneral', title: 'GENERAL', description: 'Device handler settings.', type: 'paragraph', element: 'paragraph')
+        if (configHandler()) input(name: 'paraGeneral', title: 'GENERAL SETTINGS', type: 'paragraph', element: 'paragraph') //description: 'Device handler settings.'
 
         if ('deviceUse' in configHandler()) {
             def uses = configUseStates().keySet().sort() as List
@@ -139,13 +139,13 @@ metadata {
             input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
         }
 
-        if ('autoResetTamperDelay' in configHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm:\n' + 'Automatically reset tamper alarms after this time delay.\n' + 'Values: 0 = Auto-reset Disabled\n' + '1-86400 = Delay (s)\n' + 'Default Value: 30s', type: 'number', defaultValue: 30, required: false)
+        if ('autoResetTamperDelay' in configHandler()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay (s).', type: 'number', defaultValue: 30, required: false)
 
-        if ('logLevelIDE' in configHandler()) input(name: 'configLogLevelIDE', title: 'IDE Live Logging Level: Messages with this level and higher will be logged to the IDE.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: false)
+        if ('logLevelIDE' in configHandler()) input(name: 'configLogLevelIDE', title: 'IDE Live Logging Level for messages with this level and higher.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: false)
 
-        if ('logLevelDevice' in configHandler()) input(name: 'configLogLevelDevice', title: 'Device Logging Level: Messages with this level and higher will be logged to the logMessage attribute.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
+        if ('logLevelDevice' in configHandler()) input(name: 'configLogLevelDevice', title: 'Device Logging Level for messages with this level and higher.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
 
-        if ('wakeUpInterval' in configHandler()) input(name: 'configWakeUpInterval', title: 'WAKE UP INTERVAL:\n' + 'The device will wake up after each defined time interval to sync configuration parameters, ' + 'associations and settings.\n' + 'Values: 5-86399 = Interval (s)\n' + 'Default Value: 4000 (every 66 minutes)', type: 'number', defaultValue: 4000, required: false)
+        if ('wakeUpInterval' in configHandler()) input(name: 'configWakeUpInterval', title: 'Wake Up Interval (s).', type: 'number', range: '3600..20000', defaultValue: 4000, required: false) // TODO - need to move to device specific option
 
         if (configUser()) generatePrefsParams()
     }
@@ -154,8 +154,8 @@ metadata {
 /**
  *  Preferences Helper Methods
  */
-private generatePrefsParams() {
-    input (name: 'paraParameters', title: 'DEVICE PARAMETERS:', description: 'Device parameters are used to customise the physical device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
+private generatePrefsParams() { // TODO - tidy up - move detail to item description
+    input (name: 'paraParameters', title: 'DEVICE PARAMETERS', description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
     paramsMetadata().findAll{ !it.readonly }.each{
         if (configUser()[0] == 0 || it.id in configUser()) {
             def id = it.id.toString().padLeft(3, "0")
@@ -188,22 +188,22 @@ private generatePrefsParams() {
 }
 
 private getTimeOptionValueMap() { [
-        "10 seconds": 10,
-        "20 seconds": 20,
-        "40 seconds": 40,
-        "1 minute": 60,
-        "2 minutes": 2 * 60,
-        "3 minutes": 3 * 60,
-        "4 minutes": 4 * 60,
-        "5 minutes": 5 * 60,
-        "8 minutes": 8 * 60,
-        "15 minutes": 15 * 60,
-        "30 minutes": 30 * 60,
-        "1 hour": 60 * 60,
-        "6 hours": 6 * 60 * 60,
-        "12 hours": 12 * 60 * 60,
-        "18 hours": 18 * 60 * 60,
-        "24 hours": 24 * 60 * 60
+    '10 seconds': 10,
+    '20 seconds': 20,
+    '40 seconds': 40,
+    '1 minute': 60,
+    '2 minutes': 2 * 60,
+    '3 minutes': 3 * 60,
+    '4 minutes': 4 * 60,
+    '5 minutes': 5 * 60,
+    '8 minutes': 8 * 60,
+    '15 minutes': 15 * 60,
+    '30 minutes': 30 * 60,
+    '1 hour': 60 * 60,
+    '6 hours': 6 * 60 * 60,
+    '12 hours': 12 * 60 * 60,
+    '18 hours': 18 * 60 * 60,
+    '24 hours': 24 * 60 * 60
 ] }
 
 /**
@@ -1188,22 +1188,22 @@ private commandClassesUnsolicited() { [
  */
 
 private commandClassesVersions() { [
-                                     0x20: 1, // Basic
-                                     0x30: 2, // Sensor Binary
-                                     0x31: 5, // Sensor Multilevel
-                                     0x59: 1, // Association Grp Info
-                                     0x5A: 1, // Device Reset Locally
-                                     0x5E: 2, // Zwave Plus Info (not supported)
-                                     0x70: 2, // Configuration
-                                     0x71: 3, // Notification - changed to v3
-                                     0x72: 2, // Manufacturer Specific
-                                     0x73: 1, // Powerlevel
-                                     0x7A: 2, // Firmware Update Md
-                                     0x80: 1, // Battery
-                                     0x84: 1, // Wake Up - changed to v1
-                                     0x85: 2, // Association
-                                     0x86: 1, // Version - changed to v1
-                                     0x98: 1 // Security
+    0x20: 1, // Basic
+    0x30: 2, // Sensor Binary
+    0x31: 5, // Sensor Multilevel
+    0x59: 1, // Association Grp Info
+    0x5A: 1, // Device Reset Locally
+    0x5E: 2, // Zwave Plus Info (not supported)
+    0x70: 2, // Configuration
+    0x71: 3, // Notification - changed to v3
+    0x72: 2, // Manufacturer Specific
+    0x73: 1, // Powerlevel
+    0x7A: 2, // Firmware Update Md
+    0x80: 1, // Battery
+    0x84: 1, // Wake Up - changed to v1
+    0x85: 2, // Association
+    0x86: 1, // Version - changed to v1
+    0x98: 1 // Security
 ] }
 
 /* Currently Unused
@@ -1230,7 +1230,7 @@ private configUseStates() { [
         Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
         Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
         Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true] // TODO - check default
+        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 
 /**

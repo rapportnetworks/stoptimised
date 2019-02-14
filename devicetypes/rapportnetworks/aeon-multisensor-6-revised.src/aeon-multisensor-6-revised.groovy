@@ -29,7 +29,7 @@ metadata {
 
         // Custom Attributes
         attribute "batteryStatus", "string"     // Indicates DC-power or battery %.
-        attribute 'configure', 'string' // Reports on configuration command status.
+        attribute "configure", "string" // Reports on configuration command status.
         attribute "logMessage", "string"        // Important log messages.
         attribute "syncPending", "number"       // Number of config items that need to be synced with the physical device.
 
@@ -58,16 +58,7 @@ metadata {
         }
 
         valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
-            state "temperature", label: '${currentValue}°C', unit: "°C",
-                    backgroundColors: [
-                            [value: 0, color: "#153591"],
-                            [value: 7, color: "#1e9cbb"],
-                            [value: 15, color: "#90d2a7"],
-                            [value: 23, color: "#44b621"],
-                            [value: 29, color: "#f1d801"],
-                            [value: 33, color: "#d04e00"],
-                            [value: 37, color: "#bc2323"]
-                    ],  defaultState: true
+            state "temperature", label: '${currentValue}°C', unit: "°C", backgroundColors: [[value: 0, color: "#153591"], [value: 7, color: "#1e9cbb"], [value: 15, color: "#90d2a7"], [value: 23, color: "#44b621"], [value: 29, color: "#f1d801"], [value: 33, color: "#d04e00"], [value: 37, color: "#bc2323"]],  defaultState: true
         }
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 2, height: 2) {
             state "humidity", label: '${currentValue} % humidity', unit: "% humidity", defaultState: true
@@ -106,7 +97,7 @@ metadata {
         standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
             state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
         }
-        //noinspection GroovyAssignabilityCheck
+
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
         details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "test"])
     }
@@ -160,9 +151,9 @@ metadata {
     }
 }
 
-/*****************************************************************************************************************
+/**
  *  Preferences Helper Methods
- *****************************************************************************************************************/
+ */
 private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS:', description: 'Device parameters are used to customise the physical device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
     paramsMetadata().findAll{ !it.readonly }.each{
@@ -173,54 +164,20 @@ private generatePrefsParams() {
             def prefDefaultValue = (specifiedValue) ?: it.defaultValue
             switch(it.type) {
                 case "number":
-                    input (
-                            name: "configParam${id}",
-                            title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${prefDefaultValue}",
-                            description: it.description,
-                            type: it.type,
-                            range: it.range,
-                            defaultValue: prefDefaultValue,
-                            required: it.required
-                    )
+                    input (name: "configParam${id}", title: "${it.id}: ${it.name}: \n" + it.description + lb +"Default Value: ${prefDefaultValue}", description: it.description, type: it.type, range: it.range, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case "enum":
-                    input (
-                            name: "configParam${id}",
-                            title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
-                            description: it.description,
-                            type: it.type,
-                            options: it.options,
-                            defaultValue: prefDefaultValue,
-                            required: it.required
-                    )
+                    input (name: "configParam${id}", title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}", description: it.description, type: it.type, options: it.options, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case "bool":
-                    input (
-                            name: "configParam${id}",
-                            title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}",
-                            description: it.description,
-                            type: it.type,
-                            defaultValue: (prefDefaultValue == it.trueValue),
-                            required: it.required
-                    )
+                    input (name: "configParam${id}", title: "${it.id}: ${it.name}: \n" + it.description + lb + "Default Value: ${prefDefaultValue}", description: it.description, type: it.type, defaultValue: (prefDefaultValue == it.trueValue), required: it.required)
                     break
                 case "flags":
-                    input (
-                            name: "paraFlags${id}",
-                            title: "${it.id}: ${it.name}",
-                            description: it.description,
-                            type: "paragraph", element: "paragraph"
-                    )
+                    input (name: "paraFlags${id}", title: "${it.id}: ${it.name}", description: it.description, type: "paragraph", element: "paragraph")
                     if (specifiedValue) def specifiedFlags = configSpecified()?.find { csf -> csf.id == it.id }?.flags
                     it.flags.each { f ->
                         def prefFlagValue = (specifiedValue) ? specifiedFlags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
-                        input (
-                                name: "configParam${id}${f.id}",
-                                title: "${f.id}) ${f.description}",
-                                type: 'bool',
-                                defaultValue: (prefFlagValue == f.flagValue),
-                                required: it.required
-                        )
+                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description}", type: 'bool', defaultValue: (prefFlagValue == f.flagValue), required: it.required)
                     }
                     break
                 default:
@@ -249,9 +206,9 @@ private getTimeOptionValueMap() { [
         "24 hours": 24 * 60 * 60
 ] }
 
-/*****************************************************************************************************************
+/**
  *  Parse Method
- *****************************************************************************************************************/
+ */
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
     def result = []
@@ -279,20 +236,36 @@ def parse(String description) {
     result
 }
 
-/*****************************************************************************************************************
+/**
  *  Zwave Application Events Handlers
- *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) { // 0x20=1, Basic
+ */
+
+/**
+ * 0x20=1, Basic
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
     logger("BasicSet: Ignoring '$cmd'", 'info')
     // motionEvent(cmd.value)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) { // 0x30=2, Sensor Binary
+/**
+ * 0x30=2, Sensor Binary
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
     logger("SensorBinaryReport: Ignoring '$cmd'", 'info')
     // motionEvent(cmd.sensorValue)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) { // 0x71=5, Notification
+/**
+ * 0x71=5, Notification
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
     logger("NotificationReport: '$cmd'", 'debug')
     def result = []
     if (cmd.notificationType == 0x07) {
@@ -325,7 +298,12 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) { // 0x31: 5, Sensor Multilevel
+/**
+ * 0x31: 5, Sensor Multilevel
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
     logger("SensorMultilevelReport: $cmd", 'debug')
     def map = [displayed: true, isStateChange: true]
     switch (cmd.sensorType) {
@@ -361,7 +339,12 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) { // 0x70: 2, Configuration
+/**
+ * 0x70: 2, Configuration
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
     logger("ConfigurationReport: '$cmd'", 'trace')
     def signed = paramsMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
     def paramValue = (signed) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
@@ -391,10 +374,16 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     result
 }
 
-/*****************************************************************************************************************
- *  Zwave Management Events Handlers
- *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x80:1, Battery
+/**
+ * Zwave Management Events Handlers
+ */
+
+/**
+ * 0x80:1, Battery
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
     def map = [name: "battery", unit: "%"]
     if (cmd.batteryLevel == 0xFF) {
         map.value = 1
@@ -409,7 +398,12 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) { // 0x
     createEvent(map)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) { // 0x72: 2
+/**
+ * 0x72: 2, Device Specific
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
     logger('DeviceSpecificReport: Serial number report received.', 'info')
     logger("DeviceSpecificReport: Serial number raw report: $cmd", 'debug')
     def serialNumber = "0"
@@ -418,7 +412,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
     updateSyncPending()
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) { // 0x72=2, Manufacturer Specific
+/**
+ * 0x72=2, Manufacturer Specific
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
     log.info "Executing zwaveEvent 72 (ManufacturerSpecificV2) : 05 (ManufacturerSpecificReport) with cmd: $cmd"
     log.debug "manufacturerId:   ${cmd.manufacturerId}"
     log.debug "manufacturerName: ${cmd.manufacturerName}"
@@ -428,7 +427,12 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     updateDataValue("MSR", msr)
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) { // 0x86: 2, Version
+/**
+ * 0x86: 2, Version
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
     logger("VersionCommandClassReport: Command Class: $ccValue, version: $ccVersion", 'debug')
@@ -439,7 +443,12 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     }
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) { // 0x84: 2, Wake Up
+/**
+ * 0x84: 2, Wake Up Interval Report
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     logger("WakeUpIntervalReport: '$cmd'", 'debug')
     def wakeUpInterval = cmd.seconds
     updateDataValue('wakeUpInterval', "$wakeUpInterval")
@@ -447,7 +456,12 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     createEvent(name: 'checkInterval', value: checkInterval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { // 0x84: 2, Wake Up
+/**
+ * 0x84: 2, Wake Up Notification
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     logger('WakeUpNotification: Device woke up.', 'info')
     def cmds = []
     if (listening()) {
@@ -481,10 +495,16 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) { /
     report
 }
 
-/*****************************************************************************************************************
- *  Zwave Network Protocol Events Handlers
- *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) { // 0x73=1, // Powerlevel
+/**
+ * Zwave Network Protocol Events Handlers
+ */
+
+/**
+ * 0x73=1, // Powerlevel Report
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     logger("PowerlevelReport: '$cmd'", 'debug')
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
     logger("PowerlevelReport: $powerLevel dBm", 'info')
@@ -492,10 +512,16 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     // ??? could create event - so that have a "pulse" for listening devices
 }
 
-/*****************************************************************************************************************
- *  Zwave Transport Encapsulation Events Handlers
- *****************************************************************************************************************/
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { // 0x98=1, Security
+/**
+ * Zwave Transport Encapsulation Events Handlers
+ */
+
+/**
+ * 0x98=1, Security Message Encapsulation
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
     logger("security: raw '$cmd'", 'trace')
     def encapsulatedCommand = cmd.encapsulatedCommand(commandClassesVersions())
     logger("security: encapsulated '$encapsulatedCommand'", 'trace')
@@ -507,29 +533,39 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
     }
 }
 
-// ??? need crc16 processing???
+// TODO - ??? need crc16 processing???
 
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) { // 0x98=1, Security
+/**
+ * 0x98=1, Security Network Key Verify
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) {
     logger('networkKey: Device is securely included.', 'info')
     def result = [createEvent(name: 'secureInclusion', value: 'success', descriptionText: 'Secure inclusion was successful', isStateChange: true)]
     result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) { // 0x98=1, Security
+/**
+ * 0x98=1, Security Commands Supported Report
+ * @param cmd
+ * @return
+ */
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
     logger("securityCommands: report '$cmd'", 'info')
 }
 
-/*****************************************************************************************************************
- *  Zwave General Event Handler
- *****************************************************************************************************************/
+/**
+ * Zwave General Event Handler (catch all)
+ */
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
     logger("General zwaveEvent cmd: ${cmd}", 'warn')
     createEvent(descriptionText: cmd.toString(), isStateChange: false)
 }
 
-/*****************************************************************************************************************
+/**
  * Send Zwave Commands to Device
- *****************************************************************************************************************/
+ */
 private sendCommandSequence(cmds, delay = 1200) {
     if (!listening()) //noinspection GroovyAssignmentToMethodParameter
         cmds += wakeUpNoMoreInformation()
@@ -537,6 +573,11 @@ private sendCommandSequence(cmds, delay = 1200) {
     // sendHubCommand(commands.collect { response(it) }, delay)
 }
 
+/**
+ * selectEncapsulation - depends on device capabilites
+ * @param cmd
+ * @return
+ */
 private selectEncapsulation(physicalgraph.zwave.Command cmd) {
     if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
         secureEncapsulate(cmd)
@@ -550,41 +591,75 @@ private selectEncapsulation(physicalgraph.zwave.Command cmd) {
     }
 }
 
+/**
+ * secureEncapsulate
+ * @param cmd
+ * @return
+ */
 private secureEncapsulate(physicalgraph.zwave.Command cmd) {
     logger("secureEncapsulation: '$cmd'", 'trace')
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 }
 
+/**
+ * crc16Encapsulate
+ * @param cmd
+ * @return
+ */
 private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
     logger("crc16Encapsulation: '$cmd'", 'trace')
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
-/*****************************************************************************************************************
- *  Capability-related Commands
- *****************************************************************************************************************/
+/**
+ * Capability-related Commands
+ */
+
+/**
+ * ping
+ * @return
+ */
 def ping() {
     if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
 }
 
+/**
+ * poll
+ */
 def poll() { // depreciated
 }
 
+/**
+ * refresh
+ */
 def refresh() {
 }
 
-/*****************************************************************************************************************
+/**
  *  Custom Commands
- *****************************************************************************************************************/
+ */
+
+/**
+ * resetLog - resets log messages displatey in mobile app
+ * @return
+ */
 def resetLog() {
     sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
 }
 
+/**
+ * resetTamper - resets tamper (after configured period as there is not zwave tamper clear message)
+ * @return
+ */
 def resetTamper() {
     logger('resetTamper: Resetting tamper alarm.', 'info')
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper alarm cleared', displayed: true, isStateChange: true)
 }
 
+/**
+ * syncAll - initiates a resynching of all device configuration parameters
+ * @return
+ */
 def syncAll() {
     logger('syncAll: Called', 'info')
     state.syncAll = true
@@ -592,16 +667,28 @@ def syncAll() {
     (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
 }
 
+/**
+ * syncRemaining - initiates a resynching of unsynched device configuration parameters
+ * @return
+ */
 def syncRemaining() {
     logger('syncRemaining: Called', 'info')
     (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
 }
 
+/**
+ * test - initiates testing of device (testNow())
+ * @return
+ */
 def test() {
     logger('test: Called', 'info')
     (listening()) ? sendCommandSequence(testNow()) : state.queued << 'testNow'
 }
 
+/**
+ * testNow - gets reports from device on transmission power level and which versions of commands classes that it supports
+ * @return
+ */
 private testNow() {
     logger('testRun: Called', 'info')
     def cmds = []
@@ -610,16 +697,21 @@ private testNow() {
     cmds
 }
 
-/*****************************************************************************************************************
- *  SmartThings System Methods
- *****************************************************************************************************************/
+/**
+ * SmartThings System Methods
+ */
+
+/**
+ * installed() is called on first installation of device
+ * sets up initial device states
+ */
 def installed() {
     state.logLevelIDE = 5; state.logLevelDevice = 2
     logger('installed: setting initial state of device attributes', 'info')
 
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
-    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
+    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
     if ('deviceUse' in configHandler()) {
         logger('installed: setting device use states', 'debug')
@@ -638,34 +730,30 @@ def installed() {
     }
 }
 
+/**
+ * configure() is called after installed() and in response to configure command sent to device (via mobile app or ST app)
+ * Sets/resets device by setting configuration values to default/specified values.
+ */
 def configure() {
-    logger('configure: Setting/Resetting configuration targets to default/specified values.', 'info')
+    logger('configure: Setting/Resetting device configuration targets to default/specified values.', 'info')
 
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
     state.configuring = true
 
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    state.autoResetTamperDelay = 30
-    try { device.updateSetting('configAutoResetTamperDelay', 30) }
-    catch(e) {}
+    state.autoResetTamperDelay = 30; try { device.updateSetting('configAutoResetTamperDelay', 30) }; catch(e) {}
 
-    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug')
-    state.logLevelIDE = 5 // set to 3 when finished debugging
-    try { device.updateSetting('configLogLevelIDE', 5) }
-    catch(e) {}
+    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug') // set to 3 when finished debugging
+    state.logLevelIDE = 5; try { device.updateSetting('configLogLevelIDE', 5) }; catch(e) {}
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    state.logLevelDevice = 2
-    try { device.updateSetting('configLogLevelDevice', 2) }
-    catch(e) {}
+    state.logLevelDevice = 2; try { device.updateSetting('configLogLevelDevice', 2) }; catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        state.wakeUpIntervalTarget = interval
-        try { device.updateSetting('configWakeUpInterval', interval) }
-        catch(e) {}
+        state.wakeUpIntervalTarget = interval; try { device.updateSetting('configWakeUpInterval', interval) }; catch(e) {}
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
@@ -679,19 +767,16 @@ def configure() {
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) {}
+                try { device.updateSetting("configParam$id", resetValue) }; catch(e) {}
                 break
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) {}
+                try { device.updateSetting("configParam$id", resetValue) }; catch(e) {}
                 break
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                try { device.updateSetting("configParam$id", resetBool) }
-                catch(e) {}
+                try { device.updateSetting("configParam$id", resetBool) }; catch(e) {}
                 break
             case 'flags':
                 def resetFlags = (specified?.flags) ?: it.flags
@@ -699,8 +784,7 @@ def configure() {
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
                     logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
-                    catch(e) {}
+                    try { device.updateSetting("configParam$id$rf.id", resetBool) }; catch(e) {}
                 }
                 break
             default:
@@ -714,36 +798,41 @@ def configure() {
     updated()
 }
 
+/**
+ * updated() sets configuration to user preferences selected in mobile app if state.configuring = false
+ * If called after configure(), any selected user preferences will be ignored (and may have already been reset to defaults).
+ * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
+ */
 def updated() {
     logger('updated: Updating configuration targets to match any user preferences.', 'info')
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        if (!state.configuring && settings?.configAutoResetTamperDelay != null) {
-            state.autoResetTamperDelay = settings.configAutoResetTamperDelay
-            logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
-        }
-
-        if (!state.configuring && settings?.configLogLevelIDE != null) {
-            state.logLevelIDE = settings.configLogLevelIDE.toInteger()
-            logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
-        }
-
-        if (!state.configuring && settings?.configLogLevelDevice != null) {
-            state.logLevelDevice =  settings.configLogLevelDevice.toInteger()
-            logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
-        }
-
-        if (!state.configuring && settings?.configWakeUpInterval != null) {
-            state.wakeUpIntervalTarget =  settings.configWakeUpInterval
-            logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
-        }
-
         if (!state.configuring) {
-            paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+            if (settings?.configAutoResetTamperDelay != null) {
+                state.autoResetTamperDelay = settings.configAutoResetTamperDelay
+                logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+            }
+
+            if (settings?.configLogLevelIDE != null) {
+                state.logLevelIDE = settings.configLogLevelIDE.toInteger()
+                logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+            }
+
+            if (settings?.configLogLevelDevice != null) {
+                state.logLevelDevice = settings.configLogLevelDevice.toInteger()
+                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+            }
+
+            if (settings?.configWakeUpInterval != null) {
+                state.wakeUpIntervalTarget = settings.configWakeUpInterval
+                logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
+            }
+
+            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
                 def id = it.id.toString().padLeft(3, "0")
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
-                    switch(it.type) {
+                    switch (it.type) {
                         case 'number':
                             def setting = settings."configParam$id"
                             logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
@@ -761,7 +850,11 @@ def updated() {
                             break
                         case 'flags':
                             def target = 0
-                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
+                            settings.findAll { set ->
+                                set.key ==~ /configParam${
+                                    id
+                                }[a-z]/
+                            }.each { k, v -> if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue }
                             logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
                             state."paramTarget$it.id" = target
                             break
@@ -773,6 +866,10 @@ def updated() {
         }
         state.configuring = false
 
+        /**
+         * If the device is mains powered (i.e. listening), the configuration commands can be sent immediately.
+         * If the device is battery powered (i.e. sleepy), the configuration commands are queued (state.queued) until the device next wakes up.
+         */
         if (listening()) {
             def result = response(sendCommandSequence(sync()))
             logger("updated: Result '$result'", 'info')
@@ -790,9 +887,14 @@ def updated() {
     else { logger('updated: Ran within last 2 seconds so aborting update.', 'trace') }
 }
 
-/*****************************************************************************************************************
- *  Generic Helper Methods
- *****************************************************************************************************************/
+/**
+ * Generic Helper Methods
+ */
+
+/**
+ * sync() compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
+ * It then requests the configuration value back from the device to check that it has been successfully updated
+ */
 private sync() {
     def cmds = []
     def syncPending = 0
@@ -817,7 +919,6 @@ private sync() {
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
             cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
             cmds += configurationGet(it.id)
-            //noinspection GroovyResultOfIncrementOrDecrementUsed
             syncPending++
         }
         else if (state.syncAll && it.id in configParameters()) {
@@ -825,18 +926,21 @@ private sync() {
         }
     }
 
-    if (getDataValue('serialNumber') == null) {
+    if (getDataValue('serialNumber') == null) { // TODO - check if this is needed? - What if device doesn't have a serial number?
         logger('sync: Requesting device serial number.', 'debug')
         cmds += deviceSpecificGet()
         syncPending++
     }
 
-    sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true)
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
     logger("sync: Returning '$cmds'", 'debug')
     cmds
 }
 
-@SuppressWarnings("GroovyResultOfIncrementOrDecrementUsed")
+/**
+ * updateSyncPending() called when a report is received back from the device in response to check a configuration parameter value
+ * keeps track of the number of outstanding configuration parameters that have yet to be successfully updated
+ */
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
@@ -879,15 +983,30 @@ private updateSyncPending() {
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 }
 
+/**
+ * converts unsigned integers
+ * @param byteArray
+ * @return
+ */
 private byteArrayToUInt(byteArray) {
     def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
 }
 
+/**
+ * checks whether or not device is a 'Listening' device i.e. powered by mains
+ * @return
+ */
 private listening() {
-    // getZwaveInfo()?.zw?.startsWith("S")
-    getZwaveInfo()?.zw?.startsWith("L")
+    // getZwaveInfo()?.zw?.startsWith('S')
+    getZwaveInfo()?.zw?.startsWith('L')
 }
 
+/**
+ * logger method determines whether or not to pass on message to log, depending on the configured message severity level
+ * @param msg
+ * @param level
+ * @return
+ */
 private logger(msg, level = 'debug') {
     switch(level) {
         case 'error':
@@ -913,9 +1032,11 @@ private logger(msg, level = 'debug') {
 }
 
 
-/*****************************************************************************************************************
+/**
  * Zwave Command Helpers
- *****************************************************************************************************************/
+ * Generic zwave commands that are common to most, if not all devices
+ */
+
 /*
 private association(commands) {
     sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
@@ -979,9 +1100,15 @@ private wakeUpNoMoreInformation() {
     zwave.wakeUpV1.wakeUpNoMoreInformation()
 }
 
-/*****************************************************************************************************************
- *  Device Specific Helper Methods
- *****************************************************************************************************************/
+/**
+ * Device Specific Helper Methods
+ * Methods that are only applicable to certain devices
+ */
+
+/**
+ * deviceUseStates() configures a contact sensor for different type of use and sets the event and state values that are reported
+ * @return
+ */
 private deviceUseStates() {
     def use = settings?.configDeviceUse
     def useStates = configUseStates()?.find { it.key == use }
@@ -994,6 +1121,11 @@ private deviceUseStates() {
     updateDataValue('activeState', activeState)
 }
 
+/**
+ * motionEvent() creates a motion event (may be triggered by several different zwave messages)
+ * @param value
+ * @return
+ */
 private motionEvent(value) {
     logger('motionEvent: Creating motion event', 'debug')
     def map = [name: 'motion', displayed: true, isStateChange: true]
@@ -1008,6 +1140,11 @@ private motionEvent(value) {
     createEvent(map)
 }
 
+/**
+ *
+ * @param value
+ * @return
+ */
 private sensorValueEvent(Short value) {
     def eventValue = null
     if (value == 0x00) {eventValue = "dry"}
@@ -1016,22 +1153,41 @@ private sensorValueEvent(Short value) {
     return result
 }
 
-/*****************************************************************************************************************
- *  Matadata Methods
- *****************************************************************************************************************/
-private commandClassesQuery() { [ // list to query device for versions supported
+/**
+ *  Matadata Methods - Specific to Device and Specified Configuration
+ */
+
+/**
+ * commandClassesQuery() - list of all potential command classes to query device to see if it supports them
+ * @return
+ */
+private commandClassesQuery() { [
                                   0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C
 ] }
 
-private commandClassesSecure() { [ // *** don't think this is needed
+/**
+ * commandClassesSecure() -  *** don't think this is needed
+ * @return
+ */
+private commandClassesSecure() { [
                                    0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C
 ] }
 
-private commandClassesUnsolicited() { [ // command classes of sensor reports - to trigger sync if device on battery
+/**
+ * commandClassesUnsolicited() - list of command classes of sensor reports (i.e. unsolicited) - can be used to trigger sync if device on battery
+ * @return
+ */
+
+private commandClassesUnsolicited() { [
                                         0x20, 0x30, 0x31, 0x60, 0x71, 0x9C
 ] }
 
-private commandClassesVersions() { [ // device/SmartThings versions supported
+/**
+ * commandClassesVersions() - versions of command classes to use so that functionality is correctly supported
+ * @return
+ */
+
+private commandClassesVersions() { [
                                      0x20: 1, // Basic
                                      0x30: 2, // Sensor Binary
                                      0x31: 5, // Sensor Multilevel
@@ -1058,27 +1214,47 @@ private commandClassesVersions() { [ // device/SmartThings versions supported
     0x85=2, // Association
 */
 
-private configHandler() { [ // menu items available in app
-                            'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
+/**
+ * configHandler() - menu items available in mobile app to be configured by user
+ * @return
+ */
+private configHandler() { [
+        'deviceUse', 'autoResetTamperDelay', 'logLevelDevice', 'logLevelIDE', 'wakeUpInterval'
 ] }
 
+/**
+ * configUseStates() - map of states for contact sensor depending on use
+ * @return
+ */
 private configUseStates() { [
         Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
         Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
         Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
+        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true] // TODO - check default
 ] }
 
+/**
+ * configIntervals() - list of values for intervals both device defaults and specified optimal values
+ * @return
+ */
 private configIntervals() { [
         defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
         specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
         batteryRefreshInterval: 604_800
 ] }
 
+/**
+ * configParameters() - set of device configuration parameters with a specified value required for optimal operation
+ * @return
+ */
 private configParameters() { [
         2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113
 ] }
 
+/**
+ * configSpecified() - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
+ * @return
+ */
 private configSpecified() { [
         [id:2,size:1,defaultValue:0,specifiedValue:1],
         [id:3,size:2,defaultValue:240,specifiedValue:30],
@@ -1092,10 +1268,18 @@ private configSpecified() { [
         [id:111,size:4,defaultValue:3600,specifiedValue:3600]
 ] }
 
+/**
+ * configUser() - subset of device configuration parameters that are made available for configuration by the user in the mobile app
+ * @return
+ */
 private configUser() { [
         2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113
 ] }
 
+/**
+ * paramsMetadata() - complete map of all device configuration parameters
+ * @return
+ */
 private paramsMetadata() { [
         [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
         [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],

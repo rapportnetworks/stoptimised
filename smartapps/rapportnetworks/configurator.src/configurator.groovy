@@ -127,7 +127,7 @@ def checkReceived() { // need to put a time limit on checking currentState - so 
     settings?.configurationPref?.each {
         if (it.id in state?.selectedDevices) {
             def configure = it?.currentState('configure')
-            if (configure.value == 'received' && configure.date.time >= state.startTime) {
+            if (configure.value in ['received', 'queued', 'completed'] && configure.date.time >= state.startTime) {
                 logger("checkReceived: Deselecting device ${it?.displayName} [${it.id}].", 'info')
                 removalList << it.id
             }

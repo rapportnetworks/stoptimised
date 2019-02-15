@@ -483,6 +483,7 @@ def updated() {
         }
         else {
             logger('updated: Sleepy device, queuing sync().', 'info')
+            sendEvent(name: 'configure', value: 'queued', descriptionText: 'Device reports Configuration queued.', isStateChange: true, displayed: false)
             if (state.queued) {
                 state.queued << 'sync'
             } else {
@@ -583,17 +584,9 @@ private updateSyncPending() {
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
-        runIn(300, sendConfigureCompleted)
+        sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
     }
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
-}
-
-/**
- * sendConfigureCompleted - sends configure event with value of 'completed' (reports status to Configurator smart app)
- * there is a delay in calling it from updateSyncPending in order to ensure that a short completition time does not cause problems for configurator smart app
- */
-void sendConfigureCompleted() {
-    sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
 }
 
 /**

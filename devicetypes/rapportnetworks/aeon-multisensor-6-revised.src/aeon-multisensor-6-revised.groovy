@@ -1146,24 +1146,24 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
         cmds += powerlevelGet()
         if (device.latestValue('syncPending') > 0) cmds += sync()
         // ?? send mock battery event as a device "pulse"??
-    }
-    else {
-        if (state.queued != null) {
+    } else {
+        if (state.queued) {
             def queue = state.queued as Set
             logger("WakeUpNotification: Queue '$queue'", 'trace')
             // queue.each { "$it"().each { qc -> cmds << qc } }
             queue.each { cmds += "$it"() }
-            state.queued = []
+            state.queued = [] // TODO - Not sure should reset the queue here, rather remove items when reports received back?
         }
         else if (device.latestValue('syncPending') > 0) {
+            logger("WakeUpNotification: syncPending > 0", 'trace')
             // sync().each { cmds << it }
             cmds += sync()
         }
         if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
+            logger("WakeUpNotification: Requesting Battery report.", 'trace')
             cmds += batteryGet()
             cmds += powerlevelGet()
-        }
-        else {
+        } else {
             sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
         }
     }

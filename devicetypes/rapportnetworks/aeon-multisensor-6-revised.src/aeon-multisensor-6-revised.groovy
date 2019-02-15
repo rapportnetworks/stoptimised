@@ -883,7 +883,7 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
  **********************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
-    def messages = state.messages
+    def messages = state?.messages ?: 0
     updateDataValue('messages', "${state.messages}")
     state.messages = messages + 1
     def result = []

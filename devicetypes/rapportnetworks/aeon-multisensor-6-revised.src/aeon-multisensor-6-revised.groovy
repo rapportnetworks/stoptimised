@@ -612,7 +612,12 @@ private byteArrayToUInt(byteArray) {
  * uses settings.ConfigDeviceUse to set datavalues for event value and states (default is a water sensor)
  */
 void deviceUseStates() {
-    def useStates = configUseStates()?.find { it.item == settings?.configDeviceUse.toInteger() }
+    def useStates
+    if (settings?.configDeviceUse) {
+        useStates = configUseStates()?.find { it.item == settings.configDeviceUse.toInteger() }
+    } else {
+        useStates = configUseStates()?.find { it.default == true }
+    }
     def deviceUse = (useStates) ? useStates.use : 'Water'
     def event = (useStates) ? useStates.event : 'water'
     def inactiveState = (useStates) ? useStates.inactive : 'dry'

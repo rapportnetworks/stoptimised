@@ -28,17 +28,22 @@ metadata {
         capability "Ultraviolet Index"             // attribute 'ultravioletIndex' (number)
 
         // Custom Attributes
-        attribute "batteryStatus", "string" // Indicates DC-power or battery %.
-        attribute "configure", "string"     // Reports on configuration command status.
-        attribute "logMessage", "string"    // Important log messages.
-        attribute "syncPending", "number"   // Number of config items that need to be synced with the physical device.
+        attribute "batteryStatus", "string"        // Indicates DC-power or battery %.
+        attribute "configure", "string"            // Reports on configuration command status.
+        attribute "logMessage", "string"           // Important log messages.
+        attribute "syncPending", "number"          // Number of config items that need to be synced with the physical device.
 
         // Custom Commands
-        command "resetLog"
-        command "resetTamper"
-        command "syncAll"
-        command "syncRemaining"
-        command "test" // TODO - change to "profile" ?
+        command "resetLog"                         // Manually clears logMessage attribute
+        command "resetTamper"                      // Manually resets tamper attribute to 'clear'
+        command "syncAll"                          // Manually triggers the syncing of all device parameters
+        command "syncRemaining"                    // Manually triggers the syncing of any unsynched parameters (or queues them is a sleepy device)
+        command "profile"                          // Manually initiates profiling of the device (power level, command class versions)
+
+        // Data values
+        //
+        //
+        //
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -52,54 +57,98 @@ metadata {
             }
         }
         */
+        /**
+         * tile displaying value of motion attribute
+         */
         standardTile("motion", "device.motion", inactiveLabel: false, width: 2, height: 2) {
             state "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#00A0DC"
             state "inactive", label: 'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#cccccc"
         }
-
+        /**
+         * tile displaying value of temperature attribute
+         */
         valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
             state "temperature", label: '${currentValue}°C', unit: "°C", backgroundColors: [[value: 0, color: "#153591"], [value: 7, color: "#1e9cbb"], [value: 15, color: "#90d2a7"], [value: 23, color: "#44b621"], [value: 29, color: "#f1d801"], [value: 33, color: "#d04e00"], [value: 37, color: "#bc2323"]],  defaultState: true
         }
+        /**
+         * tile displaying value of humidity attribute
+         */
         valueTile("humidity", "device.humidity", inactiveLabel: false, width: 2, height: 2) {
             state "humidity", label: '${currentValue} % humidity', unit: "% humidity", defaultState: true
         }
+        /**
+         * tile displaying value of illuminance atribute
+         */
         valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
             state "illuminance", label: '${currentValue} lux', unit: "", defaultState: true
         }
+        /**
+         * tile displaying value of ultraviolet index attribute
+         */
         valueTile("ultravioletIndex", "device.ultravioletIndex", inactiveLabel: false, width: 2, height: 2) {
             state "ultravioletIndex", label: '${currentValue} UV index', unit: "", defaultState: true
         }
+        /**
+         * tile displaying value of battery attribute
+         */
         valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
             state "battery", label: '${currentValue}% battery', unit: "", defaultState: true
         }
+        /**
+         * tile displaying value of battery status attribute
+         */
         valueTile("batteryStatus", "device.batteryStatus", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
             state "batteryStatus", label: '${currentValue}', unit: "", defaultState: true
         }
+        /**
+         * tile displaying value of power source attribute
+         */
         valueTile("powerSource", "device.powerSource", height: 2, width: 2, decoration: "flat") {
             state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff", defaultState: true
         }
+        /**
+         * tile displaying value of tamper attribute
+         * on tap triggers the resetTamper command
+         */
         standardTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
             state "clear", label: 'tamper clear', backgroundColor: "#ffffff", defaultState: true, action: "resetTamper" // *** remove action after testing
             state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
         }
+        /**
+         * tile displaying value of syncPending attribute - number of configuration parameters that remain to be synched with the device
+         * on tap triggers the syncRemaining command
+         */
         valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
             state "syncPending", label: '${currentValue} to sync', action: "syncRemaining", backgroundColor: "#ffffff", defaultState: true
         }
+        /**
+         * on tap triggers the syncAll command
+         */
         standardTile("syncAll", "device.syncAll", height: 2, width: 2, decoration: "flat") {
             state "syncAll", label: 'Sync All', icon: 'st.secondary.tools', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
         }
+        /**
+         * tile displaying value of logMessage attribute
+         * on tap triggers the resetLog command
+         */
         valueTile("logMessage", "device.logMessage", height: 2, width: 4, decoration: "flat") {
             state "clear", label: '${currentValue}', action: "resetLog", backgroundColor: "#ffffff", defaultState: true
         }
+        /**
+         * on tap triggers the configure command (sets/resets device configuration parameters to default/specified values)
+         */
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
             state "configure", label: 'configure', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
         }
-        standardTile("test", "device.test", height: 2, width: 2, decoration: "flat") {
-            state "test", label: 'test', icon: 'st.secondary.tools', action: "test", backgroundColor: "#ffffff", defaultState: true
+        /**
+         * on tap triggers the profile command (requests power level and command class versions reports from the device)
+         */
+        standardTile("profile", "device.profile", height: 2, width: 2, decoration: "flat") {
+            state "profile", label: 'profile', icon: 'st.secondary.tools', action: "profile", backgroundColor: "#ffffff", defaultState: true
         }
 
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "test"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "profile"])
     }
 
     simulator {
@@ -214,9 +263,9 @@ private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
     '24 hours': 24 * 60 * 60
 ] }
 
-/**
+/***********************************************************************************************************************
  *  Parse Method
- */
+ **********************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
     def result = []
@@ -244,10 +293,9 @@ def parse(String description) {
     result
 }
 
-/**
+/***********************************************************************************************************************
  *  Zwave Application Events Handlers
- */
-
+ **********************************************************************************************************************/
 /**
  * 0x20=1, Basic
  * @param cmd
@@ -382,10 +430,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     result
 }
 
-/**
+/***********************************************************************************************************************
  * Zwave Management Events Handlers
- */
-
+ **********************************************************************************************************************/
 /**
  * 0x80:1, Battery
  * @param cmd
@@ -503,10 +550,9 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     report
 }
 
-/**
+/***********************************************************************************************************************
  * Zwave Network Protocol Events Handlers
- */
-
+ **********************************************************************************************************************/
 /**
  * 0x73=1, // Powerlevel Report
  * @param cmd
@@ -520,10 +566,9 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     // ??? could create event - so that have a "pulse" for listening devices
 }
 
-/**
+/***********************************************************************************************************************
  * Zwave Transport Encapsulation Events Handlers
- */
-
+ **********************************************************************************************************************/
 /**
  * 0x98=1, Security Message Encapsulation
  * @param cmd
@@ -571,9 +616,9 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
     createEvent(descriptionText: cmd.toString(), isStateChange: false)
 }
 
-/**
+/***********************************************************************************************************************
  * Send Zwave Commands to Device
- */
+ **********************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
     if (!listening()) //noinspection GroovyAssignmentToMethodParameter
         cmds += wakeUpNoMoreInformation()
@@ -619,10 +664,9 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
 }
 
-/**
+/***********************************************************************************************************************
  * Capability-related Commands
- */
-
+ **********************************************************************************************************************/
 /**
  * ping
  * @return
@@ -643,10 +687,9 @@ def poll() { // depreciated
 def refresh() {
 }
 
-/**
+/***********************************************************************************************************************
  *  Custom Commands
- */
-
+ **********************************************************************************************************************/
 /**
  * resetLog - resets log messages displatey in mobile app
  * @return
@@ -685,30 +728,29 @@ def syncRemaining() {
 }
 
 /**
- * test - initiates testing of device (testNow())
+ * profile - initiates profiling of theh device (profileNow())
  * @return
  */
-def test() {
-    logger('test: Called', 'info')
-    (listening()) ? sendCommandSequence(testNow()) : state.queued << 'testNow'
+def profile() {
+    logger('profile: Called', 'info')
+    (listening()) ? sendCommandSequence(profileNow()) : state.queued << 'profileNow'
 }
 
 /**
- * testNow - gets reports from device on transmission power level and which versions of commands classes that it supports
+ * profileNow - gets reports from device on transmission power level and which versions of commands classes that it supports
  * @return
  */
-private testNow() {
-    logger('testRun: Called', 'info')
+private profileNow() {
+    logger('profileNow: Called', 'info')
     def cmds = []
     cmds += powerlevelGet()
     cmds += versionCommandClassGet()
     cmds
 }
 
-/**
+/***********************************************************************************************************************
  * SmartThings System Methods
- */
-
+ **********************************************************************************************************************/
 /**
  * installed() is called on first installation of device
  * sets up initial device states
@@ -902,10 +944,9 @@ def updated() {
     }
 }
 
-/**
+/***********************************************************************************************************************
  * Generic Helper Methods
- */
-
+ **********************************************************************************************************************/
 /**
  * sync() compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
  * It then requests the configuration value back from the device to check that it has been successfully updated
@@ -1016,12 +1057,12 @@ private listening() {
     getZwaveInfo()?.zw?.startsWith('L')
 }
 
-/**
+/***********************************************************************************************************************
  * logger method determines whether or not to pass on message to log, depending on the configured message severity level
  * @param msg
  * @param level
  * @return
- */
+ **********************************************************************************************************************/
 private logger(msg, level = 'debug') {
     switch(level) {
         case 'error':
@@ -1046,12 +1087,10 @@ private logger(msg, level = 'debug') {
     }
 }
 
-
-/**
+/***********************************************************************************************************************
  * Zwave Command Helpers
  * Generic zwave commands that are common to most, if not all devices
- */
-
+ **********************************************************************************************************************/
 /*
 private association(commands) {
     sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
@@ -1093,7 +1132,7 @@ private sensorBinary(commands) {
 */
 
 private versionCommandClassGet() {
-    logger('testRun: Requesting Command Class report.', 'debug')
+    logger('versionCommandClassGet: Requesting Command Class report.', 'debug')
     state.commandClassVersionsBuffer = [:]
     def cmds = []
     commandClassesQuery().each {
@@ -1129,11 +1168,10 @@ private wakeUpNoMoreInformation() {
     zwave.wakeUpV1.wakeUpNoMoreInformation()
 }
 
-/**
+/***********************************************************************************************************************
  * Device Specific Helper Methods
  * Methods that are only applicable to certain devices
- */
-
+ **********************************************************************************************************************/
 /**
  * deviceUseStates() configures a contact sensor for different type of use and sets the event and state values that are reported
  * uses settings.ConfigDeviceUse to set datavalues for event value and states (default is a water sensor)
@@ -1182,10 +1220,9 @@ private sensorValueEvent(Short value) {
     return result
 }
 
-/**
- *  Matadata Methods - Specific to Device and Specified Configuration
- */
-
+/***********************************************************************************************************************
+ *  Metadata Methods - Specific to Device and Specified Configuration
+ **********************************************************************************************************************/
 /**
  * commandClassesQuery() - list of all potential command classes to query device to see if it supports them
  * @return
@@ -1208,7 +1245,6 @@ private commandClassesUnsolicited() { [0x20, 0x30, 0x31, 0x60, 0x71, 0x9C] }
  * commandClassesVersions() - versions of command classes to use so that functionality is correctly supported
  * @return
  */
-
 private commandClassesVersions() { [
     0x20: 1, // Basic
     0x30: 2, // Sensor Binary

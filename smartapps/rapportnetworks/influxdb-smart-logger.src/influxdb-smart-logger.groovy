@@ -658,15 +658,20 @@ def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
  *****************************************************************************************************************/
 def fields() { [
     [name: 'battery',          clos: 'battery',                  var: 'integer',  args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
+    [name: 'batteryChange',    clos: 'batteryChange',            var: 'integer',  args: 1, type: ['device', 'statDev']],
     [name: '',                 clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
     [name: 'checkInterval',    clos: 'checkInterval',            var: 'integer',  args: 1, type: ['statDev','zwCfg']],
     [name: 'cLevel',           clos: 'networkSecurityLevel',     var: 'string',   args: 1, type: ['zwCcs']],
+    [name: 'configurationType',clos: 'configurationType',        var: 'string',   args: 1, type: ['zwCfg']],
+    [name: 'configure',        clos: 'configure',                var: 'string',   args: 1, type: ['device', 'statDev', 'zwCfg']],
+    [name: 'deviceUse',        clos: 'deviceUse',                var: 'string',   args: 1, type: ['zwCfg']],
     [name: 'eventDescription', clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'eventId',          clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'firmware',         clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
     [name: 'hubIP',            clos: 'hubIP',                    var: 'string',   args: 0, type: ['local', 'statHub']],
     [name: 'latitude',         clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
     [name: 'longitude',        clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
+    [name: 'messages',         clos: 'messages',                 var: 'integer',  args: 1, type: ['statDev']],
     [name: 'nBinary',          clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
     [name: 'nLevel',           clos: 'currentStateLevel',        var: 'integer',  args: 1, type: ['day', 'enum', 'hub']],
     [name: 'nState',           clos: 'currentState',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string']],
@@ -867,6 +872,16 @@ def getBattery() { return {
     }
 }}
 
+def getBatteryChange() { return {
+    if (it?.hasAttribute('batteryChange')) {
+        it?.latestState('batteryChange')?.date?.time ?: 0
+    } else {
+        ''
+    }
+}}
+
+def getConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
+
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
@@ -876,13 +891,19 @@ def getConfiguredParametersList() { return {
     }
 } }
 
+def getConfigure() { return { it?.latestValue('configure') ?: '' } }
+
 def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
+
+def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
 
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
 def getLatitude() { return { -> location.latitude } }
 
 def getLongitude() { return { -> location.longitude } }
+
+def getMessages() { return { it?.device?.getDataValue('messages') ?: '' } }
 
 def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
 

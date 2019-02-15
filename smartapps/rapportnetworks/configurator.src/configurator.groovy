@@ -57,7 +57,7 @@ def mainPage() {
 private getSelectedDeviceNames() {
     settings?.configurationPref?.collect {
         def items = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-        "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) >${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')}[$items]"
+        "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$items]"
     }
 }
 
@@ -81,7 +81,7 @@ def updated() {
     logger("updated: ${app.label} updated with settings: ${settings}.", 'trace')
     state.selectedDevices = selectedDeviceIds
     subscribe(app, handleAppTouch)
-    state.sendCounter = 2
+    state.sendCounter = 3
 }
 
 def uninstalled() {
@@ -93,6 +93,7 @@ def uninstalled() {
  *****************************************************************************************************************/
 def handleAppTouch(event) { // SmartApp Touch event
     logger("handleAppTouch: App trigger event: $event", 'trace')
+    state.startTime = now() - 200_000
     unsubscribe()
     controller()
 }
@@ -103,8 +104,8 @@ def handleAppTouch(event) { // SmartApp Touch event
 def controller() {
     logger("controller: Called. sendCounter = $state.sendCounter", 'trace')
     if (state.sendCounter > 0) {
+        checkReceived()
         sendCommand()
-        runIn(30, checkReceived)
         runIn(60, controller)
         state.sendCounter = state.sendCounter - 1
     }
@@ -126,7 +127,7 @@ def checkReceived() { // need to put a time limit on checking currentState - so 
     settings?.configurationPref?.each {
         if (it.id in state?.selectedDevices) {
             def configure = it?.currentState('configure')
-            if (configure.value == 'received' && configure.date.time >= now() - 300_000 ) {
+            if (configure.value == 'received' && configure.date.time >= state.startTime) {
                 logger("checkReceived: Deselecting device ${it?.displayName} [${it.id}].", 'info')
                 removalList << it.id
             }
@@ -142,7 +143,7 @@ def checkReceived() { // need to put a time limit on checking currentState - so 
  *  Private Helper Functions:
  *****************************************************************************************************************/
 private getSelectedDeviceIds() {
-    settings?.configurationPref?.collect { it.id }
+    settings?.configurationPref?.findResults { it?.hasAttribute('configure') ? it.id : null }
 }
 
 private logger(message, level = 'debug') {

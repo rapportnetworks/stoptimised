@@ -17,7 +17,7 @@ metadata {
     definition(name: "Aeon Multisensor 6 Revised", namespace: "rapportnetworks", author: "Alasdair Thin") {
         capability "Sensor"
         capability "Battery"                       // attribute 'battery' (number)
-        capability "Configuration"                 // command 'configure'
+        capability "Configuration"                 // command   'configure'
         capability "Health Check"                  // attribute 'checkInterval' (number); attribute 'DeviceWatch-DeviceStatus' (string); attribute 'healthStatus' (?); command 'ping'
         capability "Illuminance Measurement"       // attribute 'illuminance' (number)
         capability "Motion Sensor"                 // attribute 'motion' (enum: ['inactive', 'active'])
@@ -28,22 +28,34 @@ metadata {
         capability "Ultraviolet Index"             // attribute 'ultravioletIndex' (number)
 
         // Custom Attributes
+        attribute "batteryChange", "string"        // Used to log chaging of battery.
         attribute "batteryStatus", "string"        // Indicates DC-power or battery %.
         attribute "configure", "string"            // Reports on configuration command status.
         attribute "logMessage", "string"           // Important log messages.
+        attribute "secureInclusion", "string"      // Indicates secure inclusion success/failed.
         attribute "syncPending", "number"          // Number of config items that need to be synced with the physical device.
 
         // Custom Commands
+        command "batteryChange"                    // Manually logs change of battery.
+        command "profile"                          // Manually initiates profiling of the device (power level, command class versions)
         command "resetLog"                         // Manually clears logMessage attribute
         command "resetTamper"                      // Manually resets tamper attribute to 'clear'
         command "syncAll"                          // Manually triggers the syncing of all device parameters
         command "syncRemaining"                    // Manually triggers the syncing of any unsynched parameters (or queues them is a sleepy device)
-        command "profile"                          // Manually initiates profiling of the device (power level, command class versions)
 
         // Data values
-        //
-        //
-        //
+        // deviceUse:            what device (e.g. contact sensor) is being used for (optional configuration)
+        // event:                attribute for device event (based on optional configuration)
+        // inactiveState:        state when inactive (based on optional configuration)
+        // activeState:          state when active (based on optional configuration)
+        // commandClassVersions: list of all command classes supported by the device and their version numbers
+        // configurationType:    indicator of way device is configured [default, specified, user]
+        // configurationReport:  report of all configured parameter values (omits values that are not configured - i.e. remain at default values)
+        // messages:             counter of all messages received by parse method (i.e. sent by device)
+        // powerLevel:           device power level
+        // wakeUpInterval:       device wake up interval
+        // MSR:                  manufacturer specific report
+        // serialNumber:         device unique serial number (if it has one)
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -135,6 +147,12 @@ metadata {
             state "clear", label: '${currentValue}', action: "resetLog", backgroundColor: "#ffffff", defaultState: true
         }
         /**
+         * on tap triggers the batteryChange command (used to record a change of device battery)
+         */
+        standardTile("batteryChange", "device.batteryChange", height: 2, width: 2, decoration: "flat") {
+            state "batteryChange", label: 'Battery Change', icon: 'st.secondary.tools', action: "batteryChange", backgroundColor: "#ffffff", defaultState: true
+        }
+        /**
          * on tap triggers the configure command (sets/resets device configuration parameters to default/specified values)
          */
         standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
@@ -148,7 +166,7 @@ metadata {
         }
 
         main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "configure", "profile"])
+        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "batteryChange", "configure", "profile"])
     }
 
     simulator {
@@ -181,18 +199,21 @@ metadata {
 
     preferences {
         if (configDevice()) {
-            input(name: 'paraSettings', title: 'DEVICE SETTINGS', description: 'Tap each item to set.', type: 'paragraph', element: 'paragraph') //description: 'Device handler settings.'
+            input(name: 'paraSettings', title: 'DEVICE SETTINGS', description: 'Tap each item to set.', type: 'paragraph', element: 'paragraph')
 
             if ('deviceUse' in configDevice()) {
-                def uses = configUseStates().keySet().sort() as List
-                def defaultUse = configUseStates().find { it.value.default }.key
+                def uses = configUseStates().collectEntries { [(it.item): "${it.use}"] }
+                def defaultUse = configUseStates().find { it.default }.item
                 input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
             }
 
-            if ('autoResetTamperDelay' in configDevice()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay (s).', type: 'number', defaultValue: 30, required: false) // TODO - switch to enum
+            if ('autoResetTamperDelay' in configDevice()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay.', type: 'enum', options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'], defaultValue: 30, required: false)
 
-
-            if ('wakeUpInterval' in configDevice()) input(name: 'configWakeUpInterval', title: 'Wake Up Interval (s).', type: 'number', range: '3600..20000', defaultValue: 4000, required: false) // TODO - need to move to device specific option, switch to enum // generateWakeUpOptions()
+            if ('wakeUpInterval' in configDevice()) {
+                def intervals = configWakeIntervalOptions()
+                def defaultInterval = configIntervals().specifiedWakeUpInterval
+                input(name: 'configWakeUpInterval', title: 'Device Wake Up Interval.', type: 'enum', options: intervals, defaultValue: defaultInterval, required: false)
+            }
         }
 
         if (configUser()) generatePrefsParams()
@@ -204,12 +225,15 @@ metadata {
 
             if ('logLevelDevice' in configLogger()) input(name: 'configLogLevelDevice', title: 'Device Logging Level for messages with this level and higher.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
         }
-
     }
 }
 
+/***********************************************************************************************************************
+ * Preferences Helper Methods (generatePrefsParams, getTimeOptionValueMap)
+ **********************************************************************************************************************/
 /**
- *  Preferences Helper Methods
+ * generatePrefsParams
+ * @return
  */
 private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS', description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
@@ -218,7 +242,7 @@ private generatePrefsParams() {
             def id = it.id.toString().padLeft(3, '0')
             // def lb = (it.description.length() > 0) ? '\n' : ''
             def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-            def prefDefaultValue = (specifiedValue) ?: it.defaultValue
+            def prefDefaultValue = specifiedValue ?: it.defaultValue
             switch(it.type) {
                 case 'number':
                     input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${prefDefaultValue})", type: it.type, range: it.range, defaultValue: prefDefaultValue, required: it.required)
@@ -227,14 +251,14 @@ private generatePrefsParams() {
                     input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${it.options.prefDefaultValue})", type: it.type, options: it.options, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case 'bool':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${prefDefaultValue})", type: it.type, defaultValue: (prefDefaultValue == it.trueValue), required: it.required) // TODO - check default value
+                    input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})", type: it.type, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case 'flags':
                     input (name: "paraFlags${id}", title: "${it.id}. ${it.name}", description: it.description, type: 'paragraph', element: 'paragraph')
                     if (specifiedValue) def specifiedFlags = configSpecified()?.find { csf -> csf.id == it.id }?.flags
                     it.flags.each { f ->
                         def prefFlagValue = (specifiedValue) ? specifiedFlags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
-                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description}", type: 'bool', defaultValue: (prefFlagValue == f.flagValue), required: it.required) // TODO - check default value
+                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description}", type: 'bool', defaultValue: (prefFlagValue == f.flagValue), required: it.required)
                     }
                     break
                 default:
@@ -244,6 +268,10 @@ private generatePrefsParams() {
     }
 }
 
+/**
+ * getTimeOptionValueMap
+ * @return
+ */
 private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
     '10 seconds': 10,
     '20 seconds': 20,
@@ -264,10 +292,607 @@ private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
 ] }
 
 /***********************************************************************************************************************
+ * Main System Methods (installed, configure, updated)
+ * Note: configure is in fact a command
+ **********************************************************************************************************************/
+/**
+ * installed is called on first installation of device and sets up initial device states
+ */
+def installed() {
+    state.logLevelIDE = 5; state.logLevelDevice = 2
+    logger('installed: setting initial state of device attributes', 'info')
+
+    sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+
+    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
+
+    if ('deviceUse' in configDevice()) {
+        logger('installed: setting device use states', 'debug')
+        deviceUseStates()
+        sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
+    }
+
+    if (listening()) {
+        logger('Device is in listening mode (powered).', 'info')
+        sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
+        sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
+    } else {
+        logger('Device is in sleepy mode (battery).', 'info')
+        sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
+    }
+
+    state.messages = 0
+}
+
+/**
+ * configure() is called after installed() and in response to configure command sent to device (via mobile app or ST app)
+ * Sets/resets device by setting configuration values to default/specified values.
+ */
+def configure() {
+    logger('configure: Setting/Resetting device configuration targets to default/specified values.', 'info')
+
+    sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
+
+    state.configuring = true
+
+    logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
+    state.autoResetTamperDelay = 30; try { device.updateSetting('configAutoResetTamperDelay', 30) }
+    catch(e) {}
+
+    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug') // set to 3 when finished debugging
+    state.logLevelIDE = 5; try { device.updateSetting('configLogLevelIDE', 5) }
+    catch(e) {}
+
+    logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
+    state.logLevelDevice = 2; try { device.updateSetting('configLogLevelDevice', 2) }
+    catch(e) {}
+
+    if (commandClassesVersions().containsKey(0x84)) {
+        def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
+        logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
+        state.wakeUpIntervalTarget = interval; try { device.updateSetting('configWakeUpInterval', interval) }
+        catch(e) {}
+    }
+
+    logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
+    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+        def specified = configSpecified()?.find { cs -> cs.id == it.id }
+        def specifiedValue = specified?.specifiedValue
+        def resetValue = specifiedValue ?: it.defaultValue
+        state."paramTarget$it.id" = resetValue
+        def id = it.id.toString().padLeft(3, "0")
+        def resetType = (specifiedValue) ? 'specified' : 'default'
+        switch(it.type) {
+            case 'number':
+                logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) {}
+                break
+            case 'enum':
+                logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
+                try { device.updateSetting("configParam$id", resetValue) }
+                catch(e) {}
+                break
+            case 'bool':
+                def resetBool = (resetValue == it.trueValue)
+                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
+                try { device.updateSetting("configParam$id", resetBool) }
+                catch(e) {}
+                break
+            case 'flags':
+                def resetFlags = (specified?.flags) ?: it.flags
+                resetFlags.each { rf ->
+                    def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
+                    def resetBool = (resetFlagValue == rf.flagValue)
+                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
+                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
+                    catch(e) {}
+                }
+                break
+            default:
+                logger('configure: Unhandled preference type.', 'warn')
+        }
+    }
+
+    state.syncAll = true
+    state.configReportBuffer = [:]
+    updateDataValue('serialNumber', null)
+    updated()
+}
+
+/**
+ * updated() sets configuration to user preferences selected in mobile app if state.configuring = false
+ * If called after configure(), any selected user preferences will be ignored (and may have already been reset to defaults).
+ * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
+ */
+def updated() {
+    logger('updated: Updating configuration targets to match any user preferences.', 'info')
+    if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
+        state.updatedLastRanAt = now()
+
+        if (!state.configuring) {
+            if (settings?.configAutoResetTamperDelay != null) {
+                state.autoResetTamperDelay = settings.configAutoResetTamperDelay.toInteger()
+                logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+            }
+
+            if (settings?.configLogLevelIDE != null) {
+                state.logLevelIDE = settings.configLogLevelIDE.toInteger()
+                logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+            }
+
+            if (settings?.configLogLevelDevice != null) {
+                state.logLevelDevice = settings.configLogLevelDevice.toInteger()
+                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+            }
+
+            if (settings?.configWakeUpInterval != null) {
+                state.wakeUpIntervalTarget = settings.configWakeUpInterval.toInteger()
+                logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
+            }
+
+            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+                def id = it.id.toString().padLeft(3, "0")
+                if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
+                    switch (it.type) {
+                        case 'number':
+                            def setting = settings."configParam$id"
+                            logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'enum':
+                            def setting = settings."configParam$id".toInteger()
+                            logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'bool':
+                            def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
+                            logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
+                            state."paramTarget$it.id" = setting
+                            break
+                        case 'flags':
+                            def target = 0
+                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v ->
+                                if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue
+                            }
+                            logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
+                            state."paramTarget$it.id" = target
+                            break
+                        default:
+                            logger('updated: Unhandled configuration type.', 'warn')
+                    }
+                }
+            }
+        }
+        state.configuring = false
+
+        if ('deviceUse' in configDevice()) { // TODO - need to think about how this is handled / reset?
+            logger('updateded: setting device use states', 'debug')
+            deviceUseStates()
+            sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
+        }
+
+        /**
+         * If the device is mains powered (i.e. listening), the configuration commands can be sent immediately.
+         * If the device is battery powered (i.e. sleepy), the configuration commands are queued (state.queued) until the device next wakes up.
+         */
+        if (listening()) {
+            def result = response(sendCommandSequence(sync()))
+            logger("updated: Result '$result'", 'info')
+            result
+        }
+        else {
+            logger('updated: Sleepy device, queuing sync().', 'info')
+            if (state.queued) {
+                state.queued << 'sync'
+            } else {
+                state.queued = ['sync']
+            }
+        }
+    } else {
+        logger('updated: Ran within last 2 seconds so aborting update.', 'trace')
+    }
+}
+
+/***********************************************************************************************************************
+ * System Methods Helper Methods (sync, updateSyncPending, listening, byteArrayToUInt, deviceUseStates, logger)
+ **********************************************************************************************************************/
+/**
+ * sync() compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
+ * It then requests the configuration value back from the device to check that it has been successfully updated
+ */
+private sync() {
+    def cmds = []
+    def syncPending = 0
+
+    if (state.syncAll) {
+        logger('sync: Deleting all cached configuration values.', 'debug')
+        state.wakeUpIntervalCache = null
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        updateDataValue('serialNumber', null)
+        state.syncAll = false
+    }
+
+    if (state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
+        logger("sync: Syncing Wake Up Interval with new value: ${state.wakeUpIntervalTarget}", 'debug')
+        cmds += wakeUpIntervalSet(state.wakeUpIntervalTarget, zwaveHubNodeId)
+        cmds += wakeUpIntervalGet()
+        syncPending++
+    }
+
+    paramsMetadata().each {
+        if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
+            logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
+            cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
+            cmds += configurationGet(it.id)
+            syncPending++
+        }
+        else if (state.syncAll && it.id in configParameters()) {
+            cmds += configurationGet(it.id)
+        }
+    }
+
+    if (getDataValue('serialNumber') == null) { // TODO - check if this is needed? - What if device doesn't have a serial number?
+        logger('sync: Requesting device serial number.', 'debug')
+        cmds += deviceSpecificGet()
+        syncPending++
+    }
+
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
+    logger("sync: Returning '$cmds'", 'debug')
+    cmds
+}
+
+/**
+ * updateSyncPending() called when a report is received back from the device in response to check a configuration parameter value
+ * keeps track of the number of outstanding configuration parameters that have yet to be successfully updated
+ */
+private updateSyncPending() {
+    def syncPending = 0
+    def userConfig = 0
+
+    if (state.syncAll) {
+        logger('updateSyncPending: Deleting all cached values.', 'debug')
+        state.wakeUpIntervalCache = null
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        updateDataValue('serialNumber', null)
+        state.syncAll = false
+    }
+
+    if (!listening()) {
+        def target = state.wakeUpIntervalTarget
+        if (target != null && target != state.wakeUpIntervalCache) syncPending++
+        if (target != configIntervals().specifiedWakeUpInterval) userConfig++
+    }
+
+    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+        if (state."paramTarget${it.id}" != null) {
+            if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
+            else if (state."paramCache${it.id}" != it.defaultValue) {
+                def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+                if (state."paramCache${it.id}"!= sv) userConfig++
+            }
+        }
+    }
+
+    if (getDataValue('serialNumber') == null) syncPending++
+    logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
+    // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
+
+    if (syncPending == 0) {
+        def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
+        logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
+        updateDataValue('configurationType', ct)
+        runIn(300, sendConfigureCompleted)
+    }
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false)
+}
+
+/**
+ * sendConfigureCompleted - sends configure event with value of 'completed' (reports status to Configurator smart app)
+ * there is a delay in calling it from updateSyncPending in order to ensure that a short completition time does not cause problems for configurator smart app
+ */
+void sendConfigureCompleted() {
+    sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
+}
+
+/**
+ * checks whether or not device is a 'Listening' device i.e. powered by mains
+ * @return
+ */
+private listening() {
+    // getZwaveInfo()?.zw?.startsWith('S')
+    getZwaveInfo()?.zw?.startsWith('L')
+}
+
+/**
+ * converts unsigned integers
+ * @param byteArray
+ * @return
+ */
+private byteArrayToUInt(byteArray) {
+    def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
+}
+
+/**
+ * deviceUseStates() configures a contact sensor for different type of use and sets the event and state values that are reported
+ * uses settings.ConfigDeviceUse to set datavalues for event value and states (default is a water sensor)
+ */
+void deviceUseStates() {
+    def useStates = configUseStates()?.find { it.item == settings?.configDeviceUse.toInteger() }
+    def deviceUse = (useStates) ? useStates.use : 'Water'
+    def event = (useStates) ? useStates.event : 'water'
+    def inactiveState = (useStates) ? useStates.inactive : 'dry'
+    def activeState = (useStates) ? useStates.active : 'wet'
+    updateDataValue('deviceUse', deviceUse)
+    updateDataValue('event', event)
+    updateDataValue('inactiveState', inactiveState)
+    updateDataValue('activeState', activeState)
+}
+
+/**
+ * logger method determines whether or not to pass on message to log, depending on the configured message severity level
+ * @param msg
+ * @param level
+ * @return
+ */
+private logger(msg, level = 'debug') {
+    switch(level) {
+        case 'error':
+            if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: $msg", displayed: false, isStateChange: true)
+            if (state.logLevelDevice >= 1) sendEvent(name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true)
+            break
+        case 'warn':
+            if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: $msg", displayed: false, isStateChange: true)
+            if (state.logLevelDevice >= 2) sendEvent(name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true)
+            break
+        case 'info':
+            if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: $msg", displayed: false, isStateChange: true)
+            break
+        case 'debug':
+            if (state.logLevelIDE >= 4) log.debug(msg); sendEvent(descriptionText: "Debug: $msg", displayed: false, isStateChange: true)
+            break
+        case 'trace':
+            if (state.logLevelIDE >= 5) log.trace(msg)
+            break
+        default:
+            log.debug(msg); sendEvent(descriptionText: "Log: $msg", displayed: false, isStateChange: true)
+    }
+}
+
+/***********************************************************************************************************************
+ * Capability-related Commands (ping, poll, refresh)
+ * Note: configure is in Main System Methods
+ **********************************************************************************************************************/
+/**
+ * ping
+ * @return
+ */
+def ping() {
+    if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
+}
+
+/**
+ * poll
+ */
+def poll() { // depreciated
+}
+
+/**
+ * refresh
+ */
+def refresh() {
+}
+
+/***********************************************************************************************************************
+ *  Device Handler Custom Commands (resetLog, resetTamper, syncAll, syncRemaining, profile)
+ **********************************************************************************************************************/
+/**
+ * batteryChange - sends an event to log change of battery TODO - check details of attribute, add to logger app and database
+ */
+void batteryChange() {
+    sendEvent(name: 'batteryChange', value: 'changed', descriptionText: 'Device battery was changed.', isStateChange: true, displayed: false)
+}
+
+/**
+ * profile - initiates profiling of theh device (profileNow())
+ * @return
+ */
+def profile() {
+    logger('profile: Called', 'info')
+    (listening()) ? sendCommandSequence(profileNow()) : state.queued << 'profileNow'
+}
+
+/**
+ * profileNow - gets reports from device on transmission power level and which versions of commands classes that it supports
+ * @return
+ */
+private profileNow() {
+    logger('profileNow: Called', 'info')
+    def cmds = []
+    cmds += powerlevelGet()
+    cmds += versionCommandClassGet()
+    cmds
+}
+
+/**
+ * resetLog - resets log messages displatey in mobile app
+ * @return
+ */
+def resetLog() {
+    sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
+}
+
+/**
+ * resetTamper - resets tamper (after configured period as there is not zwave tamper clear message)
+ * @return
+ */
+def resetTamper() {
+    logger('resetTamper: Resetting tamper alarm.', 'info')
+    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper alarm cleared', displayed: true, isStateChange: true)
+}
+
+/**
+ * syncAll - initiates a resynching of all device configuration parameters
+ * @return
+ */
+def syncAll() {
+    logger('syncAll: Called', 'info')
+    state.syncAll = true
+    state.configReportBuffer = [:]
+    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
+}
+
+/**
+ * syncRemaining - initiates a resynching of unsynched device configuration parameters
+ * @return
+ */
+def syncRemaining() {
+    logger('syncRemaining: Called', 'info')
+    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
+}
+
+/***********************************************************************************************************************
+ * Zwave Command Helpers
+ * Generic zwave commands that are common to most, if not all devices.
+ **********************************************************************************************************************/
+/*
+private association(commands) {
+    sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
+    commands << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+}
+*/
+
+private batteryGet() {
+    if (commandClassesVersions()?.containsKey(0x80)) {
+        logger('batteryGet: Requesting Battery report', 'debug')
+        zwave.batteryV1.batteryGet()
+    }
+}
+
+private configurationGet(id) {
+    zwave.configurationV1.configurationGet(parameterNumber: id)
+}
+
+private configurationSet(id, size, target) {
+    zwave.configurationV1.configurationSet(parameterNumber: id, size: size, scaledConfigurationValue: target)
+}
+
+private deviceSpecificGet() {
+    zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
+}
+
+private powerlevelGet() {
+    if (commandClassesVersions()?.containsKey(0x73)) {
+        logger('powerlevelGet: Requesting Powerlevel report.', 'debug')
+        zwave.powerlevelV1.powerlevelGet()
+    }
+}
+
+/*
+private sensorBinary(commands) {
+    sendEvent(descriptionText: "Requesting Binary Sensor Report", displayed: false)
+    commands << zwave.sensorBinaryV2.sensorBinaryGet()
+}
+*/
+
+private versionCommandClassGet() {
+    logger('versionCommandClassGet: Requesting Command Class report.', 'debug')
+    state.commandClassVersionsBuffer = [:]
+    def cmds = []
+    commandClassesQuery().each {
+        cmds += zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
+    }
+    cmds
+}
+
+/**
+ * wakeUpIntervalGet - requests Wake Up Interval Report from device
+ * called by sync
+ * @return wakeUpIntervalGet getter
+ */
+private wakeUpIntervalGet() {
+    zwave.wakeUpV1.wakeUpIntervalGet()
+}
+
+/**
+ * wakeUpIntervalSet - sets Wake Up Interval for device
+ * called by sync
+ * @param seconds - duration of Wake Up Interval
+ * @param nodeid - id of node to send Device Woke Up Notification to (i.e. hub node id)
+ * @return wakeUpIntervalSet setter
+ */
+private wakeUpIntervalSet(seconds, nodeid) {
+    zwave.wakeUpV1.wakeUpIntervalSet(seconds: seconds, nodeid: nodeid)
+}
+
+/**
+ * wakeUpNoMoreInformation - tells device to go back to sleep
+ * @return wakeUpNoMoreInformation command
+ */
+private wakeUpNoMoreInformation() {
+    logger('wakeUpNoMoreInformation: Sending Wake Up No More Information.', 'debug')
+    zwave.wakeUpV1.wakeUpNoMoreInformation()
+}
+
+/***********************************************************************************************************************
+ * Send Zwave Commands to Device
+ **********************************************************************************************************************/
+private sendCommandSequence(cmds, delay = 1200) {
+    if (!listening()) //noinspection GroovyAssignmentToMethodParameter
+        cmds += wakeUpNoMoreInformation()
+    delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
+    // sendHubCommand(commands.collect { response(it) }, delay)
+}
+/**
+ * selectEncapsulation - depends on device capabilites
+ * @param cmd
+ * @return cmd with or without appropriate encapsulation
+ */
+private selectEncapsulation(physicalgraph.zwave.Command cmd) {
+    if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
+        secureEncapsulate(cmd)
+    }
+    else if (zwaveInfo?.cc?.contains('56')) {
+        crc16Encapsulate(cmd)
+    }
+    else {
+        logger("noEncapsulation: '$cmd'", 'trace')
+        cmd.format()
+    }
+}
+
+/**
+ * secureEncapsulate
+ * @param cmd
+ * @return cmd securely encapsulated
+ */
+private secureEncapsulate(physicalgraph.zwave.Command cmd) {
+    logger("secureEncapsulation: '$cmd'", 'trace')
+    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+}
+
+/**
+ * crc16Encapsulate
+ * @param cmd
+ * @return cmd crc16 encapsulated
+ */
+private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
+    logger("crc16Encapsulation: '$cmd'", 'trace')
+    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
+}
+
+/***********************************************************************************************************************
  *  Parse Method
+ *  Receives raw Zwave commands from devices and passes them to the appropriate handler
+ *  @param description - raw Zwave command
+ *  @return list of resultant events and/or commands
  **********************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
+    def messages = state.messages
+    updateDataValue('messages', "${state.messages}")
+    state.messages = messages + 1
     def result = []
     if (description.startsWith('Err')) {
         if (description.startsWith('Err 106')) {
@@ -617,577 +1242,9 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 }
 
 /***********************************************************************************************************************
- * Send Zwave Commands to Device
- **********************************************************************************************************************/
-private sendCommandSequence(cmds, delay = 1200) {
-    if (!listening()) //noinspection GroovyAssignmentToMethodParameter
-        cmds += wakeUpNoMoreInformation()
-    delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
-    // sendHubCommand(commands.collect { response(it) }, delay)
-}
-
-/**
- * selectEncapsulation - depends on device capabilites
- * @param cmd
- * @return
- */
-private selectEncapsulation(physicalgraph.zwave.Command cmd) {
-    if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
-        secureEncapsulate(cmd)
-    }
-    else if (zwaveInfo?.cc?.contains('56')) {
-        crc16Encapsulate(cmd)
-    }
-    else {
-        logger("noEncapsulation: '$cmd'", 'trace')
-        cmd.format()
-    }
-}
-
-/**
- * secureEncapsulate
- * @param cmd
- * @return
- */
-private secureEncapsulate(physicalgraph.zwave.Command cmd) {
-    logger("secureEncapsulation: '$cmd'", 'trace')
-    zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-}
-
-/**
- * crc16Encapsulate
- * @param cmd
- * @return
- */
-private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
-    logger("crc16Encapsulation: '$cmd'", 'trace')
-    zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
-}
-
-/***********************************************************************************************************************
- * Capability-related Commands
- **********************************************************************************************************************/
-/**
- * ping
- * @return
- */
-def ping() {
-    if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
-}
-
-/**
- * poll
- */
-def poll() { // depreciated
-}
-
-/**
- * refresh
- */
-def refresh() {
-}
-
-/***********************************************************************************************************************
- *  Custom Commands
- **********************************************************************************************************************/
-/**
- * resetLog - resets log messages displatey in mobile app
- * @return
- */
-def resetLog() {
-    sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
-}
-
-/**
- * resetTamper - resets tamper (after configured period as there is not zwave tamper clear message)
- * @return
- */
-def resetTamper() {
-    logger('resetTamper: Resetting tamper alarm.', 'info')
-    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper alarm cleared', displayed: true, isStateChange: true)
-}
-
-/**
- * syncAll - initiates a resynching of all device configuration parameters
- * @return
- */
-def syncAll() {
-    logger('syncAll: Called', 'info')
-    state.syncAll = true
-    state.configReportBuffer = [:]
-    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
-}
-
-/**
- * syncRemaining - initiates a resynching of unsynched device configuration parameters
- * @return
- */
-def syncRemaining() {
-    logger('syncRemaining: Called', 'info')
-    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
-}
-
-/**
- * profile - initiates profiling of theh device (profileNow())
- * @return
- */
-def profile() {
-    logger('profile: Called', 'info')
-    (listening()) ? sendCommandSequence(profileNow()) : state.queued << 'profileNow'
-}
-
-/**
- * profileNow - gets reports from device on transmission power level and which versions of commands classes that it supports
- * @return
- */
-private profileNow() {
-    logger('profileNow: Called', 'info')
-    def cmds = []
-    cmds += powerlevelGet()
-    cmds += versionCommandClassGet()
-    cmds
-}
-
-/***********************************************************************************************************************
- * SmartThings System Methods
- **********************************************************************************************************************/
-/**
- * installed() is called on first installation of device
- * sets up initial device states
- */
-def installed() {
-    state.logLevelIDE = 5; state.logLevelDevice = 2
-    logger('installed: setting initial state of device attributes', 'info')
-
-    sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
-
-    sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
-
-    if ('deviceUse' in configDevice()) {
-        logger('installed: setting device use states', 'debug')
-        deviceUseStates()
-        sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
-    }
-
-    if (listening()) {
-        logger('Device is in listening mode (powered).', 'info')
-        sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
-        sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
-    }
-    else {
-        logger('Device is in sleepy mode (battery).', 'info')
-        sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
-    }
-}
-
-/**
- * configure() is called after installed() and in response to configure command sent to device (via mobile app or ST app)
- * Sets/resets device by setting configuration values to default/specified values.
- */
-def configure() {
-    logger('configure: Setting/Resetting device configuration targets to default/specified values.', 'info')
-
-    sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
-
-    state.configuring = true
-
-    logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    state.autoResetTamperDelay = 30; try { device.updateSetting('configAutoResetTamperDelay', 30) }
-    catch(e) {}
-
-    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug') // set to 3 when finished debugging
-    state.logLevelIDE = 5; try { device.updateSetting('configLogLevelIDE', 5) }
-    catch(e) {}
-
-    logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    state.logLevelDevice = 2; try { device.updateSetting('configLogLevelDevice', 2) }
-    catch(e) {}
-
-    if (commandClassesVersions().containsKey(0x84)) {
-        def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
-        logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        state.wakeUpIntervalTarget = interval; try { device.updateSetting('configWakeUpInterval', interval) }
-        catch(e) {}
-    }
-
-    logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
-    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
-        def specified = configSpecified()?.find { cs -> cs.id == it.id }
-        def specifiedValue = specified?.specifiedValue
-        def resetValue = (specifiedValue) ?: it.defaultValue
-        state."paramTarget$it.id" = resetValue
-        def id = it.id.toString().padLeft(3, "0")
-        def resetType = (specifiedValue) ? 'specified' : 'default'
-        switch(it.type) {
-            case 'number':
-                logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) {}
-                break
-            case 'enum':
-                logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
-                catch(e) {}
-                break
-            case 'bool':
-                def resetBool = (resetValue == it.trueValue)
-                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
-                try { device.updateSetting("configParam$id", resetBool) }
-                catch(e) {}
-                break
-            case 'flags':
-                def resetFlags = (specified?.flags) ?: it.flags
-                resetFlags.each { rf ->
-                    def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
-                    def resetBool = (resetFlagValue == rf.flagValue)
-                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
-                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
-                    catch(e) {}
-                }
-                break
-            default:
-                logger('configure: Unhandled preference type.', 'warn')
-        }
-    }
-
-    state.syncAll = true
-    state.configReportBuffer = [:]
-    updateDataValue('serialNumber', null)
-    updated()
-}
-
-/**
- * updated() sets configuration to user preferences selected in mobile app if state.configuring = false
- * If called after configure(), any selected user preferences will be ignored (and may have already been reset to defaults).
- * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
- */
-def updated() {
-    logger('updated: Updating configuration targets to match any user preferences.', 'info')
-    if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
-        state.updatedLastRanAt = now()
-
-        if (!state.configuring) {
-            if (settings?.configAutoResetTamperDelay != null) {
-                state.autoResetTamperDelay = settings.configAutoResetTamperDelay
-                logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
-            }
-
-            if (settings?.configLogLevelIDE != null) {
-                state.logLevelIDE = settings.configLogLevelIDE.toInteger()
-                logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
-            }
-
-            if (settings?.configLogLevelDevice != null) {
-                state.logLevelDevice = settings.configLogLevelDevice.toInteger()
-                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
-            }
-
-            if (settings?.configWakeUpInterval != null) {
-                state.wakeUpIntervalTarget = settings.configWakeUpInterval
-                logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
-            }
-
-            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
-                def id = it.id.toString().padLeft(3, "0")
-                if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
-                    switch (it.type) {
-                        case 'number':
-                            def setting = settings."configParam$id"
-                            logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
-                            state."paramTarget$it.id" = setting
-                            break
-                        case 'enum':
-                            def setting = settings."configParam$id".toInteger()
-                            logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
-                            state."paramTarget$it.id" = setting
-                            break
-                        case 'bool':
-                            def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
-                            logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
-                            state."paramTarget$it.id" = setting
-                            break
-                        case 'flags':
-                            def target = 0
-                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v ->
-                                if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue
-                            }
-                            logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
-                            state."paramTarget$it.id" = target
-                            break
-                        default:
-                            logger('updated: Unhandled configuration type.', 'warn')
-                    }
-                }
-            }
-        }
-        state.configuring = false
-
-        /**
-         * If the device is mains powered (i.e. listening), the configuration commands can be sent immediately.
-         * If the device is battery powered (i.e. sleepy), the configuration commands are queued (state.queued) until the device next wakes up.
-         */
-        if (listening()) {
-            def result = response(sendCommandSequence(sync()))
-            logger("updated: Result '$result'", 'info')
-            result
-        }
-        else {
-            logger('updated: Sleepy device, queuing sync().', 'info')
-            if (state.queued) {
-                state.queued << 'sync'
-            } else {
-                state.queued = ['sync']
-            }
-        }
-    } else {
-        logger('updated: Ran within last 2 seconds so aborting update.', 'trace')
-    }
-}
-
-/***********************************************************************************************************************
- * Generic Helper Methods
- **********************************************************************************************************************/
-/**
- * sync() compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
- * It then requests the configuration value back from the device to check that it has been successfully updated
- */
-private sync() {
-    def cmds = []
-    def syncPending = 0
-
-    if (state.syncAll) {
-        logger('sync: Deleting all cached configuration values.', 'debug')
-        state.wakeUpIntervalCache = null
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
-        updateDataValue('serialNumber', null)
-        state.syncAll = false
-    }
-
-    if (state.wakeUpIntervalTarget != null && state.wakeUpIntervalTarget != state.wakeUpIntervalCache) {
-        logger("sync: Syncing Wake Up Interval with new value: ${state.wakeUpIntervalTarget}", 'debug')
-        cmds += wakeUpIntervalSet(state.wakeUpIntervalTarget, zwaveHubNodeId)
-        cmds += wakeUpIntervalGet()
-        syncPending++
-    }
-
-    paramsMetadata().each {
-        if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
-            logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
-            cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
-            cmds += configurationGet(it.id)
-            syncPending++
-        }
-        else if (state.syncAll && it.id in configParameters()) {
-            cmds += configurationGet(it.id)
-        }
-    }
-
-    if (getDataValue('serialNumber') == null) { // TODO - check if this is needed? - What if device doesn't have a serial number?
-        logger('sync: Requesting device serial number.', 'debug')
-        cmds += deviceSpecificGet()
-        syncPending++
-    }
-
-    sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
-    logger("sync: Returning '$cmds'", 'debug')
-    cmds
-}
-
-/**
- * updateSyncPending() called when a report is received back from the device in response to check a configuration parameter value
- * keeps track of the number of outstanding configuration parameters that have yet to be successfully updated
- */
-private updateSyncPending() {
-    def syncPending = 0
-    def userConfig = 0
-
-    if (state.syncAll) {
-        logger('updateSyncPending: Deleting all cached values.', 'debug')
-        state.wakeUpIntervalCache = null
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
-        updateDataValue('serialNumber', null)
-        state.syncAll = false
-    }
-
-    if (!listening()) {
-        def target = state.wakeUpIntervalTarget
-        if (target != null && target != state.wakeUpIntervalCache) syncPending++
-        if (target != configIntervals().specifiedWakeUpInterval) userConfig++
-    }
-
-    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
-        if (state."paramTarget${it.id}" != null) {
-            if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
-            else if (state."paramCache${it.id}" != it.defaultValue) {
-                def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-                if (state."paramCache${it.id}"!= sv) userConfig++
-            }
-        }
-    }
-
-    if (getDataValue('serialNumber') == null) syncPending++
-    logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
-    // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
-
-    if (syncPending == 0) {
-        def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
-        logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
-        updateDataValue('configurationType', ct)
-        sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
-
-    }
-    sendEvent(name: 'syncPending', value: syncPending, displayed: false)
-}
-
-/**
- * converts unsigned integers
- * @param byteArray
- * @return
- */
-private byteArrayToUInt(byteArray) {
-    def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
-}
-
-/**
- * checks whether or not device is a 'Listening' device i.e. powered by mains
- * @return
- */
-private listening() {
-    // getZwaveInfo()?.zw?.startsWith('S')
-    getZwaveInfo()?.zw?.startsWith('L')
-}
-
-/***********************************************************************************************************************
- * logger method determines whether or not to pass on message to log, depending on the configured message severity level
- * @param msg
- * @param level
- * @return
- **********************************************************************************************************************/
-private logger(msg, level = 'debug') {
-    switch(level) {
-        case 'error':
-            if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: $msg", displayed: false, isStateChange: true)
-            if (state.logLevelDevice >= 1) sendEvent(name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true)
-            break
-        case 'warn':
-            if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: $msg", displayed: false, isStateChange: true)
-            if (state.logLevelDevice >= 2) sendEvent(name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true)
-            break
-        case 'info':
-            if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: $msg", displayed: false, isStateChange: true)
-            break
-        case 'debug':
-            if (state.logLevelIDE >= 4) log.debug(msg); sendEvent(descriptionText: "Debug: $msg", displayed: false, isStateChange: true)
-            break
-        case 'trace':
-            if (state.logLevelIDE >= 5) log.trace(msg)
-            break
-        default:
-            log.debug(msg); sendEvent(descriptionText: "Log: $msg", displayed: false, isStateChange: true)
-    }
-}
-
-/***********************************************************************************************************************
- * Zwave Command Helpers
- * Generic zwave commands that are common to most, if not all devices
- **********************************************************************************************************************/
-/*
-private association(commands) {
-    sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
-    commands << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
-}
-*/
-
-private batteryGet() {
-    if (commandClassesVersions()?.containsKey(0x80)) {
-        logger('batteryGet: Requesting Battery report', 'debug')
-        zwave.batteryV1.batteryGet()
-    }
-}
-
-private configurationGet(id) {
-    zwave.configurationV1.configurationGet(parameterNumber: id)
-}
-
-private configurationSet(id, size, target) {
-    zwave.configurationV1.configurationSet(parameterNumber: id, size: size, scaledConfigurationValue: target)
-}
-
-private deviceSpecificGet() {
-    zwave.manufacturerSpecificV2.deviceSpecificGet(deviceIdType: 1)
-}
-
-private powerlevelGet() {
-    if (commandClassesVersions()?.containsKey(0x73)) {
-        logger('powerlevelGet: Requesting Powerlevel report.', 'debug')
-        zwave.powerlevelV1.powerlevelGet()
-    }
-}
-
-/*
-private sensorBinary(commands) {
-    sendEvent(descriptionText: "Requesting Binary Sensor Report", displayed: false)
-    commands << zwave.sensorBinaryV2.sensorBinaryGet()
-}
-*/
-
-private versionCommandClassGet() {
-    logger('versionCommandClassGet: Requesting Command Class report.', 'debug')
-    state.commandClassVersionsBuffer = [:]
-    def cmds = []
-    commandClassesQuery().each {
-        cmds += zwave.versionV1.versionCommandClassGet(requestedCommandClass: it)
-    }
-    cmds
-}
-
-/**
- * wakeUpIntervalGet - requests Wake Up Interval Report from device
- * @return wakeUpIntervalGet getter
- */
-private wakeUpIntervalGet() {
-    zwave.wakeUpV1.wakeUpIntervalGet()
-}
-
-/**
- * wakeUpIntervalSet - sets Wake Up Interval for device
- * @param seconds - duration of Wake Up Interval
- * @param nodeid - id of node to send Device Woke Up Notification to (i.e. hub node id)
- * @return wakeUpIntervalSet setter
- */
-private wakeUpIntervalSet(seconds, nodeid) {
-    zwave.wakeUpV1.wakeUpIntervalSet(seconds: seconds, nodeid: nodeid)
-}
-
-/**
- * wakeUpNoMoreInformation - tells device to go back to sleep
- * @return wakeUpNoMoreInformation command
- */
-private wakeUpNoMoreInformation() {
-    logger('wakeUpNoMoreInformation: Sending Wake Up No More Information.', 'debug')
-    zwave.wakeUpV1.wakeUpNoMoreInformation()
-}
-
-/***********************************************************************************************************************
  * Device Specific Helper Methods
  * Methods that are only applicable to certain devices
  **********************************************************************************************************************/
-/**
- * deviceUseStates() configures a contact sensor for different type of use and sets the event and state values that are reported
- * uses settings.ConfigDeviceUse to set datavalues for event value and states (default is a water sensor)
- */
-void deviceUseStates() {
-    def use = settings?.configDeviceUse
-    def useStates = configUseStates()?.find { it.key == use }
-    def event = (use) ? useStates.event : 'water'
-    def inactiveState = (use) ? useStates.inactive : 'dry'
-    def activeState = (use) ? useStates.active : 'wet'
-    updateDataValue('deviceUse', use)
-    updateDataValue('event', event)
-    updateDataValue('inactiveState', inactiveState)
-    updateDataValue('activeState', activeState)
-}
-
 /**
  * motionEvent() creates a motion event (may be triggered by several different zwave messages)
  * @param value
@@ -1287,11 +1344,19 @@ private configLogger() { ['logLevelDevice', 'logLevelIDE'] }
  * configUseStates() - map of states for contact sensor depending on use
  * @return
  */
+/*
 private configUseStates() { [
         Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
         Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
         Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
         Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
+] }
+*/
+private configUseStates() { [
+    [item: 0, use: 'Bed', event: 'contact', inactive: 'empty', active: 'occupied'],
+    [item: 1, use: 'Chair', event: 'contact', inactive: 'vacant', active: 'occupied'],
+    [item: 2, use: 'Toilet', event: 'contact', inactive: 'full', active: 'flushing'],
+    [item: 3, use: 'Water', event: 'water', inactive: 'dry', active: 'wet', default: true],
 ] }
 
 /**
@@ -1305,14 +1370,22 @@ private configIntervals() { [
 ] }
 
 /**
+ * configWakeIntervalOptions
+ * @return map of preference options for configuring device wake interval
+ */
+private configWakeIntervalOptions() { [
+    3_600: '1 hour', 7_200: '2 hours', 34_200: '12 hours'
+] }
+
+/**
  * configParameters() - set of device configuration parameters with a specified value required for optimal operation
- * @return
+ * @return list of device parameters
  */
 private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
- * configSpecified() - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
- * @return
+ * configSpecified - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
+ * @return map of specified/default values for device parameters
  */
 private configSpecified() { [
     [id:2,size:1,defaultValue:0,specifiedValue:1],
@@ -1328,14 +1401,14 @@ private configSpecified() { [
 ] }
 
 /**
- * configUser() - subset of device configuration parameters that are made available for configuration by the user in the mobile app
- * @return
+ * configUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
+ * @return list of device parameters
  */
 private configUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
- * paramsMetadata() - complete map of all device configuration parameters
- * @return
+ * paramsMetadata - complete map of all device configuration parameters
+ * @return map of all device configuration parameters
  */
 private paramsMetadata() { [
     [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],

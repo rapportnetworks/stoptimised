@@ -202,17 +202,19 @@ metadata {
             input(name: 'paraSettings', title: 'DEVICE SETTINGS', description: 'Tap each item to set.', type: 'paragraph', element: 'paragraph')
 
             if ('deviceUse' in configDevice()) {
-                def uses = configUseStates().collectEntries { [(it.item): "${it.use}"] }
+                def uses = configUseStates().collectEntries { [(it.item): it.use] }
                 def defaultUse = configUseStates().find { it.default }.item
-                input(name: 'configDeviceUse', title: 'What type of sensor do you want to use this device for?', type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
+                def defaultUseName = configUseStates().find { it.default }.use
+                input(name: 'configDeviceUse', title: "What type of sensor do you want to use this device for? (default: ${defaultUseName})", type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
             }
 
-            if ('autoResetTamperDelay' in configDevice()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay.', type: 'enum', options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'], defaultValue: 30, required: false)
+            if ('autoResetTamperDelay' in configDevice()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay. (default: 30 seconds)', type: 'enum', options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'], defaultValue: 30, required: false)
 
             if ('wakeUpInterval' in configDevice()) {
-                def intervals = configWakeIntervalOptions()
-                def defaultInterval = configIntervals().specifiedWakeUpInterval
-                input(name: 'configWakeUpInterval', title: 'Device Wake Up Interval.', type: 'enum', options: intervals, defaultValue: defaultInterval, required: false)
+                def intervals = configWakeIntervalOptions().collectEntries { [(it.item): it.interval] }
+                def defaultInterval = configWakeIntervalOptions().find { it.default }.item // configIntervals().specifiedWakeUpInterval
+                def defaultIntervalName = configWakeIntervalOptions().find { it.default }.interval
+                input(name: 'configWakeUpInterval', title: "Device Wake Up Interval. (default: ${defaultIntervalName})", type: 'enum', options: intervals, defaultValue: defaultInterval, required: false)
             }
         }
 
@@ -240,25 +242,24 @@ private generatePrefsParams() {
     paramsMetadata().findAll{ !it.readonly }.each{
         if (configUser()[0] == 0 || it.id in configUser()) {
             def id = it.id.toString().padLeft(3, '0')
-            // def lb = (it.description.length() > 0) ? '\n' : ''
-            def specifiedValue = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-            def prefDefaultValue = specifiedValue ?: it.defaultValue
+            def specified = configSpecified()?.find { cs -> cs.id == it.id }
+            def prefDefaultValue = (specified) ? specified.specifiedValue : it.defaultValue
             switch(it.type) {
                 case 'number':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${prefDefaultValue})", type: it.type, range: it.range, defaultValue: prefDefaultValue, required: it.required)
+                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${prefDefaultValue})", description: "${it.description} (default: ${prefDefaultValue})", type: it.type, range: it.range, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case 'enum':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${it.options.prefDefaultValue})", type: it.type, options: it.options, defaultValue: prefDefaultValue, required: it.required)
+                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})", description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})", type: it.type, options: it.options, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case 'bool':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name}", description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})", type: it.type, defaultValue: prefDefaultValue, required: it.required)
+                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${(prefDefaultValue) ? 'on' : 'off'})", description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})", type: it.type, defaultValue: prefDefaultValue, required: it.required)
                     break
                 case 'flags':
                     input (name: "paraFlags${id}", title: "${it.id}. ${it.name}", description: it.description, type: 'paragraph', element: 'paragraph')
-                    if (specifiedValue) def specifiedFlags = configSpecified()?.find { csf -> csf.id == it.id }?.flags
                     it.flags.each { f ->
-                        def prefFlagValue = (specifiedValue) ? specifiedFlags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
-                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description}", type: 'bool', defaultValue: (prefFlagValue == f.flagValue), required: it.required)
+                        def specifiedFlagValue = (specified) ? specified?.flags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
+                        def prefDefaultFlagValue = (specifiedFlagValue == f.flagValue) ? true : false
+                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description} (default: ${(prefDefaultFlagValue) ? 'on' : 'off'})", type: 'bool', defaultValue: prefDefaultFlagValue, required: it.required)
                     }
                     break
                 default:
@@ -357,11 +358,10 @@ def configure() {
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
         def specified = configSpecified()?.find { cs -> cs.id == it.id }
-        def specifiedValue = specified?.specifiedValue
-        def resetValue = specifiedValue ?: it.defaultValue
+        def resetValue = (specified) ? specified.specifiedValue : it.defaultValue
         state."paramTarget$it.id" = resetValue
         def id = it.id.toString().padLeft(3, "0")
-        def resetType = (specifiedValue) ? 'specified' : 'default'
+        def resetType = (specified) ? 'specified' : 'default'
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
@@ -380,7 +380,7 @@ def configure() {
                 catch(e) {}
                 break
             case 'flags':
-                def resetFlags = (specified?.flags) ?: it.flags
+                def resetFlags = (specified) ? specified.flags : it.flags
                 resetFlags.each { rf ->
                     def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (resetFlagValue == rf.flagValue)
@@ -1372,7 +1372,9 @@ private configIntervals() { [
  * @return map of preference options for configuring device wake interval
  */
 private configWakeIntervalOptions() { [
-    3_600: '1 hour', 7_200: '2 hours', 34_200: '12 hours'
+    [item: 3_600, interval: '1 hour'],
+    [item: 7_200, interval: '2 hours', default: true],
+    [item: 34_200, interval: '12 hours'],
 ] }
 
 /**

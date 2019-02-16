@@ -199,33 +199,87 @@ metadata {
 
     preferences {
         if (configDevice()) {
-            input(name: 'paraSettings', title: 'DEVICE SETTINGS', description: 'Tap each item to set.', type: 'paragraph', element: 'paragraph')
+            input(
+                    name: 'paraSettings',
+                    title: 'DEVICE SETTINGS',
+                    description: 'Tap each item to set.',
+                    type: 'paragraph',
+                    element: 'paragraph'
+            )
 
             if ('deviceUse' in configDevice()) {
                 def uses = configUseStates().collectEntries { [(it.item): it.use] }
                 def defaultUse = configUseStates().find { it.default }.item
                 def defaultUseName = configUseStates().find { it.default }.use
-                input(name: 'configDeviceUse', title: "What type of sensor do you want to use this device for? (default: ${defaultUseName})", type: 'enum', options: uses, defaultValue: defaultUse, required: true, displayDuringSetup: true)
+                input(
+                        name: 'configDeviceUse',
+                        title: "What type of sensor do you want to use this device for? (default: ${defaultUseName})",
+                        type: 'enum',
+                        options: uses,
+                        defaultValue: defaultUse,
+                        required: true,
+                        displayDuringSetup: true
+                )
             }
 
-            if ('autoResetTamperDelay' in configDevice()) input(name: 'configAutoResetTamperDelay', title: 'Auto-Reset Tamper Alarm after this time delay. (default: 30 seconds)', type: 'enum', options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'], defaultValue: 30, required: false)
+            if ('autoResetTamperDelay' in configDevice()) {
+                input(
+                        name: 'configAutoResetTamperDelay',
+                        title: 'Auto-Reset Tamper Alarm after this time delay. (default: 30 seconds)',
+                        type: 'enum',
+                        options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'],
+                        defaultValue: 30,
+                        required: false
+                )
+            }
 
             if ('wakeUpInterval' in configDevice()) {
                 def intervals = configWakeIntervalOptions().collectEntries { [(it.item): it.interval] }
                 def defaultInterval = configWakeIntervalOptions().find { it.default }.item // configIntervals().specifiedWakeUpInterval
                 def defaultIntervalName = configWakeIntervalOptions().find { it.default }.interval
-                input(name: 'configWakeUpInterval', title: "Device Wake Up Interval. (default: ${defaultIntervalName})", type: 'enum', options: intervals, defaultValue: defaultInterval, required: false)
+                input(
+                        name: 'configWakeUpInterval',
+                        title: "Device Wake Up Interval. (default: ${defaultIntervalName})",
+                        type: 'enum',
+                        options: intervals,
+                        defaultValue: defaultInterval,
+                        required: false
+                )
             }
         }
 
         if (configUser()) generatePrefsParams()
 
         if (configLogger()) {
-            input(name: 'paraLogger', title: 'LOGGER SETTINGS', description: 'Tap each item to set.', type: 'paragraph', element: 'paragraph')
+            input(
+                    name: 'paraLogger',
+                    title: 'LOGGER SETTINGS',
+                    description: 'Tap each item to set.',
+                    type: 'paragraph',
+                    element: 'paragraph'
+            )
 
-            if ('logLevelIDE' in configLogger()) input(name: 'configLogLevelIDE', title: 'IDE Live Logging Level for messages with this level and higher.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, required: false)
+            if ('logLevelIDE' in configLogger()) {
+                input(
+                        name: 'configLogLevelIDE',
+                        title: 'IDE Live Logging Level for messages with this level and higher.',
+                        type: 'enum',
+                        options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
+                        defaultValue: 3,
+                        required: false
+                )
+            }
 
-            if ('logLevelDevice' in configLogger()) input(name: 'configLogLevelDevice', title: 'Device Logging Level for messages with this level and higher.', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning'], defaultValue: 2, required: false)
+            if ('logLevelDevice' in configLogger()) {
+                input(
+                        name: 'configLogLevelDevice',
+                        title: 'Device Logging Level for messages with this level and higher.',
+                        type: 'enum',
+                        options: [0: 'None', 1: 'Error', 2: 'Warning'],
+                        defaultValue: 2,
+                        required: false
+                )
+            }
         }
     }
 }
@@ -240,28 +294,73 @@ metadata {
 private generatePrefsParams() {
     input (name: 'paraParameters', title: 'DEVICE PARAMETERS', description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
     paramsMetadata().findAll{ !it.readonly }.each{
+
         if (configUser()[0] == 0 || it.id in configUser()) {
+
             def id = it.id.toString().padLeft(3, '0')
+
             def specified = configSpecified()?.find { cs -> cs.id == it.id }
+
             def prefDefaultValue = (specified) ? specified.specifiedValue : it.defaultValue
+
             switch(it.type) {
                 case 'number':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${prefDefaultValue})", description: "${it.description} (default: ${prefDefaultValue})", type: it.type, range: it.range, defaultValue: prefDefaultValue, required: it.required)
+                    input(
+                            name: "configParam${id}",
+                            title: "${it.id}. ${it.name} (default: ${prefDefaultValue})",
+                            description: "${it.description} (default: ${prefDefaultValue})",
+                            type: it.type,
+                            range: it.range,
+                            defaultValue: prefDefaultValue,
+                            required: it.required
+                    )
                     break
+
                 case 'enum':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})", description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})", type: it.type, options: it.options, defaultValue: prefDefaultValue, required: it.required)
+                    input(
+                            name: "configParam${id}",
+                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})",
+                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})",
+                            type: it.type,
+                            options: it.options,
+                            defaultValue: prefDefaultValue,
+                            required: it.required
+                    )
                     break
+
                 case 'bool':
-                    input (name: "configParam${id}", title: "${it.id}. ${it.name} (default: ${(prefDefaultValue) ? 'on' : 'off'})", description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})", type: it.type, defaultValue: prefDefaultValue, required: it.required)
+                    input(
+                            name: "configParam${id}",
+                            title: "${it.id}. ${it.name} (default: ${(prefDefaultValue) ? 'on' : 'off'})",
+                            description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})",
+                            type: it.type,
+                            defaultValue: prefDefaultValue,
+                            required: it.required
+                    )
                     break
+
                 case 'flags':
-                    input (name: "paraFlags${id}", title: "${it.id}. ${it.name}", description: it.description, type: 'paragraph', element: 'paragraph')
+                    input(
+                            name: "paraFlags${id}",
+                            title: "${it.id}. ${it.name}",
+                            description: it.description,
+                            type: 'paragraph',
+                            element: 'paragraph'
+                    )
                     it.flags.each { f ->
                         def specifiedFlagValue = (specified) ? specified?.flags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
+
                         def prefDefaultFlagValue = (specifiedFlagValue == f.flagValue) ? true : false
-                        input (name: "configParam${id}${f.id}", title: "${f.id}) ${f.description} (default: ${(prefDefaultFlagValue) ? 'on' : 'off'})", type: 'bool', defaultValue: prefDefaultFlagValue, required: it.required)
+                        input(
+                                name: "configParam${id}${f.id}",
+                                title: "${f.id}) ${f.description} (default: ${(prefDefaultFlagValue) ? 'on' : 'off'})",
+                                type: 'bool',
+                                defaultValue: prefDefaultFlagValue,
+                                required: it.required
+                        )
                     }
                     break
+
                 default:
                     logger('preferences: Unhandled preference type.', 'warning')
             }
@@ -300,33 +399,52 @@ private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
  * installed is called on first installation of device and sets up initial device states
  */
 def installed() {
+    /**
+     * sets initial logging levels
+     */
     state.logLevelIDE = 5; state.logLevelDevice = 2
+
     logger('installed: setting initial state of device attributes', 'info')
 
+    /**
+     * sends event to set checkInterval default value
+     */
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
 
+    /**
+     * sends event to clear any tamper due to installation
+     */
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
+    /**
+     * sets device use (if an option) and sends event to set inactive state
+     */
     if ('deviceUse' in configDevice()) {
         logger('installed: setting device use states', 'debug')
         deviceUseStates()
         sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     }
 
+    /**
+     * checks whether device is listening or sleepy (on battery) and sends events to set appropriate states
+     */
     if (listening()) {
-        logger('Device is in listening mode (powered).', 'info')
+        logger('Device is in listening mode (powered).', 'debug')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
         sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
     } else {
-        logger('Device is in sleepy mode (battery).', 'info')
+        logger('Device is in sleepy mode (battery).', 'debug')
         sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
     }
 
+    /**
+     * sets up counter to track number of messages sent by device
+     */
     state.messages = 0
 }
 
 /**
- * configure() is called after installed() and in response to configure command sent to device (via mobile app or ST app)
+ * configure() is called by ST system after installed() and also in response to configure command sent to device (via mobile app or smart app)
  * Sets/resets device by setting configuration values to default/specified values.
  */
 def configure() {
@@ -337,48 +455,57 @@ def configure() {
     state.configuring = true
 
     logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-    state.autoResetTamperDelay = 30; try { device.updateSetting('configAutoResetTamperDelay', 30) }
-    catch(e) {}
+        state.autoResetTamperDelay = 30
+        try { device.updateSetting('configAutoResetTamperDelay', 30) }
+        catch(e) {}
 
     logger('configure: Resetting configLogLevelIDE preference to 4', 'debug') // set to 3 when finished debugging
-    state.logLevelIDE = 5; try { device.updateSetting('configLogLevelIDE', 5) }
-    catch(e) {}
+        state.logLevelIDE = 5
+        try { device.updateSetting('configLogLevelIDE', 5) }
+        catch(e) {}
 
     logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-    state.logLevelDevice = 2; try { device.updateSetting('configLogLevelDevice', 2) }
-    catch(e) {}
+        state.logLevelDevice = 2
+        try { device.updateSetting('configLogLevelDevice', 2) }
+        catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
         def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
         logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        state.wakeUpIntervalTarget = interval; try { device.updateSetting('configWakeUpInterval', interval) }
+        state.wakeUpIntervalTarget = interval
+        try { device.updateSetting('configWakeUpInterval', interval) }
         catch(e) {}
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+
         def specified = configSpecified()?.find { cs -> cs.id == it.id }
         def resetValue = (specified) ? specified.specifiedValue : it.defaultValue
         state."paramTarget$it.id" = resetValue
         def id = it.id.toString().padLeft(3, "0")
         def resetType = (specified) ? 'specified' : 'default'
+
         switch(it.type) {
             case 'number':
                 logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
                 try { device.updateSetting("configParam$id", resetValue) }
                 catch(e) {}
                 break
+
             case 'enum':
                 logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
                 try { device.updateSetting("configParam$id", resetValue) }
                 catch(e) {}
                 break
+
             case 'bool':
                 def resetBool = (resetValue == it.trueValue)
                 logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
                 try { device.updateSetting("configParam$id", resetBool) }
                 catch(e) {}
                 break
+
             case 'flags':
                 def resetFlags = (specified) ? specified.flags : it.flags
                 resetFlags.each { rf ->
@@ -389,6 +516,7 @@ def configure() {
                     catch(e) {}
                 }
                 break
+
             default:
                 logger('configure: Unhandled preference type.', 'warn')
         }
@@ -432,24 +560,29 @@ def updated() {
             }
 
             paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+
                 def id = it.id.toString().padLeft(3, "0")
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
+
                     switch (it.type) {
                         case 'number':
                             def setting = settings."configParam$id"
                             logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
                             state."paramTarget$it.id" = setting
                             break
+
                         case 'enum':
                             def setting = settings."configParam$id".toInteger()
                             logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
                             state."paramTarget$it.id" = setting
                             break
+
                         case 'bool':
                             def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
                             logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
                             state."paramTarget$it.id" = setting
                             break
+
                         case 'flags':
                             def target = 0
                             settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v ->
@@ -458,12 +591,14 @@ def updated() {
                             logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
                             state."paramTarget$it.id" = target
                             break
+
                         default:
                             logger('updated: Unhandled configuration type.', 'warn')
                     }
                 }
             }
         }
+
         state.configuring = false
 
         if ('deviceUse' in configDevice()) { // TODO - need to think about how this is handled / reset?
@@ -480,8 +615,7 @@ def updated() {
             def result = response(sendCommandSequence(sync()))
             logger("updated: Result '$result'", 'info')
             result
-        }
-        else {
+        } else {
             logger('updated: Sleepy device, queuing sync().', 'info')
             sendEvent(name: 'configure', value: 'queued', descriptionText: 'Device reports Configuration queued.', isStateChange: true, displayed: false)
             if (state.queued) {
@@ -568,10 +702,13 @@ private updateSyncPending() {
 
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
         if (state."paramTarget${it.id}" != null) {
-            if (state."paramCache${it.id}" != state."paramTarget${it.id}") { syncPending++ }
-            else if (state."paramCache${it.id}" != it.defaultValue) {
+            if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
+                syncPending++
+            } else if (state."paramCache${it.id}" != it.defaultValue) {
                 def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
-                if (state."paramCache${it.id}"!= sv) userConfig++
+                if (state."paramCache${it.id}"!= sv) {
+                    userConfig++
+                }
             }
         }
     }
@@ -586,6 +723,7 @@ private updateSyncPending() {
         updateDataValue('configurationType', ct)
         sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
     }
+
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 }
 
@@ -640,19 +778,24 @@ private logger(msg, level = 'debug') {
             if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: $msg", displayed: false, isStateChange: true)
             if (state.logLevelDevice >= 1) sendEvent(name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true)
             break
+
         case 'warn':
             if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: $msg", displayed: false, isStateChange: true)
             if (state.logLevelDevice >= 2) sendEvent(name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true)
             break
+
         case 'info':
             if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: $msg", displayed: false, isStateChange: true)
             break
+
         case 'debug':
             if (state.logLevelIDE >= 4) log.debug(msg); sendEvent(descriptionText: "Debug: $msg", displayed: false, isStateChange: true)
             break
+
         case 'trace':
             if (state.logLevelIDE >= 5) log.trace(msg)
             break
+
         default:
             log.debug(msg); sendEvent(descriptionText: "Log: $msg", displayed: false, isStateChange: true)
     }
@@ -837,8 +980,9 @@ private wakeUpNoMoreInformation() {
  * Send Zwave Commands to Device
  **********************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
-    if (!listening()) //noinspection GroovyAssignmentToMethodParameter
+    if (!listening()) {
         cmds += wakeUpNoMoreInformation()
+    }
     delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
     // sendHubCommand(commands.collect { response(it) }, delay)
 }
@@ -888,10 +1032,13 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
  **********************************************************************************************************************/
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
+
     def messages = state?.messages ?: 0
     updateDataValue('messages', "${state.messages}")
     state.messages = messages + 1
+
     def result = []
+
     if (description.startsWith('Err')) {
         if (description.startsWith('Err 106')) {
             logger('parse: Error 106', 'error')
@@ -947,12 +1094,14 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
     logger("NotificationReport: '$cmd'", 'debug')
     def result = []
+
     if (cmd.notificationType == 0x07) {
         switch (cmd.event) {
             case 0x00:
                 result += motionEvent(0)
                 // result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
                 break
+
             case 0x03:
                 result += createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
                 if (state.autoResetTamperDelay > 0) {
@@ -960,18 +1109,20 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
                     runIn(state.autoResetTamperDelay, resetTamper)
                 }
                 break
+
             case 0x07:
                 result += motionEvent(1)
                 break
+
             case 0x08:
                 result += motionEvent(1)
                 break
+
             default:
                 logger("NotificationReport: Unhandled notification event '$cmd.event", 'warn')
         }
         logger("NotificationReport: '$result'", 'info')
-    }
-    else {
+    } else {
         logger("NotificationReport: Unhandled notification type '$cmd.notificationType'", 'warn')
     }
     result
@@ -985,6 +1136,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
     logger("SensorMultilevelReport: $cmd", 'debug')
     def map = [displayed: true, isStateChange: true]
+
     switch (cmd.sensorType) {
         case 0x01:
             map.name = 'temperature'
@@ -993,23 +1145,27 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
             map.unit = getTemperatureScale()
             map.descriptionText = "$device.displayName temperature is $map.value $map.unit"
             break
+
         case 0x03:
             map.name = 'illuminance'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = 'lux'
             map.descriptionText = "$device.displayName illuminance is $map.value $map.unit"
             break
+
         case 0x05:
             map.name = 'humidity'
             map.value = cmd.scaledSensorValue.toInteger()
             map.unit = '%'
             map.descriptionText = "$device.displayName humidity is $map.value $map.unit"
             break
+
         case 0x1B:
             map.name = 'ultravioletIndex'
             map.value = cmd.scaledSensorValue.toInteger()
             map.descriptionText = "$device.displayName ultravioletIndex is $map.value"
             break
+
         default:
             logger("SensorMultilevelReport: Unhandled sensor report '$cmd'", 'warn')
             break

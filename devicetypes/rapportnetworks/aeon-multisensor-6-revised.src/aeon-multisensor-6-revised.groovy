@@ -208,9 +208,9 @@ metadata {
             )
 
             if ('deviceUse' in configDevice()) {
-                def uses = configUseStates().collectEntries { [(it.item): it.use] }
-                def defaultUse = configUseStates().find { it.default }.item
-                def defaultUseName = configUseStates().find { it.default }.use
+                def uses = configUseStateOptions().collectEntries { [(it.item): it.use] }
+                def defaultUse = configUseStateOptions().find { it.default }.item
+                def defaultUseName = configUseStateOptions().find { it.default }.use
                 input(
                         name: 'configDeviceUse',
                         title: "What type of sensor do you want to use this device for? (default: ${defaultUseName})",
@@ -235,8 +235,8 @@ metadata {
 
             if ('wakeUpInterval' in configDevice()) {
                 def intervals = configWakeIntervalOptions().collectEntries { [(it.item): it.interval] }
-                def defaultInterval = configWakeIntervalOptions().find { it.default }.item // configIntervals().specifiedWakeUpInterval
-                def defaultIntervalName = configWakeIntervalOptions().find { it.default }.interval
+                def defaultInterval = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
+                def defaultIntervalName = (configWakeIntervalOptions()?.find { it.specified }?.interval) ?: configWakeIntervalOptions().find { it.default }.interval
                 input(
                         name: 'configWakeUpInterval',
                         title: "Device Wake Up Interval. (default: ${defaultIntervalName})",
@@ -407,7 +407,7 @@ def installed() {
     logger('installed: setting initial state of device attributes', 'info')
 
     /**
-     * sends event to set checkInterval default value
+     * sends event to set checkInterval default value TODO - need to sort defaultCheckInterval - calculate? based on default/specified option?
      */
     sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
 
@@ -454,64 +454,68 @@ def configure() {
 
     state.configuring = true
 
-    logger('configure: Resetting autoResetTamperDelay preference to 30', 'debug')
-        state.autoResetTamperDelay = 30
-        try { device.updateSetting('configAutoResetTamperDelay', 30) }
-        catch(e) {}
+    def autoResetTamperDelayDefault = 30
+    logger("configure: Resetting autoResetTamperDelay preference to ${autoResetTamperDelayDefault}.", 'trace')
+    state.autoResetTamperDelay = autoResetTamperDelayDefault
+    try { device.updateSetting('configAutoResetTamperDelay', autoResetTamperDelayDefault) }
+    catch(e) {}
 
-    logger('configure: Resetting configLogLevelIDE preference to 4', 'debug') // set to 3 when finished debugging
-        state.logLevelIDE = 5
-        try { device.updateSetting('configLogLevelIDE', 5) }
-        catch(e) {}
+    def logLevelIDEDefault = 5
+    logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace') // TODO - set to 3 when finished debugging
+    state.logLevelIDE = logLevelIDEDefault
+    try { device.updateSetting('configLogLevelIDE', logLevelIDEDefault) }
+    catch(e) {}
 
-    logger('configure: Resetting configLogLevelDevice preference to 2', 'debug')
-        state.logLevelDevice = 2
-        try { device.updateSetting('configLogLevelDevice', 2) }
-        catch(e) {}
+    def logLevelDeviceDefault = 2
+    logger("configure: Resetting configLogLevelDevice preference to ${logLevelDeviceDefault}.", 'trace')
+    state.logLevelDevice = logLevelDeviceDefault
+    try { device.updateSetting('configLogLevelDevice', logLevelDeviceDefault) }
+    catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
-        def interval = configIntervals()?.specifiedWakeUpInterval ?: configIntervals().defaultWakeUpInterval
-        logger("configure: Resetting configWakeUpInterval preference to $interval", 'debug')
-        state.wakeUpIntervalTarget = interval
-        try { device.updateSetting('configWakeUpInterval', interval) }
+        def wakeUpIntervalDefault = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
+        logger("configure: Resetting configWakeUpInterval preference to ${wakeUpIntervalDefault}.", 'trace')
+        state.wakeUpIntervalTarget = wakeUpIntervalDefault
+        try { device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault) }
         catch(e) {}
     }
 
-    logger('configure: getting default/specified values and resetting any existing preferences', 'debug')
+    logger('configure: getting default/specified values and resetting any existing preferences', 'trace')
     paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
 
         def specified = configSpecified()?.find { cs -> cs.id == it.id }
-        def resetValue = (specified) ? specified.specifiedValue : it.defaultValue
-        state."paramTarget$it.id" = resetValue
-        def id = it.id.toString().padLeft(3, "0")
+        def defaultValue = (specified) ? specified.specifiedValue : it.defaultValue
         def resetType = (specified) ? 'specified' : 'default'
+        state."paramTarget$it.id" = defaultValue
+
+        def id = it.id.toString().padLeft(3, "0")
 
         switch(it.type) {
             case 'number':
-                logger("configure: Parameter $id, resetting number preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
+                logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue", 'debug')
+                try { device.updateSetting("configParam$id", defaultValue) }
                 catch(e) {}
                 break
 
             case 'enum':
-                logger("configure: Parameter $id, resetting enum preference to ($resetType): $resetValue", 'trace')
-                try { device.updateSetting("configParam$id", resetValue) }
+                logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue", 'debug')
+                try { device.updateSetting("configParam$id", defaultValue) }
                 catch(e) {}
                 break
 
             case 'bool':
-                def resetBool = (resetValue == it.trueValue)
-                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'trace')
+                def resetBool = (defaultValue == it.trueValue)
+                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'debug')
                 try { device.updateSetting("configParam$id", resetBool) }
                 catch(e) {}
                 break
 
             case 'flags':
-                def resetFlags = (specified) ? specified.flags : it.flags
-                resetFlags.each { rf ->
-                    def resetFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
-                    def resetBool = (resetFlagValue == rf.flagValue)
-                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'trace')
+                def defaultFlags = (specified) ? specified.flags : it.flags
+                defaultFlags.each { rf ->
+                    def defaultFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
+                    def resetBool = (defaultFlagValue == rf.flagValue)
+                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'debug')
                     try { device.updateSetting("configParam$id$rf.id", resetBool) }
                     catch(e) {}
                 }
@@ -541,22 +545,22 @@ def updated() {
         if (!state.configuring) {
             if (settings?.configAutoResetTamperDelay != null) {
                 state.autoResetTamperDelay = settings.configAutoResetTamperDelay.toInteger()
-                logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'info')
+                logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'debug')
             }
 
             if (settings?.configLogLevelIDE != null) {
                 state.logLevelIDE = settings.configLogLevelIDE.toInteger()
-                logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'info')
+                logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'debug')
             }
 
             if (settings?.configLogLevelDevice != null) {
                 state.logLevelDevice = settings.configLogLevelDevice.toInteger()
-                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'info')
+                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'debug')
             }
 
             if (settings?.configWakeUpInterval != null) {
                 state.wakeUpIntervalTarget = settings.configWakeUpInterval.toInteger()
-                logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'info')
+                logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'debug')
             }
 
             paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
@@ -567,19 +571,19 @@ def updated() {
                     switch (it.type) {
                         case 'number':
                             def setting = settings."configParam$id"
-                            logger("updated: Parameter $id set to match number preference value: $setting", 'trace')
+                            logger("updated: Parameter $id set to match number preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
 
                         case 'enum':
                             def setting = settings."configParam$id".toInteger()
-                            logger("updated: Parameter $id set to match enum preference value: $setting", 'trace')
+                            logger("updated: Parameter $id set to match enum preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
 
                         case 'bool':
                             def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
-                            logger("updated: Parameter $id set to match bool preference value: $setting", 'trace')
+                            logger("updated: Parameter $id set to match bool preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
 
@@ -588,7 +592,7 @@ def updated() {
                             settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v ->
                                 if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue
                             }
-                            logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'trace')
+                            logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'debug')
                             state."paramTarget$it.id" = target
                             break
 
@@ -601,7 +605,7 @@ def updated() {
 
         state.configuring = false
 
-        if ('deviceUse' in configDevice()) { // TODO - need to think about how this is handled / reset?
+        if ('deviceUse' in configDevice()) {
             logger('updateded: setting device use states', 'debug')
             deviceUseStates()
             sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
@@ -722,6 +726,17 @@ private updateSyncPending() {
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
         sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
+
+        // TODO - create configReport here
+        /*
+        def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
+        def paramValueReport = paramValue.toString()
+        state.configReportBuffer << [(paramReport): paramValueReport]
+        if (state.configReportBuffer.size() == configParameters().size()) {
+            logger('ConfigurationReport: All Configuration Values Reported.', 'info')
+            updateDataValue("configurationReport", state.configReportBuffer.sort().collect { it }.join(","))
+        }
+        */
     }
 
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
@@ -752,9 +767,9 @@ private byteArrayToUInt(byteArray) {
 void deviceUseStates() {
     def useStates
     if (settings?.configDeviceUse) {
-        useStates = configUseStates()?.find { it.item == settings.configDeviceUse.toInteger() }
+        useStates = configUseStateOptions()?.find { it.item == settings.configDeviceUse.toInteger() }
     } else {
-        useStates = configUseStates()?.find { it.default == true }
+        useStates = configUseStateOptions()?.find { it.default == true }
     }
     def deviceUse = (useStates) ? useStates.use : 'Water'
     def event = (useStates) ? useStates.event : 'water'
@@ -1188,14 +1203,6 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     state."paramCache${cmd.parameterNumber}" = paramValue
     if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
 
-    def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
-    def paramValueReport = paramValue.toString()
-    state.configReportBuffer << [(paramReport): paramValueReport]
-    if (state.configReportBuffer.size() == configParameters().size()) {
-        logger('ConfigurationReport: All Configuration Values Reported.', 'info')
-        updateDataValue("configurationReport", state.configReportBuffer.sort().collect { it }.join(","))
-    }
-
     def result = []
     if (cmd.parameterNumber == 9) {
         if (cmd.configurationValue[0] == 0) {
@@ -1285,7 +1292,9 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     logger("WakeUpIntervalReport: '$cmd'", 'debug')
     def wakeUpInterval = cmd.seconds
+    state.wakeUpIntervalCache = wakeUpInterval
     updateDataValue('wakeUpInterval', "$wakeUpInterval")
+    updateSyncPending()
     def checkInterval = wakeUpInterval.toDouble().multiply(2.2).round()
     createEvent(name: 'checkInterval', value: checkInterval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
 }
@@ -1495,18 +1504,18 @@ private configDevice() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval']
 private configLogger() { ['logLevelDevice', 'logLevelIDE'] }
 
 /**
- * configUseStates() - map of states for contact sensor depending on use
+ * configUseStateOptions() - map of states for contact sensor depending on use
  * @return
  */
 /*
-private configUseStates() { [
+private configUseStateOptions() { [
         Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
         Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
         Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
         Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
 ] }
 */
-private configUseStates() { [
+private configUseStateOptions() { [
     [item: 0, use: 'Bed', event: 'contact', inactive: 'empty', active: 'occupied'],
     [item: 1, use: 'Chair', event: 'contact', inactive: 'vacant', active: 'occupied'],
     [item: 2, use: 'Toilet', event: 'contact', inactive: 'full', active: 'flushing'],
@@ -1528,7 +1537,7 @@ private configIntervals() { [
  * @return map of preference options for configuring device wake interval
  */
 private configWakeIntervalOptions() { [
-    [item: 3_600, interval: '1 hour'],
+    [item: 3_600, interval: '1 hour', specified: true],
     [item: 7_200, interval: '2 hours', default: true],
     [item: 34_200, interval: '12 hours'],
 ] }

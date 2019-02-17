@@ -722,21 +722,23 @@ private updateSyncPending() {
     // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
 
     if (syncPending == 0) {
+        if (!listening()) state.queued = []
+
         def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
-        sendEvent(name: 'configure', value: 'completed', descriptionText: 'Device reports Configuration completed.', isStateChange: true, displayed: false)
+        sendEvent(name: 'configure', value: 'completed', descriptionText: "Device reports Configuration ($ct) completed.", isStateChange: true, displayed: false)
 
-        // TODO - create configReport here
-        /*
-        def paramReport = cmd.parameterNumber.toString().padLeft(3, "0")
-        def paramValueReport = paramValue.toString()
-        state.configReportBuffer << [(paramReport): paramValueReport]
-        if (state.configReportBuffer.size() == configParameters().size()) {
-            logger('ConfigurationReport: All Configuration Values Reported.', 'info')
-            updateDataValue("configurationReport", state.configReportBuffer.sort().collect { it }.join(","))
+        def configurationReport = [:]
+        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+            def id = it.id.toString().padLeft(3, '0')
+            configurationReport << [(id): state."paramCache${it.id}"]
         }
-        */
+        logger('ConfigurationReport: All Configuration Values Reported.', 'info')
+        updateDataValue('configurationReport', configurationReport.sort().collect { it }.join(','))
+    }
+    else if (!listening()) {
+        state.queued = ['sync']
     }
 
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
@@ -1317,7 +1319,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
             logger("WakeUpNotification: Queue '$queue'", 'trace')
             // queue.each { "$it"().each { qc -> cmds << qc } }
             queue.each { cmds += "$it"() }
-            state.queued = [] // TODO - Not sure should reset the queue here, rather remove items when reports received back?
+            state.queued = []
         }
         else if (device.latestValue('syncPending') > 0) {
             logger("WakeUpNotification: syncPending > 0", 'trace')

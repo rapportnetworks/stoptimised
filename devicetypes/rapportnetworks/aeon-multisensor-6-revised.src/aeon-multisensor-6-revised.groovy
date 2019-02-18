@@ -198,16 +198,16 @@ metadata {
     }
 
     preferences {
-        if (configDevice()) {
+        if (configDeviceSettings()) {
             input(
-                    name: 'paraSettings',
+                    name: 'paraDeviceSettings',
                     title: 'DEVICE SETTINGS',
                     description: 'Tap each item to set.',
                     type: 'paragraph',
                     element: 'paragraph'
             )
 
-            if ('deviceUse' in configDevice()) {
+            if ('deviceUse' in configDeviceSettings()) {
                 def uses = configUseStateOptions().collectEntries { [(it.item): it.use] }
                 def defaultUse = configUseStateOptions().find { it.default }.item
                 def defaultUseName = configUseStateOptions().find { it.default }.use
@@ -222,7 +222,7 @@ metadata {
                 )
             }
 
-            if ('autoResetTamperDelay' in configDevice()) {
+            if ('autoResetTamperDelay' in configDeviceSettings()) {
                 input(
                         name: 'configAutoResetTamperDelay',
                         title: 'Auto-Reset Tamper Alarm after this time delay. (default: 30 seconds)',
@@ -233,7 +233,7 @@ metadata {
                 )
             }
 
-            if ('wakeUpInterval' in configDevice()) {
+            if ('wakeUpInterval' in configDeviceSettings()) {
                 def intervals = configWakeIntervalOptions().collectEntries { [(it.item): it.interval] }
                 def defaultInterval = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
                 def defaultIntervalName = (configWakeIntervalOptions()?.find { it.specified }?.interval) ?: configWakeIntervalOptions().find { it.default }.interval
@@ -248,18 +248,18 @@ metadata {
             }
         }
 
-        if (configUser()) generatePrefsParams()
+        if (configParametersUser()) generateParametersPreferences()
 
-        if (configLogger()) {
+        if (configLoggerSettings()) {
             input(
-                    name: 'paraLogger',
+                    name: 'paraLoggerSettings',
                     title: 'LOGGER SETTINGS',
                     description: 'Tap each item to set.',
                     type: 'paragraph',
                     element: 'paragraph'
             )
 
-            if ('logLevelIDE' in configLogger()) {
+            if ('logLevelIDE' in configLoggerSettings()) {
                 input(
                         name: 'configLogLevelIDE',
                         title: 'IDE Live Logging Level for messages with this level and higher.',
@@ -270,7 +270,7 @@ metadata {
                 )
             }
 
-            if ('logLevelDevice' in configLogger()) {
+            if ('logLevelDevice' in configLoggerSettings()) {
                 input(
                         name: 'configLogLevelDevice',
                         title: 'Device Logging Level for messages with this level and higher.',
@@ -285,33 +285,43 @@ metadata {
 }
 
 /***********************************************************************************************************************
- * Preferences Helper Methods (generatePrefsParams, getTimeOptionValueMap)
+ * Preferences Helper Methods (generateParametersPreferences, getTimeOptionValueMap)
  **********************************************************************************************************************/
 /**
- * generatePrefsParams
- * @return
+ * generateParametersPreferences
+ * @return selected parameter preference inputs
  */
-private generatePrefsParams() {
-    input (name: 'paraParameters', title: 'DEVICE PARAMETERS', description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.', type: 'paragraph', element: 'paragraph')
-    paramsMetadata().findAll{ !it.readonly }.each{
+private generateParametersPreferences() {
+    input(
+            name: 'paraDeviceParameters',
+            title: 'DEVICE PARAMETERS',
+            description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.',
+            type: 'paragraph',
+            element: 'paragraph'
+    )
 
-        if (configUser()[0] == 0 || it.id in configUser()) {
+    parametersMetadata().findAll{ !it.readonly }.each{
+        /**
+         * Gets list of parameters available to user to configure.
+         * If the list is [0], all parameters will be made available to the user.
+         */
+        if (configParametersUser()[0] == 0 || it.id in configParametersUser()) {
 
             def id = it.id.toString().padLeft(3, '0')
 
-            def specified = configSpecified()?.find { cs -> cs.id == it.id }
+            def specific = parametersSpecifiedValues()?.find { spec -> spec.id == it.id }
 
-            def prefDefaultValue = (specified) ? specified.specifiedValue : it.defaultValue
+            def prefDefault = (specific) ? specific.specifiedValue : it.defaultValue
 
             switch(it.type) {
                 case 'number':
                     input(
                             name: "configParam${id}",
-                            title: "${it.id}. ${it.name} (default: ${prefDefaultValue})",
-                            description: "${it.description} (default: ${prefDefaultValue})",
+                            title: "${it.id}. ${it.name} (default: ${prefDefault})",
+                            description: "${it.description} (default: ${prefDefault})",
                             type: it.type,
                             range: it.range,
-                            defaultValue: prefDefaultValue,
+                            defaultValue: prefDefault,
                             required: it.required
                     )
                     break
@@ -319,11 +329,11 @@ private generatePrefsParams() {
                 case 'enum':
                     input(
                             name: "configParam${id}",
-                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})",
-                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefaultValue}.value})",
+                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefault}.value})",
+                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefault}.value})",
                             type: it.type,
                             options: it.options,
-                            defaultValue: prefDefaultValue,
+                            defaultValue: prefDefault,
                             required: it.required
                     )
                     break
@@ -331,10 +341,10 @@ private generatePrefsParams() {
                 case 'bool':
                     input(
                             name: "configParam${id}",
-                            title: "${it.id}. ${it.name} (default: ${(prefDefaultValue) ? 'on' : 'off'})",
-                            description: "${it.description} (default: ${(prefDefaultValue) ? 'on' : 'off'})",
+                            title: "${it.id}. ${it.name} (default: ${(prefDefault) ? 'on' : 'off'})",
+                            description: "${it.description} (default: ${(prefDefault) ? 'on' : 'off'})",
                             type: it.type,
-                            defaultValue: prefDefaultValue,
+                            defaultValue: prefDefault,
                             required: it.required
                     )
                     break
@@ -347,15 +357,14 @@ private generatePrefsParams() {
                             type: 'paragraph',
                             element: 'paragraph'
                     )
-                    it.flags.each { f ->
-                        def specifiedFlagValue = (specified) ? specified?.flags.find { sf -> sf.id == f.id }?.specifiedValue : f.defaultValue
-
-                        def prefDefaultFlagValue = (specifiedFlagValue == f.flagValue) ? true : false
+                    it.flags.each { flag ->
+                        def defaultOrSpecified = (specific) ? specific?.flags.find { specflag -> specflag.id == flag.id }?.specifiedValue : flag.defaultValue
+                        def prefDefaultFlag = (defaultOrSpecified == flag.flagValue) ? true : false
                         input(
                                 name: "configParam${id}${f.id}",
-                                title: "${f.id}) ${f.description} (default: ${(prefDefaultFlagValue) ? 'on' : 'off'})",
+                                title: "${f.id}) ${f.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
                                 type: 'bool',
-                                defaultValue: prefDefaultFlagValue,
+                                defaultValue: prefDefaultFlag,
                                 required: it.required
                         )
                     }
@@ -396,15 +405,16 @@ private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
  * Note: configure is in fact a command
  **********************************************************************************************************************/
 /**
- * installed is called on first installation of device and sets up initial device states
+ * installed - sets up initial device states
+ * called on first installation of device
  */
 def installed() {
+    logger('installed: setting initial state of device attributes', 'info')
+
     /**
-     * sets initial logging levels
+     * sets initial logging levels to IDE and smart app
      */
     state.logLevelIDE = 5; state.logLevelDevice = 2
-
-    logger('installed: setting initial state of device attributes', 'info')
 
     /**
      * sends event to set checkInterval default value TODO - need to sort defaultCheckInterval - calculate? based on default/specified option?
@@ -419,8 +429,8 @@ def installed() {
     /**
      * sets device use (if an option) and sends event to set inactive state
      */
-    if ('deviceUse' in configDevice()) {
-        logger('installed: setting device use states', 'debug')
+    if ('deviceUse' in configDeviceSettings()) {
+        logger('installed: Setting device use states.', 'debug')
         deviceUseStates()
         sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     }
@@ -429,11 +439,11 @@ def installed() {
      * checks whether device is listening or sleepy (on battery) and sends events to set appropriate states
      */
     if (listening()) {
-        logger('Device is in listening mode (powered).', 'debug')
+        logger('installed: Device is in listening mode (powered).', 'debug')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
         sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
     } else {
-        logger('Device is in sleepy mode (battery).', 'debug')
+        logger('installed: Device is in sleepy mode (battery).', 'debug')
         sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
     }
 
@@ -444,8 +454,9 @@ def installed() {
 }
 
 /**
- * configure() is called by ST system after installed() and also in response to configure command sent to device (via mobile app or smart app)
- * Sets/resets device by setting configuration values to default/specified values.
+ * configure - sets/resets device by setting configuration values to default/specified values
+ * called by ST system after installed
+ * called in response to configure command sent to device (via mobile app or smart app)
  */
 def configure() {
     logger('configure: Setting/Resetting device configuration targets to default/specified values.', 'info')
@@ -481,11 +492,11 @@ def configure() {
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'trace')
-    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
 
-        def specified = configSpecified()?.find { cs -> cs.id == it.id }
-        def defaultValue = (specified) ? specified.specifiedValue : it.defaultValue
-        def resetType = (specified) ? 'specified' : 'default'
+        def specific = parametersSpecifiedValues()?.find { cs -> cs.id == it.id }
+        def defaultValue = (specific) ? specific.specifiedValue : it.defaultValue
+        def resetType = (specific) ? 'specified' : 'default'
         state."paramTarget$it.id" = defaultValue
 
         def id = it.id.toString().padLeft(3, "0")
@@ -511,7 +522,7 @@ def configure() {
                 break
 
             case 'flags':
-                def defaultFlags = (specified) ? specified.flags : it.flags
+                def defaultFlags = (specific) ? specific.flags : it.flags
                 defaultFlags.each { rf ->
                     def defaultFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
                     def resetBool = (defaultFlagValue == rf.flagValue)
@@ -533,8 +544,8 @@ def configure() {
 }
 
 /**
- * updated() sets configuration to user preferences selected in mobile app if state.configuring = false
- * If called after configure(), any selected user preferences will be ignored (and may have already been reset to defaults).
+ * updated - sets device configuration to user preferences selected in mobile app  only if state.configuring = false
+ * If called after configure, any selected user preferences will be ignored (and may have already been reset to defaults).
  * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
  */
 def updated() {
@@ -563,7 +574,7 @@ def updated() {
                 logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'debug')
             }
 
-            paramsMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+            parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
 
                 def id = it.id.toString().padLeft(3, "0")
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
@@ -605,7 +616,7 @@ def updated() {
 
         state.configuring = false
 
-        if ('deviceUse' in configDevice()) {
+        if ('deviceUse' in configDeviceSettings()) {
             logger('updateded: setting device use states', 'debug')
             deviceUseStates()
             sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
@@ -647,7 +658,7 @@ private sync() {
     if (state.syncAll) {
         logger('sync: Deleting all cached configuration values.', 'debug')
         state.wakeUpIntervalCache = null
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
@@ -659,7 +670,7 @@ private sync() {
         syncPending++
     }
 
-    paramsMetadata().each {
+    parametersMetadata().each {
         if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
             logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
             cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
@@ -693,7 +704,7 @@ private updateSyncPending() {
     if (state.syncAll) {
         logger('updateSyncPending: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
@@ -704,12 +715,12 @@ private updateSyncPending() {
         if (target != configIntervals().specifiedWakeUpInterval) userConfig++
     }
 
-    paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
                 syncPending++
             } else if (state."paramCache${it.id}" != it.defaultValue) {
-                def sv = configSpecified()?.find { cs -> cs.id == it.id }?.specifiedValue
+                def sv = parametersSpecifiedValues()?.find { cs -> cs.id == it.id }?.specifiedValue
                 if (state."paramCache${it.id}"!= sv) {
                     userConfig++
                 }
@@ -724,13 +735,13 @@ private updateSyncPending() {
     if (syncPending == 0) {
         if (!listening()) state.queued = []
 
-        def ct = (userConfig > 0) ? 'user' : (configSpecified()) ? 'specified' : 'default'
+        def ct = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
         updateDataValue('configurationType', ct)
         sendEvent(name: 'configure', value: 'completed', descriptionText: "Device reports Configuration ($ct) completed.", isStateChange: true, displayed: false)
 
         def configurationReport = [:]
-        paramsMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
             def id = it.id.toString().padLeft(3, '0')
             configurationReport << [(id): state."paramCache${it.id}"]
         }
@@ -1198,12 +1209,12 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
  */
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
     logger("ConfigurationReport: '$cmd'", 'trace')
-    def signed = paramsMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
+    def signed = parametersMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
     def paramValue = (signed) ? cmd.scaledConfigurationValue : byteArrayToUInt(cmd.configurationValue)
 
     logger("ConfigurationReport: Parameter $cmd.parameterNumber has been set to value (${(signed) ? 'signed' : 'unsigned'}) $paramValue", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
-    if (paramsMetadata().find { !it.readonly } ) updateSyncPending()
+    if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 
     def result = []
     if (cmd.parameterNumber == 9) {
@@ -1495,15 +1506,15 @@ private commandClassesVersions() { [
 */
 
 /**
- * configDevice() - menu items available in mobile app to be configured by user
+ * configDeviceSettings - menu items available in mobile app to be configured by user
  * @return
  */
-private configDevice() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval'] }
+private configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval'] }
 
 /**
- * configLogger() - set logging level of device handler
+ * configLoggerSettings() - set logging level of device handler
  */
-private configLogger() { ['logLevelDevice', 'logLevelIDE'] }
+private configLoggerSettings() { ['logLevelDevice', 'logLevelIDE'] }
 
 /**
  * configUseStateOptions() - map of states for contact sensor depending on use
@@ -1551,10 +1562,10 @@ private configWakeIntervalOptions() { [
 private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
- * configSpecified - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
+ * parametersSpecifiedValues - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
  * @return map of specified/default values for device parameters
  */
-private configSpecified() { [
+private parametersSpecifiedValues() { [
     [id:2,size:1,defaultValue:0,specifiedValue:1],
     [id:3,size:2,defaultValue:240,specifiedValue:30],
     [id:4,size:1,defaultValue:5,specifiedValue:5],
@@ -1568,16 +1579,17 @@ private configSpecified() { [
 ] }
 
 /**
- * configUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
+ * configParametersUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
+ * set to [0] to make all configuration parameters available to user
  * @return list of device parameters
  */
-private configUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
+private configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
- * paramsMetadata - complete map of all device configuration parameters
+ * parametersMetadata - complete map of all device configuration parameters
  * @return map of all device configuration parameters
  */
-private paramsMetadata() { [
+private parametersMetadata() { [
     [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
     [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
     [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],

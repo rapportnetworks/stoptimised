@@ -26,11 +26,12 @@ metadata {
         capability "Tamper Alert"                  // attribute 'tamper' (enum: ['detected', 'clear'])
         capability "Temperature Measurement"       // attribute 'temperature' (number)
         capability "Ultraviolet Index"             // attribute 'ultravioletIndex' (number)
+        // TODO - What about configUseStateOptions (contact and water attributes)?
 
         // Custom Attributes
         attribute "batteryChange", "string"        // Used to log chaging of battery.
         attribute "batteryStatus", "string"        // Indicates DC-power or battery %.
-        attribute "configure", "string"            // Reports on configuration command status.
+        attribute "configure", "string"            // Reports on configuration command status. (enum: ['received', 'queued']
         attribute "logMessage", "string"           // Important log messages.
         attribute "secureInclusion", "string"      // Indicates secure inclusion success/failed.
         attribute "syncPending", "number"          // Number of config items that need to be synced with the physical device.
@@ -56,6 +57,25 @@ metadata {
         // wakeUpInterval:       device wake up interval
         // MSR:                  manufacturer specific report
         // serialNumber:         device unique serial number (if it has one)
+
+        // Preferences
+        // configAutoResetTamperDelay -> state.autoResetTamperDelay
+        // configDeviceUse
+        // configLogLevelIDE -> state.logLevelIDE
+        // configLogLevelDevice -> state.logLevelDevice
+        // configParam${id} -> state."paramTarget$it.id" -> state."paramCache${it.id}"
+        // configWakeUpInterval -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
+        // paraDeviceParameters
+        // paraDeviceSettings
+        // paraLoggerSettings
+
+        // State variables
+        // state.messageCounter
+        // state.configuringDevice
+        // state.syncAll
+        // state.configReportBuffer ? is this needed?
+        // state.updatedLastRanAt
+        // state.queued
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -300,10 +320,10 @@ private generateParametersPreferences() {
             element: 'paragraph'
     )
 
-    parametersMetadata().findAll{ !it.readonly }.each{
+    parametersMetadata().findAll{ it.id in configParameters() && !it.readonly }.each{
         /**
          * Gets list of parameters available to user to configure.
-         * If the list is [0], all parameters will be made available to the user.
+         * If the list is [0], all parameters in configParameters will be made available to the user.
          */
         if (configParametersUser()[0] == 0 || it.id in configParametersUser()) {
 
@@ -361,8 +381,8 @@ private generateParametersPreferences() {
                         def defaultOrSpecified = (specific) ? specific?.flags.find { specflag -> specflag.id == flag.id }?.specifiedValue : flag.defaultValue
                         def prefDefaultFlag = (defaultOrSpecified == flag.flagValue) ? true : false
                         input(
-                                name: "configParam${id}${f.id}",
-                                title: "${f.id}) ${f.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
+                                name: "configParam${id}${flag.id}",
+                                title: "${flag.id}) ${flag.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
                                 type: 'bool',
                                 defaultValue: prefDefaultFlag,
                                 required: it.required
@@ -450,7 +470,7 @@ def installed() {
     /**
      * sets up counter to track number of messages sent by device
      */
-    state.messages = 0
+    state.messageCounter = 0
 }
 
 /**
@@ -463,38 +483,46 @@ def configure() {
 
     sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
 
-    state.configuring = true
+    state.configuringDevice = true
 
     def autoResetTamperDelayDefault = 30
-    logger("configure: Resetting autoResetTamperDelay preference to ${autoResetTamperDelayDefault}.", 'trace')
     state.autoResetTamperDelay = autoResetTamperDelayDefault
-    try { device.updateSetting('configAutoResetTamperDelay', autoResetTamperDelayDefault) }
+    try {
+        device.updateSetting('configAutoResetTamperDelay', autoResetTamperDelayDefault)
+        logger("configure: Resetting autoResetTamperDelay preference to ${autoResetTamperDelayDefault}.", 'trace')
+    }
     catch(e) {}
 
-    def logLevelIDEDefault = 5
-    logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace') // TODO - set to 3 when finished debugging
+    def logLevelIDEDefault = 5 // TODO - set to 3 when finished debugging
     state.logLevelIDE = logLevelIDEDefault
-    try { device.updateSetting('configLogLevelIDE', logLevelIDEDefault) }
+    try {
+        device.updateSetting('configLogLevelIDE', logLevelIDEDefault)
+        logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace')
+    }
     catch(e) {}
 
     def logLevelDeviceDefault = 2
-    logger("configure: Resetting configLogLevelDevice preference to ${logLevelDeviceDefault}.", 'trace')
     state.logLevelDevice = logLevelDeviceDefault
-    try { device.updateSetting('configLogLevelDevice', logLevelDeviceDefault) }
+    try {
+        device.updateSetting('configLogLevelDevice', logLevelDeviceDefault)
+        logger("configure: Resetting configLogLevelDevice preference to ${logLevelDeviceDefault}.", 'trace')
+    }
     catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
         def wakeUpIntervalDefault = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
-        logger("configure: Resetting configWakeUpInterval preference to ${wakeUpIntervalDefault}.", 'trace')
         state.wakeUpIntervalTarget = wakeUpIntervalDefault
-        try { device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault) }
+        try {
+            device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault)
+            logger("configure: Resetting configWakeUpInterval preference to ${wakeUpIntervalDefault}.", 'trace')
+        }
         catch(e) {}
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'trace')
     parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
 
-        def specific = parametersSpecifiedValues()?.find { cs -> cs.id == it.id }
+        def specific = parametersSpecifiedValues()?.find { paramSV -> paramSV.id == it.id }
         def defaultValue = (specific) ? specific.specifiedValue : it.defaultValue
         def resetType = (specific) ? 'specified' : 'default'
         state."paramTarget$it.id" = defaultValue
@@ -503,31 +531,39 @@ def configure() {
 
         switch(it.type) {
             case 'number':
-                logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue", 'debug')
-                try { device.updateSetting("configParam$id", defaultValue) }
+                try {
+                    device.updateSetting("configParam$id", defaultValue)
+                    logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue", 'debug')
+                }
                 catch(e) {}
                 break
 
             case 'enum':
-                logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue", 'debug')
-                try { device.updateSetting("configParam$id", defaultValue) }
+                try {
+                    device.updateSetting("configParam$id", defaultValue)
+                    logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue", 'debug')
+                }
                 catch(e) {}
                 break
 
             case 'bool':
-                def resetBool = (defaultValue == it.trueValue)
-                logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'debug')
-                try { device.updateSetting("configParam$id", resetBool) }
+                def resetBool = (defaultValue == it.trueValue) ? true : false
+                try {
+                    device.updateSetting("configParam$id", resetBool)
+                    logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'debug')
+                }
                 catch(e) {}
                 break
 
             case 'flags':
-                def defaultFlags = (specific) ? specific.flags : it.flags
-                defaultFlags.each { rf ->
-                    def defaultFlagValue = (rf?.specifiedValue != null) ? rf.specifiedValue : rf.defaultValue
-                    def resetBool = (defaultFlagValue == rf.flagValue)
-                    logger("configure: Parameter: $id$rf.id, resetting flag preference to ($resetType): $resetBool", 'debug')
-                    try { device.updateSetting("configParam$id$rf.id", resetBool) }
+                def defaultOrSpecified = (specific) ? specific.flags : it.flags
+                defaultOrSpecified.each { flag ->
+                    def defaultValueFlag = (flag?.specifiedValue != null) ? flag.specifiedValue : flag.defaultValue
+                    def resetBool = (defaultValueFlag == flag.flagValue) ? true : false
+                    try {
+                        device.updateSetting("configParam$id$flag.id", resetBool)
+                        logger("configure: Parameter: $id$flag.id, resetting flag preference to ($resetType): $resetBool", 'debug')
+                    }
                     catch(e) {}
                 }
                 break
@@ -538,13 +574,13 @@ def configure() {
     }
 
     state.syncAll = true
-    state.configReportBuffer = [:]
-    updateDataValue('serialNumber', null)
+    state.configReportBuffer = [:] // TODO - is this needed?
+    updateDataValue('serialNumber', null) // TODO - is this needed here?
     updated()
 }
 
 /**
- * updated - sets device configuration to user preferences selected in mobile app  only if state.configuring = false
+ * updated - sets device configuration to user preferences selected in mobile app  only if state.configuringDevice = false
  * If called after configure, any selected user preferences will be ignored (and may have already been reset to defaults).
  * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
  */
@@ -553,7 +589,7 @@ def updated() {
     if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
         state.updatedLastRanAt = now()
 
-        if (!state.configuring) {
+        if (!state.configuringDevice) {
             if (settings?.configAutoResetTamperDelay != null) {
                 state.autoResetTamperDelay = settings.configAutoResetTamperDelay.toInteger()
                 logger("updated: Updating autoResetTamperDelay value to $state.autoResetTamperDelay", 'debug')
@@ -600,8 +636,8 @@ def updated() {
 
                         case 'flags':
                             def target = 0
-                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { k, v ->
-                                if (v) target += it.flags.find { f -> f.id == "${k.reverse().take(1)}" }.flagValue
+                            settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { key, value ->
+                                if (value) target += it.flags.find { flag -> flag.id == "${key.reverse().take(1)}" }.flagValue
                             }
                             logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'debug')
                             state."paramTarget$it.id" = target
@@ -614,7 +650,7 @@ def updated() {
             }
         }
 
-        state.configuring = false
+        state.configuringDevice = false
 
         if ('deviceUse' in configDeviceSettings()) {
             logger('updateded: setting device use states', 'debug')
@@ -627,11 +663,10 @@ def updated() {
          * If the device is battery powered (i.e. sleepy), the configuration commands are queued (state.queued) until the device next wakes up.
          */
         if (listening()) {
-            def result = response(sendCommandSequence(sync()))
-            logger("updated: Result '$result'", 'info')
-            result
+            logger('updated: Listening device, calling sync now.', 'info')
+            response(sendCommandSequence(sync()))
         } else {
-            logger('updated: Sleepy device, queuing sync().', 'info')
+            logger('updated: Sleepy device, queuing sync.', 'info')
             sendEvent(name: 'configure', value: 'queued', descriptionText: 'Device reports Configuration queued.', isStateChange: true, displayed: false)
             if (state.queued) {
                 state.queued << 'sync'
@@ -648,15 +683,16 @@ def updated() {
  * System Methods Helper Methods (sync, updateSyncPending, listening, byteArrayToUInt, deviceUseStates, logger)
  **********************************************************************************************************************/
 /**
- * sync() compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
- * It then requests the configuration value back from the device to check that it has been successfully updated
+ * sync compares target and cached values for each configuration parameter. When there is a difference it assembles the relevant command to update the configuration setting in the device.
+ * It then requests the configuration value back from the device to check that it has been successfully updated.
+ * @return cmds - sequence of zwave commands
  */
 private sync() {
     def cmds = []
     def syncPending = 0
 
     if (state.syncAll) {
-        logger('sync: Deleting all cached configuration values.', 'debug')
+        logger('sync: Syncing all - deleting all cached configuration values.', 'debug')
         state.wakeUpIntervalCache = null
         parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
@@ -670,15 +706,13 @@ private sync() {
         syncPending++
     }
 
-    parametersMetadata().each {
-        if (it.id in configParameters() && !it.readonly && state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
-            logger("sync: Syncing parameter ${it.id} with new value: " + state."paramTarget${it.id}", 'debug')
-            cmds += configurationSet(it.id, it.size, state."paramTarget${it.id}")
+    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+        if (state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
+            def target = state."paramTarget${it.id}"
+            logger("sync: Syncing parameter ${it.id} with new value: ${target}", 'debug')
+            cmds += configurationSet(it.id, it.size, target)
             cmds += configurationGet(it.id)
             syncPending++
-        }
-        else if (state.syncAll && it.id in configParameters()) {
-            cmds += configurationGet(it.id)
         }
     }
 
@@ -689,56 +723,61 @@ private sync() {
     }
 
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
-    logger("sync: Returning '$cmds'", 'debug')
+    logger("sync: Returning '$cmds'", 'debug') // TODO - check / alter this
     cmds
 }
 
 /**
- * updateSyncPending() called when a report is received back from the device in response to check a configuration parameter value
+ * updateSyncPending called when a report is received back from the device in response to check a configuration parameter value
  * keeps track of the number of outstanding configuration parameters that have yet to be successfully updated
  */
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
 
-    if (state.syncAll) {
+    if (state.syncAll) { // TODO - is this needed? - aren't they all deleted in sync?
         logger('updateSyncPending: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
-        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+            state."paramCache${it.id}" = null
+        }
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
 
     if (!listening()) {
-        def target = state.wakeUpIntervalTarget
+        def target = state?.wakeUpIntervalTarget
         if (target != null && target != state.wakeUpIntervalCache) syncPending++
-        if (target != configIntervals().specifiedWakeUpInterval) userConfig++
+        if (target != configIntervals().specifiedWakeUpInterval) userConfig++ // TODO - change this
     }
 
-    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+    parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
                 syncPending++
             } else if (state."paramCache${it.id}" != it.defaultValue) {
-                def sv = parametersSpecifiedValues()?.find { cs -> cs.id == it.id }?.specifiedValue
-                if (state."paramCache${it.id}"!= sv) {
+                def specific = parametersSpecifiedValues()?.find { paramSV -> paramSV.id == it.id }?.specifiedValue
+                if (state."paramCache${it.id}" != specific) {
                     userConfig++
                 }
             }
         }
     }
 
-    if (getDataValue('serialNumber') == null) syncPending++
+    if (getDataValue('serialNumber') == null) {
+        syncPending++
+    }
+
     logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
     // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
 
     if (syncPending == 0) {
         if (!listening()) state.queued = []
 
-        def ct = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
-        logger("updateSyncPending: Sync Complete. Configuration type: $ct", 'info')
-        updateDataValue('configurationType', ct)
-        sendEvent(name: 'configure', value: 'completed', descriptionText: "Device reports Configuration ($ct) completed.", isStateChange: true, displayed: false)
+        def configurationType = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
+        logger("updateSyncPending: Sync Complete. Configuration type: $configurationType", 'info')
+        updateDataValue('configurationType', configurationType)
+        sendEvent(name: 'configure', value: 'completed', descriptionText: "Device reports Configuration ($configurationType) completed.", isStateChange: true, displayed: false)
 
         def configurationReport = [:]
         parametersMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
@@ -1061,9 +1100,9 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
 def parse(String description) {
     logger("parse: raw message '$description'", 'trace')
 
-    def messages = state?.messages ?: 0
-    updateDataValue('messages', "${state.messages}")
-    state.messages = messages + 1
+    def messages = state?.messageCounter ?: 0
+    updateDataValue('messages', "${state.messageCounter}")
+    state.messageCounter = messages + 1
 
     def result = []
 

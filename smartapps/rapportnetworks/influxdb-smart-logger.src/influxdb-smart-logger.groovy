@@ -1000,7 +1000,9 @@ def postToInfluxDBv1Remote(data, retentionPolicy = 'autogen') {
         body              : data
     ]
 
-    def passData = []
+    def passData = [
+        test: 'test'
+    ]
 
     logger("postToInfluxDBv1asynchttp: Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
     asynchttp.post(handleInfluxDBResponseRemote, params, passData) // dropped _v1 postfix
@@ -1012,15 +1014,16 @@ def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up
 }
 
 def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen') { // bucket
-    def uri = 'https//:data.rapport.net:9999'
+    def uri = 'http://data.rapport.net:9999'
     def path = '/api/v2/write'
+    def bucket = 'r'
     def query = [
         org       : 'rapport',
-        // bucket    : bucket,
+        bucket    : bucket,
         precision : 'ms'
     ]
     def headers = [
-        authorization: "Token ${state.dbToken}"
+        authorization : "Token ${state.dbToken}"
     ]
 
     def params = [
@@ -1028,15 +1031,17 @@ def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen') { // bucket
         path               : path,
         query              : query,
         headers            : headers,
-        requestContentType : 'application/octet-stream',
-        contentType        : 'application/csv', // 'application/json',
+        requestContentType : 'application/json',
+        contentType        : 'application/octet-stream',
         body               : data
     ]
 
-    def passData = []
+    def passData = [
+        test: 'test'
+    ]
 
-    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp.post(handleInfluxDBv2ResponseRemote, params, passData) // dropped _v1 postfix
+    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Uri: ${uri}, Path: ${path}, Query: ${query}, Headers: ${headers}, Data: ${data}", 'info')
+    asynchttp_v1.post(handleInfluxDBv2ResponseRemote, params) // dropped _v1 postfix // , passData)
 }
 
 def handleInfluxDBv2ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?

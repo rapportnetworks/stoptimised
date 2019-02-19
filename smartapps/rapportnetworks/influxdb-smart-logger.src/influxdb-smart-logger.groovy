@@ -63,9 +63,13 @@ def mainPage() {
 
             input(name: 'prefDatabaseName', type: 'text', title: 'Database Name', defaultValue: '*', required: true)
 
-            input(name: 'prefDatabaseUser', type: 'text', title: 'Username', defaultValue: '*', required: true)
+            input(name: 'prefDatabaseUser', type: 'text', title: 'Username', defaultValue: '*', required: false)
 
-            input(name: 'prefDatabasePass', type: 'text', title: 'Password', defaultValue: '*', required: true)
+            input(name: 'prefDatabasePass', type: 'text', title: 'Password', defaultValue: '*', required: false)
+
+            input(name: 'prefDatabaseVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 1, required: false)
+
+            input(name: 'prefDatabaseToken', type: 'text', title: 'Database Authorisation Token', defaultValue: '*', required: false)
         }
 
         if (state.devicesConfigured) {
@@ -166,6 +170,10 @@ def updated() { // runs when app settings are changed
     state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
     state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms', rp: 'autogen']
     state.path = '/write'
+
+    state.dbVersion = settings.prefDatabaseVersion
+
+    state.dbToken = settings.prefDatabaseToken
 
     logger('updated: Building state map of group Ids and group names', 'debug')
     state.houseType = 'House'
@@ -466,7 +474,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
-    "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy)
+    "postToInfluxDBv${state.dbVersion}${state.dbLocation}"(influxLP.toString(), retentionPolicy)
 }
 
 /*****************************************************************************************************************
@@ -954,7 +962,7 @@ def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
+def postToInfluxDBv1Local(data, retentionPolicy = 'autogen') {
     try {
         def query = state.query.clone()
         query.rp = retentionPolicy
@@ -967,11 +975,11 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen') {
             null,
             [callback: handleInfluxResponseLocal]
         )
-        logger("postToInfluxDBhubAction(): Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
         sendHubCommand(hubAction)
     }
     catch (e) {
-        logger("postToInfluxDB(): Exception ${e} on ${hubAction}", 'error')
+        logger("postToInfluxDB: Exception ${e} on ${hubAction}", 'error')
     }
 }
 
@@ -980,7 +988,7 @@ def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
+def postToInfluxDBv1Remote(data, retentionPolicy = 'autogen') {
     def query = state.query.clone()
     query.rp = retentionPolicy
     def params = [ // headers: is also potential item in map - Why not required?
@@ -991,13 +999,49 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen') {
         requestContentType: 'application/json', // 'application/x-www-form-urlencoded',
         body              : data
     ]
-    logger("postToInfluxDBAsynchttp(): Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp_v1.post(handleInfluxResponseRemote, params)
+
+    def passData = []
+
+    logger("postToInfluxDBv1asynchttp: Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp.post(handleInfluxDBResponseRemote, params, passData) // dropped _v1 postfix
 }
 
-def handleInfluxResponseRemote(response, requestdata) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
-    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${requestdata}", 'error')
+    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
+}
+
+def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen') { // bucket
+    def uri = 'https//:data.rapport.net:9999'
+    def path = '/api/v2/write'
+    def query = [
+        org       : 'rapport',
+        // bucket    : bucket,
+        precision : 'ms'
+    ]
+    def headers = [
+        authorization: "Token ${state.dbToken}"
+    ]
+
+    def params = [
+        uri                : uri,
+        path               : path,
+        query              : query,
+        headers            : headers,
+        requestContentType : 'application/octet-stream',
+        contentType        : 'application/csv', // 'application/json',
+        body               : data
+    ]
+
+    def passData = []
+
+    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp.post(handleInfluxDBv2ResponseRemote, params, passData) // dropped _v1 postfix
+}
+
+def handleInfluxDBv2ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+    if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
+    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
 }
 
 /*****************************************************************************************************************

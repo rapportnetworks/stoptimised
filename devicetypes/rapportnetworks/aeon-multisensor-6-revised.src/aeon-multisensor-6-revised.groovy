@@ -30,14 +30,14 @@ metadata {
 
         // Custom Attributes
         attribute "batteryChange", "string"        // Used to log chaging of battery.
-        attribute "batteryStatus", "string"        // Indicates DC-power or battery %.
-        attribute "configure", "string"            // Reports on configuration command status. (enum: ['received', 'queued']
+        attribute "batteryStatus", "string"        // Indicates USB Cable or battery %.
+        attribute "configure", "string"            // Reports on configuration command status. (enum: ['completed', 'queued', 'received', 'syncing'])
         attribute "logMessage", "string"           // Important log messages.
         attribute "secureInclusion", "string"      // Indicates secure inclusion success/failed.
         attribute "syncPending", "number"          // Number of config items that need to be synced with the physical device.
 
         // Custom Commands
-        command "batteryChange"                    // Manually logs change of battery.
+        command "batteryChange"                    // Manually logs change of battery. (enum: ['changed'])
         command "profile"                          // Manually initiates profiling of the device (power level, command class versions)
         command "resetLog"                         // Manually clears logMessage attribute
         command "resetTamper"                      // Manually resets tamper attribute to 'clear'
@@ -60,7 +60,7 @@ metadata {
 
         // Preferences
         // configAutoResetTamperDelay -> state.autoResetTamperDelay
-        // configDeviceUse
+        // configDeviceUse -> deviceUse, event, inactiveState, activeState
         // configLogLevelIDE -> state.logLevelIDE
         // configLogLevelDevice -> state.logLevelDevice
         // configParam${id} -> state."paramTarget$it.id" -> state."paramCache${it.id}"
@@ -75,7 +75,9 @@ metadata {
         // state.syncAll
         // state.configReportBuffer ? is this needed?
         // state.updatedLastRanAt
-        // state.queued
+        // state.queued << ['sync', 'profileNow']
+        // state.timeLastBatteryReport
+        // state.commandClassVersionsBuffer
 
         fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
     }
@@ -688,6 +690,7 @@ def updated() {
  * @return cmds - sequence of zwave commands
  */
 private sync() {
+    sendEvent(name: 'configure', value: 'syncing', descriptionText: 'Device is syncing.', isStateChange: true, displayed: false)
     def cmds = []
     def syncPending = 0
 
@@ -735,6 +738,7 @@ private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
 
+    /*
     if (state.syncAll) { // TODO - is this needed? - aren't they all deleted in sync?
         logger('updateSyncPending: Deleting all cached values.', 'debug')
         state.wakeUpIntervalCache = null
@@ -744,11 +748,13 @@ private updateSyncPending() {
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
+    */
 
     if (!listening()) {
         def target = state?.wakeUpIntervalTarget
         if (target != null && target != state.wakeUpIntervalCache) syncPending++
-        if (target != configIntervals().specifiedWakeUpInterval) userConfig++ // TODO - change this
+        def specificInterval = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
+        if (target != specificInterval) userConfig++
     }
 
     parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
@@ -764,15 +770,15 @@ private updateSyncPending() {
         }
     }
 
-    if (getDataValue('serialNumber') == null) {
+    if (getDataValue('serialNumber') == null) { // TODO - change this - make it optional or if set serialNumber to 0 if there isn't one?
         syncPending++
     }
 
     logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
-    // if (syncPending == 0 && device.latestValue('syncPending') > 0) { // ??? is this needed to stop this triggering when not needed?
+    sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 
-    if (syncPending == 0) {
-        if (!listening()) state.queued = []
+    if (syncPending == 0) { // TODO - is  && device.latestValue('configure') == 'syncing') required to stop this occurring unecessarily or is it only called in response to a configuration parameter report or wakeup interval report from device?
+        state?.queued?.removeAll { it == 'sync' }
 
         def configurationType = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $configurationType", 'info')
@@ -784,14 +790,10 @@ private updateSyncPending() {
             def id = it.id.toString().padLeft(3, '0')
             configurationReport << [(id): state."paramCache${it.id}"]
         }
+
         logger('ConfigurationReport: All Configuration Values Reported.', 'info')
         updateDataValue('configurationReport', configurationReport.sort().collect { it }.join(','))
     }
-    else if (!listening()) {
-        state.queued = ['sync']
-    }
-
-    sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 }
 
 /**
@@ -799,14 +801,14 @@ private updateSyncPending() {
  * @return
  */
 private listening() {
-    // getZwaveInfo()?.zw?.startsWith('S')
     getZwaveInfo()?.zw?.startsWith('L')
+    // getZwaveInfo()?.zw?.startsWith('S') // used for testing
 }
 
 /**
  * converts unsigned integers
  * @param byteArray
- * @return
+ * @return signed integer
  */
 private byteArrayToUInt(byteArray) {
     def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
@@ -907,8 +909,17 @@ void batteryChange() {
  * @return
  */
 def profile() {
-    logger('profile: Called', 'info')
-    (listening()) ? sendCommandSequence(profileNow()) : state.queued << 'profileNow'
+    if (listening()) {
+        logger('profile: Calling profileNow.', 'info')
+        sendCommandSequence(profileNow())
+    } else {
+        logger('profile: Queuing profileNow.', 'info')
+        if (state.queued) {
+            state.queued << 'profileNow'
+        } else {
+            state.queued = ['profileNow']
+        }
+    }
 }
 
 /**
@@ -916,9 +927,11 @@ def profile() {
  * @return
  */
 private profileNow() {
-    logger('profileNow: Called', 'info')
+    logger('profileNow: Called.', 'info')
     def cmds = []
+    logger('profileNow: Requesting power level report', 'trace')
     cmds += powerlevelGet()
+    logger('profileNow: Requesting command class versions report', 'trace')
     cmds += versionCommandClassGet()
     cmds
 }
@@ -945,10 +958,19 @@ def resetTamper() {
  * @return
  */
 def syncAll() {
-    logger('syncAll: Called', 'info')
     state.syncAll = true
-    state.configReportBuffer = [:]
-    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
+    if (listening()) {
+        logger('syncAll: Calling sync.', 'info')
+        sendCommandSequence(sync())
+    } else {
+        logger('syncAll: Queuing sync.', 'info')
+        if (state.queued) {
+            state.queued << 'sync'
+        } else {
+            state.queued = ['sync']
+        }
+    }
+
 }
 
 /**
@@ -956,8 +978,17 @@ def syncAll() {
  * @return
  */
 def syncRemaining() {
-    logger('syncRemaining: Called', 'info')
-    (listening()) ? sendCommandSequence(sync()) : state.queued << 'sync'
+    if (listening()) {
+        logger('syncRemaining: Calling sync.', 'info')
+        sendCommandSequence(sync())
+    } else {
+        logger('syncRemaining: Queuing sync.', 'info')
+        if (state.queued) {
+            state.queued << 'sync'
+        } else {
+            state.queued = ['sync']
+        }
+    }
 }
 
 /***********************************************************************************************************************
@@ -1118,15 +1149,19 @@ def parse(String description) {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
             result += zwaveEvent(cmd)
+            /**
+             * trigger for listening devices to sync if any parameters remain unsynced
+             * (sleepy devices triggered via Wake Up report)
+             */
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
-                logger('parse: sync() called', 'debug')
+                logger('parse: sync called', 'debug')
                 result += response(sendCommandSequence(sync()))
             }
         } else {
             logger("parse: Could not parse.  raw message '$description'", 'error')
         }
     }
-    logger("parse: Result '$result'", 'trace')
+    // logger("parse: Result '$result'", 'trace')
     result
 }
 
@@ -1255,17 +1290,11 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     state."paramCache${cmd.parameterNumber}" = paramValue
     if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 
-    def result = []
-    if (cmd.parameterNumber == 9) {
-        if (cmd.configurationValue[0] == 0) {
-            result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
-            result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
-        }
-        else if (cmd.configurationValue[0] == 1) {
-            result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
-        }
+    if (cmd.parameterNumber == powerSourceParameter()) {
+        return powerSourceReport(cmd)
+    } else {
+        return null
     }
-    result
 }
 
 /***********************************************************************************************************************
@@ -1277,7 +1306,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
  * @return
  */
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
-    def map = [name: "battery", unit: "%"]
+    def map = [name: 'battery', unit: '%']
     if (cmd.batteryLevel == 0xFF) {
         map.value = 1
         map.descriptionText = "${device.displayName} battery is low"
@@ -1333,6 +1362,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     if (state.commandClassVersionsBuffer.size() == commandClassesQuery().size()) {
         logger('VersionCommandClassReport: All Command Class Versions Reported.', 'info')
         updateDataValue("commandClassVersions", state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(","))
+        state?.queued?.removeAll { it == 'profileNow' }
     }
 }
 
@@ -1359,35 +1389,31 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     logger('WakeUpNotification: Device woke up.', 'info')
     def cmds = []
-    if (listening()) {
-        cmds += powerlevelGet()
-        if (device.latestValue('syncPending') > 0) cmds += sync()
-        // ?? send mock battery event as a device "pulse"??
-    } else {
-        if (state.queued) {
-            def queue = state.queued as Set
-            logger("WakeUpNotification: Queue '$queue'", 'trace')
-            // queue.each { "$it"().each { qc -> cmds << qc } }
-            queue.each { cmds += "$it"() }
-            state.queued = []
+
+    if (state.queued) {
+        def queue = state.queued as Set
+        queue.each {
+            logger("WakeUpNotification: Calling $it", 'trace')
+            cmds += "$it"()
         }
-        else if (device.latestValue('syncPending') > 0) {
-            logger("WakeUpNotification: syncPending > 0", 'trace')
-            // sync().each { cmds << it }
-            cmds += sync()
-        }
+    }
+    else if (device.latestValue('syncPending') > 0) {
+        logger('WakeUpNotification: syncPending > 0, Calling sync', 'trace')
+        cmds += sync()
+    }
+
+    if (!listening()) {
         if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
             logger("WakeUpNotification: Requesting Battery report.", 'trace')
             cmds += batteryGet()
             cmds += powerlevelGet()
-        } else {
+        }
+        else {
             sendEvent(name: 'battery', value: device.latestValue('battery'), unit: '%', isStateChange: true, displayed: false)
         }
     }
-    logger("WakeUpNotification: Returning '$cmds'", 'debug')
-    def report = response(sendCommandSequence(cmds))
-    logger("WakeUpNotification: Result '$report'", 'info')
-    report
+
+    response(sendCommandSequence(cmds))
 }
 
 /***********************************************************************************************************************
@@ -1403,7 +1429,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
     logger("PowerlevelReport: $powerLevel dBm", 'info')
     updateDataValue('powerLevel', "$powerLevel")
-    // ??? could create event - so that have a "pulse" for listening devices
+    state?.queued?.removeAll { it == 'profileNow' } // TODO - need to create a separate method for powerLevel and CommandClassVersions - so that can be removed separately from state.queued
 }
 
 /***********************************************************************************************************************
@@ -1490,6 +1516,18 @@ private sensorValueEvent(Short value) {
     if (value == 0xFF) {eventValue = "wet"}
     def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
     return result
+}
+
+private powerSourceReport(cmd) {
+    def result = []
+    if (cmd.configurationValue[0] == 0) {
+        result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
+        result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
+    }
+    else if (cmd.configurationValue[0] == 1) {
+        result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
+    }
+    result
 }
 
 /***********************************************************************************************************************
@@ -1623,6 +1661,12 @@ private parametersSpecifiedValues() { [
  * @return list of device parameters
  */
 private configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
+
+/**
+ * powerSourceParameter - device parameter number that relates to devices power source (if alternatives)
+ * @return parameter number (0 if not applicable)
+ */
+private powerSourceParameter() { 9 }
 
 /**
  * parametersMetadata - complete map of all device configuration parameters

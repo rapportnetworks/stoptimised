@@ -473,7 +473,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
-    "postToInfluxDBv${state.dbVersion}${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
+    "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
 }
 
 /*****************************************************************************************************************
@@ -961,7 +961,7 @@ def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-def postToInfluxDBv1Local(data, retentionPolicy = 'autogen', bucket) {
+def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
     try {
         def headers = [
             HOST                   : state.uri,
@@ -969,16 +969,9 @@ def postToInfluxDBv1Local(data, retentionPolicy = 'autogen', bucket) {
             'Content-Type'         : 'application/json'
         ]
 
-        def query = [
-            db        : state.dbName,
-            u         : state.dbUsername,
-            p         : state.dbPassword,
-            precision : 'ms',
-            rp        : retentionPolicy
-        ]
+        def query = [precision : 'ms']
 
         def params = [
-            path     : '/write',
             method   : 'POST',
             protocol : 'Protocol.LAN',
             headers  : headers,
@@ -986,135 +979,95 @@ def postToInfluxDBv1Local(data, retentionPolicy = 'autogen', bucket) {
             body     : data
         ]
 
-        def dni = null // device network Id - recommended to use MAC address - but not needed
+        switch(state.dbVersion) {
+            case 1:
+                query << [
+                    db : state.dbName,
+                    u  : state.dbUsername,
+                    p  : state.dbPassword,
+                    rp : retentionPolicy
+                ]
 
-        def options = [
-            callback : 'handleInfluxDBv1ResponseLocal'
-            // type : 'LAN_TYPE_CLIENT', // (default)
-            // protocol : 'LAN_PROTOCOL_TCP' // (default)
-        ]
+                params << [path : '/write']
+                break
 
-        def hubAction = new physicalgraph.device.HubAction(params, dni, options)
-        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
-        sendHubCommand(hubAction)
-    }
-    catch (e) {
-        logger("postToInfluxDB: Exception ${e} on ${hubAction}", 'error')
-    }
-}
+            default:
+                headers << [ authorization : "Token ${state.dbToken}"]
 
-def handleInfluxDBv1ResponseLocal(physicalgraph.device.HubResponse hubResponse) {
-    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
-    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
-}
+                query << [
+                    org    : state.dbOrganisation,
+                    bucket : bucket
+                ]
 
-def postToInfluxDBv2Local(data, retentionPolicy = 'autogen', bucket) {
-    try {
-        def headers = [
-                HOST                   : state.uri,
-                authorization          : "Token ${state.dbToken}",
-                'Request-Content-Type' : 'application/octet-stream',
-                'Content-Type'         : 'application/json'
-        ]
-
-        def query = [
-                org       : state.dbOrganisation,
-                bucket    : bucket,
-                precision : 'ms'
-        ]
-
-        def params = [
-                path     : '/api/v2/write',
-                method   : 'POST',
-                protocol : 'Protocol.LAN',
-                headers  : headers,
-                query    : query,
-                body     : data
-        ]
+                params << [path : '/api/v2/write']
+                break
+        }
 
         def dni = null // device network Id - recommended to use MAC address - but not needed
 
         def options = [
-                callback : 'handleInfluxDBv1ResponseLocal'
+                callback : 'handleInfluxDBResponseLocal'
                 // type : 'LAN_TYPE_CLIENT', // (default)
                 // protocol : 'LAN_PROTOCOL_TCP' // (default)
         ]
 
         def hubAction = new physicalgraph.device.HubAction(params, dni, options)
-        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
+        logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
         sendHubCommand(hubAction)
     }
     catch (e) {
-        logger("postToInfluxDB: Exception ${e} on ${hubAction}", 'error')
+        logger("postToInfluxDBhubAction: Exception ${e} on ${hubAction}", 'error')
     }
 }
 
-def handleInfluxDBv2ResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def postToInfluxDBv1Remote(data, retentionPolicy = 'autogen', bucket) {
+def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket) {
 
-    def query = [
-        db        : state.dbName,
-        u         : state.dbUsername,
-        p         : state.dbPassword,
-        precision : 'ms',
-        rp        : retentionPolicy
-    ]
+    def query = [precision : 'ms']
 
     def params = [
         uri                : state.uri,
-        path               : '/write',
         query              : query,
-        // headers         : - not required as no additional items
         requestContentType : 'application/octet-stream',
         contentType        : 'application/json',
         body               : data
     ]
 
-    // def passdata = [:] - optional map to pass to response handler
+    switch(state.dbVersion) {
+        case 1:
+            query << [
+                    db : state.dbName,
+                    u  : state.dbUsername,
+                    p  : state.dbPassword,
+                    rp : retentionPolicy
+            ]
 
-    logger("postToInfluxDBv1asynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp.post(handleInfluxDBv1ResponseRemote, params) // dropped _v1 postfix
-}
+            params << [path : '/write']
+            break
 
-def handleInfluxDBv1ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
-    if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
-    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
-}
+        default:
+            params << [headers : [authorization : "Token ${state.dbToken}"]]
 
+            query << [
+                    org    : state.dbOrganisation,
+                    bucket : bucket
+            ]
 
-def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen', bucket) { // bucket TODO
-
-    def headers = [
-        authorization : "Token ${state.dbToken}"
-    ]
-
-    def query = [
-        org       : state.dbOrganisation,
-        bucket    : bucket,
-        precision : 'ms'
-    ]
-
-    def params = [
-        uri                : state.uri,
-        path               : '/api/v2/write',
-        query              : query,
-        headers            : headers,
-        requestContentType : 'application/octet-stream',
-        contentType        : 'application/json',
-        body               : data
-    ]
+            params << [path : '/api/v2/write']
+            break
+    }
 
     // def passdata = [:] - optional map to pass to response handler
 
-    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp.post(handleInfluxDBv2ResponseRemote, params)
+    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp.post(handleInfluxDBResponseRemote, params) // dropped _v1 postfix
 }
 
-def handleInfluxDBv2ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
 }

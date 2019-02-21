@@ -49,27 +49,29 @@ preferences {
 
 def mainPage() {
     dynamicPage(name: 'mainPage', uninstall: true, install: true) {
-        section('General:') {
+        section('General') {
             input(name: 'configLoggingLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace'], defaultValue: '3', displayDuringSetup: true, required: false)
         }
-        section('InfluxDB Database:') {
-            input(name: 'prefDatabaseRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: true)
+        section('Influx Database') {
+            input(name: 'prefDbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: true)
 
-            input(name: 'prefDatabaseSecure', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: true)
+            input(name: 'prefDbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: true)
 
-            input(name: 'prefDatabaseHost', type: 'text', title: 'Host', defaultValue: 'data.sunnd.com', required: true)
+            input(name: 'prefDbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: true)
 
-            input(name: 'prefDatabasePort', type: 'text', title: 'Port', defaultValue: '443', required: true)
+            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', required: true)
 
-            input(name: 'prefDatabaseName', type: 'text', title: 'Database Name', defaultValue: '*', required: true)
+            input(name: 'prefDbPort', type: 'text', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'prefDatabaseUser', type: 'text', title: 'Username', defaultValue: '*', required: false)
+            input(name: 'prefDbName', type: 'text', title: 'Database Name', defaultValue: '*', required: false)
 
-            input(name: 'prefDatabasePass', type: 'text', title: 'Password', defaultValue: '*', required: false)
+            input(name: 'prefDbUsername', type: 'text', title: 'Username', defaultValue: '*', required: false)
 
-            input(name: 'prefDatabaseVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 1, required: false)
+            input(name: 'prefDbPassword', type: 'text', title: 'Password', defaultValue: '*', required: false)
 
-            input(name: 'prefDatabaseToken', type: 'text', title: 'Database Authorisation Token', defaultValue: '*', required: false)
+            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation', defaultValue: '*', required: false)
+
+            input(name: 'prefDbToken', type: 'text', title: 'Database Authorisation Token', defaultValue: '*', required: false)
         }
 
         if (state.devicesConfigured) {
@@ -165,15 +167,14 @@ def updated() { // runs when app settings are changed
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
     logger('updated: Setting database parameters', 'trace')
-    state.dbLocation = (settings.prefDatabaseRemote) ? 'Remote' : 'Local'
-    state.headers = [HOST: "${settings.prefDatabaseHost}:${settings.prefDatabasePort}", 'Content-Type': 'application/octet-stream', 'Request-Content-Type': 'application/json'] // 'application/x-www-form-urlencoded']
-    state.uri = "http${(settings.prefDatabaseSecure) ? 's' : ''}://${settings.prefDatabaseHost}:${settings.prefDatabasePort}"
-    state.query = [db: "${settings.prefDatabaseName}", u: "${settings.prefDatabaseUser}", p: "${settings.prefDatabasePass}", precision: 'ms', rp: 'autogen']
-    state.path = '/write'
-
-    state.dbVersion = settings.prefDatabaseVersion
-
-    state.dbToken = settings.prefDatabaseToken
+    state?.dbVersion = settings.prefDbVersion
+    state?.dbLocation = (settings.prefDbRemote) ? 'Remote' : 'Local'
+    state?.uri = "http${(settings.prefDbSSL) ? 's' : ''}://${settings.prefDbHost}:${settings.prefDbPort}"
+    state?.dbName = settings.prefDbName
+    state?.dbUsername = settings.prefDbUsername
+    state?.dbPasword = settings.prefDbPassword
+    state?.dbOrganisation = settings.prefDbOrganisation
+    state?.dbToken = settings.prefDbToken
 
     logger('updated: Building state map of group Ids and group names', 'debug')
     state.houseType = 'House'
@@ -227,36 +228,31 @@ def handleAppTouch(evt) { // Touch event on Smart App TODO ? Configure so that t
 def handleEnumEvent(evt) {
     def measurementType = 'enum'
     def measurementName = 'states'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 def handleNumberEvent(evt) {
     def measurementType = 'number'
     def measurementName = 'values'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 def handleVector3Event(evt) {
     def measurementType = 'vector3'
     def measurementName = 'threeaxes'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 def handleStringEvent(evt) {
     def measurementType = 'string'
     def measurementName = 'statuses' // TODO - Alternative name - a bit confusing
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 def handleColorMapEvent(evt) {
     def measurementType = 'colorMap'
     def measurementName = 'values'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 // def handleJsonObjectEvent() { } // TODO
@@ -264,15 +260,13 @@ def handleColorMapEvent(evt) {
 def handleDaylight(evt) {
     def measurementType = 'day'
     def measurementName = 'daylight'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 def handleHubStatus(evt) {
     def measurementType = 'hub'
     def measurementName = 'hubEvents'
-    def retentionPolicy = 'autogen'
-    influxLineProtocol(evt, measurementName, measurementType, retentionPolicy)
+    influxLineProtocol(evt, measurementName, measurementType)
 }
 
 /*****************************************************************************************************************
@@ -287,20 +281,20 @@ def pollStatusHubs() {
     logger('pollStatusHubs: running now', 'trace')
     def measurementType = 'statHub'
     def measurementName = 'statusHubs'
-    def retentionPolicy = 'autogen'
-    def items = ['placeholder']
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    def bucket          = 'statuses'
+    def items           = ['placeholder']
+    influxLineProtocol(items, measurementName, measurementType, bucket)
 }
 
 def pollStatusDevices() {
     logger('pollStatusDevices: running now', 'trace')
     def measurementType = 'statDev'
     def measurementName = 'statusDevices'
-    def retentionPolicy = 'autogen'
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    def bucket          = 'statuses'
+    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+    // influxLineProtocol(items, measurementName, measurementType, bucket)
     items.each {
-        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+        influxLineProtocol(it, measurementName, measurementType, bucket)
     }
 }
 
@@ -312,8 +306,9 @@ def pollLocations() {
     def measurementType = 'local'
     def measurementName = 'locations'
     def retentionPolicy = 'metadata'
-    def items = ['placeholder'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
-    influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    def bucket          = 'metadata'
+    def items           = ['placeholder'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
+    influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
 }
 
 def pollDevices() {
@@ -321,10 +316,11 @@ def pollDevices() {
     def measurementType = 'device'
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+    def bucket          = 'metadata'
+    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
     // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
     items.each {
-        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
     }
 }
 
@@ -333,13 +329,14 @@ def pollAttributes() {
     def measurementType = 'attribute'
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
+    def bucket          = 'metadata'
     getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
         def items = getDeviceAllowedAttrs(dev) as List
         def superItem = dev
-        // if (items) influxLineProtocol(items, measurementName, measurementType, retentionPolicy, superItem)
+        // if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy, superItem)
         if (items) {
             items.each {
-                influxLineProtocol(["${it}"], measurementName, measurementType, retentionPolicy, superItem)
+                influxLineProtocol(["${it}"], measurementName, measurementType, bucket, retentionPolicy, superItem)
             }
         }
     }
@@ -350,10 +347,11 @@ def pollZwavesCcs() {
     def measurementType = 'zwCcs'
     def measurementName = 'zwaveCcs'
     def retentionPolicy = 'metadata'
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    def bucket          = 'configs'
+    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
     items.each {
-        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
     }
 }
 
@@ -362,17 +360,18 @@ def pollZwavesCfg() {
     def measurementType = 'zwCfg'
     def measurementName = 'zwaveCfg'
     def retentionPolicy = 'metadata'
-    def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+    def bucket          = 'configs'
+    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+    // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
     items.each {
-        influxLineProtocol(it, measurementName, measurementType, retentionPolicy)
+        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
     }
 }
 
 /*****************************************************************************************************************
  *  InfluxDB Line Protocol:
  *****************************************************************************************************************/
-def influxLineProtocol(items, measurementName, measurementType, retentionPolicy = 'autogen', superItem = false) {
+def influxLineProtocol(items, measurementName, measurementType, bucket = 'events', retentionPolicy = 'autogen', superItem = false) {
     def influxLP = new StringBuilder()
     items.each { item ->
         influxLP.append(measurementName)
@@ -474,7 +473,7 @@ def influxLineProtocol(items, measurementName, measurementType, retentionPolicy 
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
-    "postToInfluxDBv${state.dbVersion}${state.dbLocation}"(influxLP.toString(), retentionPolicy)
+    "postToInfluxDBv${state.dbVersion}${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
 }
 
 /*****************************************************************************************************************
@@ -962,20 +961,41 @@ def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-def postToInfluxDBv1Local(data, retentionPolicy = 'autogen') {
+def postToInfluxDBv1Local(data, retentionPolicy = 'autogen', bucket) {
     try {
-        def query = state.query.clone()
-        query.rp = retentionPolicy
-        def hubAction = new physicalgraph.device.HubAction([
-            method : 'POST',
-            headers: state.headers,
-            path   : state.path,
-            query  : query,
-            body   : data],
-            null,
-            [callback: handleInfluxResponseLocal]
-        )
-        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Headers: ${state.headers}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
+        def headers = [
+            HOST                   : state.uri,
+            'Request-Content-Type' : 'application/octet-stream',
+            'Content-Type'         : 'application/json'
+        ]
+
+        def query = [
+            db        : state.dbName,
+            u         : state.dbUsername,
+            p         : state.dbPassword,
+            precision : 'ms',
+            rp        : retentionPolicy
+        ]
+
+        def params = [
+            path     : '/write',
+            method   : 'POST',
+            protocol : 'Protocol.LAN',
+            headers  : headers,
+            query    : query,
+            body     : data
+        ]
+
+        def dni = null // device network Id - recommended to use MAC address - but not needed
+
+        def options = [
+            callback : 'handleInfluxDBv1ResponseLocal'
+            // type : 'LAN_TYPE_CLIENT', // (default)
+            // protocol : 'LAN_PROTOCOL_TCP' // (default)
+        ]
+
+        def hubAction = new physicalgraph.device.HubAction(params, dni, options)
+        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
         sendHubCommand(hubAction)
     }
     catch (e) {
@@ -983,65 +1003,115 @@ def postToInfluxDBv1Local(data, retentionPolicy = 'autogen') {
     }
 }
 
-def handleInfluxResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+def handleInfluxDBv1ResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def postToInfluxDBv1Remote(data, retentionPolicy = 'autogen') {
-    def query = state.query.clone()
-    query.rp = retentionPolicy
-    def params = [ // headers: is also potential item in map - Why not required?
-        uri               : state.uri,
-        path              : state.path,
-        query             : query,
-        contentType       : 'application/octet-stream', // 'application/x-www-form-urlencoded',
-        requestContentType: 'application/json', // 'application/x-www-form-urlencoded',
-        body              : data
-    ]
+def postToInfluxDBv2Local(data, retentionPolicy = 'autogen', bucket) {
+    try {
+        def headers = [
+                HOST                   : state.uri,
+                authorization          : "Token ${state.dbToken}",
+                'Request-Content-Type' : 'application/octet-stream',
+                'Content-Type'         : 'application/json'
+        ]
 
-    def passData = [
-        test: 'test'
-    ]
+        def query = [
+                org       : state.dbOrganisation,
+                bucket    : bucket,
+                precision : 'ms'
+        ]
 
-    logger("postToInfluxDBv1asynchttp: Posting data to InfluxDB: Uri: ${state.uri}, Path: ${state.path}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp.post(handleInfluxDBResponseRemote, params, passData) // dropped _v1 postfix
+        def params = [
+                path     : '/api/v2/write',
+                method   : 'POST',
+                protocol : 'Protocol.LAN',
+                headers  : headers,
+                query    : query,
+                body     : data
+        ]
+
+        def dni = null // device network Id - recommended to use MAC address - but not needed
+
+        def options = [
+                callback : 'handleInfluxDBv1ResponseLocal'
+                // type : 'LAN_TYPE_CLIENT', // (default)
+                // protocol : 'LAN_PROTOCOL_TCP' // (default)
+        ]
+
+        def hubAction = new physicalgraph.device.HubAction(params, dni, options)
+        logger("postToInfluxDBv1hubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
+        sendHubCommand(hubAction)
+    }
+    catch (e) {
+        logger("postToInfluxDB: Exception ${e} on ${hubAction}", 'error')
+    }
 }
 
-def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+def handleInfluxDBv2ResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
+    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
+}
+
+def postToInfluxDBv1Remote(data, retentionPolicy = 'autogen', bucket) {
+
+    def query = [
+        db        : state.dbName,
+        u         : state.dbUsername,
+        p         : state.dbPassword,
+        precision : 'ms',
+        rp        : retentionPolicy
+    ]
+
+    def params = [
+        uri                : state.uri,
+        path               : '/write',
+        query              : query,
+        // headers         : - not required as no additional items
+        requestContentType : 'application/octet-stream',
+        contentType        : 'application/json',
+        body               : data
+    ]
+
+    // def passdata = [:] - optional map to pass to response handler
+
+    logger("postToInfluxDBv1asynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp.post(handleInfluxDBv1ResponseRemote, params) // dropped _v1 postfix
+}
+
+def handleInfluxDBv1ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
 }
 
-def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen') { // bucket
-    def uri = 'http://data.rapport.net:9999'
-    def path = '/api/v2/write'
-    def bucket = 'r'
-    def query = [
-        org       : 'rapport',
-        bucket    : bucket,
-        precision : 'ms'
-    ]
+
+def postToInfluxDBv2Remote(data, retentionPolicy = 'autogen', bucket) { // bucket TODO
+
     def headers = [
         authorization : "Token ${state.dbToken}"
     ]
 
+    def query = [
+        org       : state.dbOrganisation,
+        bucket    : bucket,
+        precision : 'ms'
+    ]
+
     def params = [
-        uri                : uri,
-        path               : path,
+        uri                : state.uri,
+        path               : '/api/v2/write',
         query              : query,
         headers            : headers,
-        requestContentType : 'application/json',
-        contentType        : 'application/octet-stream',
+        requestContentType : 'application/octet-stream',
+        contentType        : 'application/json',
         body               : data
     ]
 
-    def passData = [
-        test: 'test'
-    ]
+    // def passdata = [:] - optional map to pass to response handler
 
-    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Uri: ${uri}, Path: ${path}, Query: ${query}, Headers: ${headers}, Data: ${data}", 'info')
-    asynchttp_v1.post(handleInfluxDBv2ResponseRemote, params) // dropped _v1 postfix // , passData)
+    logger("postToInfluxDBv2asynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
+    asynchttp.post(handleInfluxDBv2ResponseRemote, params)
 }
 
 def handleInfluxDBv2ResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?

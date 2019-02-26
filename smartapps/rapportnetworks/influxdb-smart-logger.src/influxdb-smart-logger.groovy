@@ -54,13 +54,8 @@ def mainPage() {
 
             input(name: 'configLoggingLevelDB', title: "Data Logging Level:\nSelect amount of tags and fields to be logged.", type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
 
-            input(
-                    name: 'paraLoggingDB',
-                    title: 'Select Measurements to Log.',
-                    description: 'Tap each item to set.',
-                    type: 'paragraph',
-                    element: 'paragraph'
-            )
+            input(name: 'paraLoggingDB', title: 'Measurements to Log:', type: 'paragraph', description: '', element: 'paragraph', required: false)
+
             input(
                     name: 'configLoggingEvents',
                     title: 'Events',
@@ -96,25 +91,25 @@ def mainPage() {
 
         }
         section('Influx Database') {
-            input(name: 'prefDbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: true)
+            input(name: 'prefDbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: false)
 
-            input(name: 'prefDbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: true)
+            input(name: 'prefDbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: false)
 
-            input(name: 'prefDbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: true)
+            input(name: 'prefDbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: false)
 
-            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', required: true)
+            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', required: true)
 
-            input(name: 'prefDbPort', type: 'text', title: 'Port', defaultValue: '443', required: false)
+            input(name: 'prefDbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'prefDbName', type: 'text', title: 'Database Name', defaultValue: '*', required: false)
+            input(name: 'prefDbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', required: false)
 
-            input(name: 'prefDbUsername', type: 'text', title: 'Username', defaultValue: '*', required: false)
+            input(name: 'prefDbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', required: false)
 
-            input(name: 'prefDbPassword', type: 'text', title: 'Password', defaultValue: '*', required: false)
+            input(name: 'prefDbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
 
-            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation', defaultValue: '*', required: false)
+            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', required: false)
 
-            input(name: 'prefDbToken', type: 'text', title: 'Database Authorisation Token', defaultValue: '*', required: false)
+            input(name: 'prefDbToken', type: 'password', title: 'Database Authorisation Token (v2)', defaultValue: '*', required: false)
         }
 
         if (state.devicesConfigured) {
@@ -210,10 +205,21 @@ def updated() { // runs when app settings are changed
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
     state.logLevelDB = (settings.configLoggingLevelDB) ? settings.configLoggingLevelDB.toInteger() : 1
-    state.logEvents = settings.configLoggingEvents ?: false
-    state.logMetadata = settings.configLoggingMetadata ?: false
-    state.logStatuses = settings.configLoggingStatuses ?: false
-    state.logConfigs = settings.configLoggingConfigs ?: false
+
+    if (!settings.configLoggingEvents && !settings.configLoggingMetadata && !settings.configLoggingStatuses && !settings.configLoggingConfigs) {
+        state.logDB = false
+        state.logEvents = true
+        state.logMetadata = true
+        state.logStatues = true
+        state.logConfigs = true
+    }
+    else {
+        state.logDB = true
+        state.logEvents = settings.configLoggingEvents ?: false
+        state.logMetadata = settings.configLoggingMetadata ?: false
+        state.logStatuses = settings.configLoggingStatuses ?: false
+        state.logConfigs = settings.configLoggingConfigs ?: false
+    }
 
     logger('updated: Setting database parameters', 'trace')
     state?.dbVersion = settings.prefDbVersion
@@ -462,8 +468,12 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                 def tagValue
                 switch (tag.args) {
                     case 0:
-                        try { tagValue = "$tag.clos"() }
-                        catch (e) { logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.clos}", 'error') }
+                        try {
+                            tagValue = "$tag.clos"()
+                        }
+                        catch (e) {
+                            logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.clos}", 'error')
+                        }
                         break
                     case 1:
                         try {
@@ -473,11 +483,17 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                                 tagValue = "$tag.clos"(item)
                             }
                         }
-                        catch (e) { logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.clos}", 'error') }
+                        catch (e) {
+                            logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.clos}", 'error')
+                        }
                         break
                     case 2:
-                        try { tagValue = "$tag.clos"(superItem, item) }
-                        catch (e) { logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.clos}", 'error') }
+                        try {
+                            tagValue = "$tag.clos"(superItem, item)
+                        }
+                        catch (e) {
+                            logger("influxLP: Error with tag closure 2 (${measurementType}): ${tag.clos}", 'error')
+                        }
                         break
                 }
                 if (tagValue) {
@@ -555,7 +571,12 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
-    "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
+    if (state.logDB) {
+        "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
+    }
+    else {
+        logger("influxLineProtocol: ${influxLP.toString()}", 'debug')
+    }
 }
 
 /*****************************************************************************************************************
@@ -1145,7 +1166,7 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket) {
     // def passdata = [:] - optional map to pass to response handler
 
     logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp.post(handleInfluxDBResponseRemote, params) // dropped _v1 postfix
+    asynchttp_v1.post(handleInfluxDBResponseRemote, params)
 }
 
 def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?

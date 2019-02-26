@@ -245,7 +245,7 @@ def handleVector3Event(evt) {
 
 def handleStringEvent(evt) {
     def measurementType = 'string'
-    def measurementName = 'statuses' // TODO - Alternative name - a bit confusing
+    def measurementName = 'statuses'
     influxLineProtocol(evt, measurementName, measurementType)
 }
 
@@ -255,7 +255,7 @@ def handleColorMapEvent(evt) {
     influxLineProtocol(evt, measurementName, measurementType)
 }
 
-// def handleJsonObjectEvent() { } // TODO
+// def handleJsonObjectEvent() { } // TODO - if needed?
 
 def handleDaylight(evt) {
     def measurementType = 'day'
@@ -265,7 +265,7 @@ def handleDaylight(evt) {
 
 def handleHubStatus(evt) {
     def measurementType = 'hub'
-    def measurementName = 'hubEvents'
+    def measurementName = 'hub'
     influxLineProtocol(evt, measurementName, measurementType)
 }
 
@@ -280,7 +280,7 @@ def pollStatus() {
 def pollStatusHubs() {
     logger('pollStatusHubs: running now', 'trace')
     def measurementType = 'statHub'
-    def measurementName = 'statusHubs'
+    def measurementName = 'hubS'
     def bucket          = 'statuses'
     def items           = ['placeholder']
     influxLineProtocol(items, measurementName, measurementType, bucket)
@@ -289,7 +289,7 @@ def pollStatusHubs() {
 def pollStatusDevices() {
     logger('pollStatusDevices: running now', 'trace')
     def measurementType = 'statDev'
-    def measurementName = 'statusDevices'
+    def measurementName = 'deviceS'
     def bucket          = 'statuses'
     def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
     // influxLineProtocol(items, measurementName, measurementType, bucket)
@@ -345,7 +345,7 @@ def pollAttributes() {
 def pollZwavesCcs() {
     logger('pollZwavesCcs: running now', 'trace')
     def measurementType = 'zwCcs'
-    def measurementName = 'zwaveCcs'
+    def measurementName = 'zwaveCCs'
     def retentionPolicy = 'metadata'
     def bucket          = 'configs'
     def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
@@ -358,7 +358,7 @@ def pollZwavesCcs() {
 def pollZwavesCfg() {
     logger('pollZwavesCfg: running now', 'trace')
     def measurementType = 'zwCfg'
-    def measurementName = 'zwaveCfg'
+    def measurementName = 'zwave'
     def retentionPolicy = 'metadata'
     def bucket          = 'configs'
     def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }

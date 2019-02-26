@@ -400,7 +400,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                 }
                 if (tagValue) {
                     influxLP.append(",${tag.name}=")
-                    if (tag.esc) {
+                    if (tag?.esc) {
                         influxLP.append("${tagValue.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
                     } else {
                         influxLP.append(tagValue)
@@ -480,36 +480,35 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
  *  Tags Map:
  *****************************************************************************************************************/
 def tags() { [
-    [name: 'area',        level: 1, clos: 'locationName',              args: 0, esc: true,  type: ['all']],
-    [name: 'areaId',      level: 2, clos: 'locationId',                args: 1, esc: false, type: ['all']],
-    [name: 'building',    level: 1, clos: 'hubName',                   args: 0, esc: true,  type: ['all']],
-    [name: 'buildingId',  level: 2, clos: 'hubId',                     args: 1, esc: false, type: ['all']],
-    [name: 'chamber',     level: 1, clos: 'groupName',                 args: 1, esc: true,  type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'chamberId',   level: 2, clos: 'groupId',                   args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'deviceCode',  level: 2, clos: 'deviceCode',                args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'deviceHand',  level: 1, clos: 'deviceHandlerName',         args: 1, esc: true,  type: ['attribute', 'device', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'deviceId',    level: 2, clos: 'deviceId',                  args: 1, esc: false, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'deviceLabel', level: 1, clos: 'deviceLabel',               args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'deviceType',  level: 1, clos: 'deviceType',                args: 1, esc: false, type: ['device','statDev']],
-    [name: 'event',       level: 1, clos: 'eventName',                 args: 1, esc: false, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-    [name: 'eventType',   level: 1, clos: 'eventType',                 args: 1, esc: false, type: ['attribute']],
-    [name: 'hubType',     level: 1, clos: 'hubType',                   args: 0, esc: false, type: ['local', 'statHub']],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalEvent',     args: 1, esc: true,  type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalHub',       args: 1, esc: true,  type: ['local', 'statHub']],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalDevice',    args: 1, esc: true,  type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalAttribute', args: 2, esc: true,  type: ['attribute']],
-    [name: 'identLocal',  level: 1, clos: 'identifierLocal',           args: 1, esc: true,  type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], super: true],
-    [name: 'listening',   level: 1, clos: 'zwaveListening',            args: 1, esc: false, type: ['zwCcs', 'zwCfg']],
-    [name: 'power',       level: 1, clos: 'powerSource',               args: 1, esc: false, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
-    [name: 'source',      level: 2, clos: 'source',                    args: 1, esc: false, type: ['enum', 'number', 'vector3']],
-    [name: 'status',      level: 1, clos: 'statusDevice',              args: 1, esc: true,  type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true],
-    [name: 'status',      level: 1, clos: 'statusHub',                 args: 0, esc: true,  type: ['local', 'statHub']],
-    [name: 'tempScale',   level: 2, clos: 'tempScale',                 args: 0, esc: false, type: ['local']],
-    [name: 'timeZone',    level: 2, clos: 'timeZoneName',              args: 0, esc: false, type: ['local']],
-    [name: 'unit',        level: 1, clos: 'unit',                      args: 1, esc: false, type: ['number', 'vector3']],
-    // [name: 'isChange',    level: 0, clos: 'isChange',                  args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-    // [name: 'isDigital',   level: 0, clos: 'isDigital',                 args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
-    // [name: 'isPhysical',  level: 2, clos: 'isPhysical',                args: 1, esc: false, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
+    [name: 'area',        level: 1, clos: 'locationName',              args: 0, type: ['all'], esc: true],
+    [name: 'areaId',      level: 2, clos: 'locationId',                args: 1, type: ['all'], super: true],
+    [name: 'building',    level: 1, clos: 'hubName',                   args: 0, type: ['all'], esc: true],
+    [name: 'buildingId',  level: 2, clos: 'hubId',                     args: 1, type: ['all'], super: true],
+    [name: 'chamber',     level: 1, clos: 'groupName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true, esc: true],
+    [name: 'chamberId',   level: 2, clos: 'groupId',                   args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+    [name: 'deviceCode',  level: 2, clos: 'deviceCode',                args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true, esc: true],
+    [name: 'deviceHand',  level: 1, clos: 'deviceHandlerName',         args: 1, type: ['attribute', 'device', 'zwCcs', 'zwCfg'], super: true, esc: true],
+    [name: 'deviceId',    level: 2, clos: 'deviceId',                  args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true],
+    [name: 'deviceLabel', level: 1, clos: 'deviceLabel',               args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwCcs', 'zwCfg'], super: true, esc: true],
+    [name: 'deviceType',  level: 1, clos: 'deviceType',                args: 1, type: ['device','statDev']],
+    [name: 'event',       level: 1, clos: 'eventName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
+    [name: 'eventType',   level: 1, clos: 'eventType',                 args: 1, type: ['attribute']],
+    [name: 'hubType',     level: 1, clos: 'hubType',                   args: 0, type: ['local', 'statHub']],
+    [name: 'identGlobal', level: 1, clos: 'identifierGlobalEvent',     args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'], esc: true],
+    [name: 'identGlobal', level: 1, clos: 'identifierGlobalHub',       args: 1, type: ['local', 'statHub'], esc: true],
+    [name: 'identGlobal', level: 1, clos: 'identifierGlobalDevice',    args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg'], esc: true],
+    [name: 'identGlobal', level: 1, clos: 'identifierGlobalAttribute', args: 2, type: ['attribute'], esc: true],
+    [name: 'identLocal',  level: 1, clos: 'identifierLocal',           args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], super: true, esc: true],
+    [name: 'listening',   level: 1, clos: 'zwaveListening',            args: 1, type: ['zwCcs', 'zwCfg']],
+    [name: 'power',       level: 1, clos: 'powerSource',               args: 1, type: ['device', 'statDev', 'zwCcs', 'zwCfg']],
+    [name: 'source',      level: 2, clos: 'source',                    args: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
+    [name: 'status',      level: 1, clos: 'statusDevice',              args: 1, type: ['attribute', 'device', 'statDev', 'zwCcs', 'zwCfg'], super: true, esc: true],
+    [name: 'status',      level: 1, clos: 'statusHub',                 args: 0, type: ['local', 'statHub'], esc: true],
+    [name: 'tempScale',   level: 2, clos: 'tempScale',                 args: 0, type: ['local']],
+    [name: 'timeZone',    level: 2, clos: 'timeZoneName',              args: 0, type: ['local']],
+    [name: 'unit',        level: 1, clos: 'unit',                      args: 1, type: ['number', 'vector3']],
+    // [name: 'isDigital',   level: 0, clos: 'isDigital',                 args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
+    // [name: 'isPhysical',  level: 2, clos: 'isPhysical',                args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']], // unused?
 ] }
 
 /*****************************************************************************************************************
@@ -556,6 +555,8 @@ def getDeviceCode() { return {
     }
 } }
 
+def getDeviceHandlerName() { return { it?.typeName } }
+
 def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
 def getDeviceLabel() { return {
@@ -572,7 +573,15 @@ def getDeviceLabel() { return {
     }
 } }
 
-def getDeviceHandlerName() { return { it?.typeName } }
+def getDeviceType() { return {
+    if (zwInfo(it)) {
+        'zwave'
+    } else if (it?.device?.zigbeeId) {
+        'zigbee'
+    } else {
+        'lan'
+    }
+} }
 
 /*****************************************************************************************************************
  *  Tags Event Details:
@@ -610,16 +619,6 @@ def getUnit() { return {
 /*****************************************************************************************************************
  *  Tags Metadata:
  *****************************************************************************************************************/
-def getDeviceType() { return {
-    if (zwInfo(it)) {
-        'zwave'
-    } else if (it?.device?.zigbeeId) {
-        'zigbee'
-    } else {
-        'lan'
-    }
-} }
-
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
 def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.houseType} . Hub" } }
@@ -639,9 +638,9 @@ def getZwaveListening() { return {
     }
 } }
 
-def getPowerSource() { return { it?.latestValue('powerSource') ?: 'unknown' } }
-
 def getZwInfo() { return { it?.getZwaveInfo() } }
+
+def getPowerSource() { return { it?.latestValue('powerSource') ?: 'unknown' } }
 
 def getTempScale() { return { -> location.temperatureScale } }
 
@@ -658,7 +657,7 @@ def getStatusHub() { return { -> "${hub().status}".toLowerCase() } }
  *  Fields Map:
  *****************************************************************************************************************/
 def fields() { [
-    [name: '',           level: 3, clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
+    [name: '',           level: 2, clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwCfg']],
     [name: 'battery',    level: 1, clos: 'battery',                  var: 'integer',  args: 1, type: ['device', 'statDev']],
     [name: 'checkInt',   level: 1, clos: 'checkInterval',            var: 'integer',  args: 1, type: ['statDev','zwCfg']],
     [name: 'configType', level: 1, clos: 'deviceConfigurationType',  var: 'string',   args: 1, type: ['zwCfg']],
@@ -666,23 +665,23 @@ def fields() { [
     [name: 'deviceUse',  level: 1, clos: 'deviceUse',                var: 'string',   args: 1, type: ['zwCfg']],
     [name: 'eventText',  level: 3, clos: 'eventDescription',         var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
     [name: 'eventId',    level: 1, clos: 'eventId',                  var: 'string',   args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3']],
-    [name: 'firmware',   level: 1, clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local']],
-    [name: 'IP',         level: 1, clos: 'hubIPaddress',             var: 'string',   args: 0, type: ['local', 'statHub']],
+    [name: 'firmware',   level: 1, clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['local', 'statHub']],
+    [name: 'iP',         level: 1, clos: 'hubIPaddress',             var: 'string',   args: 0, type: ['local', 'statHub']],
     [name: 'latitude',   level: 1, clos: 'latitude',                 var: 'float',    args: 0, type: ['local']],
     [name: 'longitude',  level: 1, clos: 'longitude',                var: 'float',    args: 0, type: ['local']],
     [name: 'messages',   level: 1, clos: 'messages',                 var: 'integer',  args: 1, type: ['statDev']],
     [name: 'nBin',       level: 2, clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub']],
-    [name: 'nHue',       level: 1, clos: 'currentValueHue',          var: 'integer',  args: 1, type: ['colorMap']],
+    [name: 'nHue',       level: 1, clos: 'currentHue',               var: 'integer',  args: 1, type: ['colorMap']],
     [name: 'nLevel',     level: 1, clos: 'currentStateLevel',        var: 'integer',  args: 1, type: ['day', 'enum', 'hub']],
-    [name: 'nSat',       level: 1, clos: 'currentValueSat',          var: 'integer',  args: 1, type: ['colorMap']],
+    [name: 'nSat',       level: 1, clos: 'currentSat',               var: 'integer',  args: 1, type: ['colorMap']],
     [name: 'nState',     level: 1, clos: 'currentState',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string']],
     [name: 'nText',      level: 3, clos: 'currentStateDescription',  var: 'string',   args: 1, type: ['enum']],
     [name: 'nText',      level: 3, clos: 'currentValueDescription',  var: 'string',   args: 1, type: ['number']],
     [name: 'nValue',     level: 1, clos: 'currentValue',             var: 'float',    args: 1, type: ['number']],
-    [name: 'nValueRd',   level: 1, clos: 'currentValueRounded',      var: 'string',   args: 1, type: ['number']], // changed from 'float'
-    [name: 'nX',         level: 1, clos: 'currentValueX',            var: 'float',    args: 1, type: ['vector3']],
-    [name: 'nY',         level: 1, clos: 'currentValueY',            var: 'float',    args: 1, type: ['vector3']],
-    [name: 'nZ',         level: 1, clos: 'currentValueZ',            var: 'float',    args: 1, type: ['vector3']],
+    [name: 'nValueRd',   level: 3, clos: 'currentValueRounded',      var: 'string',   args: 1, type: ['number']],
+    [name: 'nX',         level: 1, clos: 'currentX',                 var: 'float',    args: 1, type: ['vector3']],
+    [name: 'nY',         level: 1, clos: 'currentY',                 var: 'float',    args: 1, type: ['vector3']],
+    [name: 'nZ',         level: 1, clos: 'currentZ',                 var: 'float',    args: 1, type: ['vector3']],
     [name: 'onBattery',  level: 1, clos: 'onBattery',                var: 'boolean',  args: 0, type: ['statHub']],
     [name: 'pBin',       level: 2, clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum']],
     [name: 'pLevel',     level: 1, clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum']],
@@ -692,21 +691,21 @@ def fields() { [
     [name: 'pValue',     level: 1, clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
     [name: 'rDiff',      level: 1, clos: 'difference',               var: 'float',    args: 1, type: ['number']],
     [name: 'rDiffText',  level: 3, clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-    [name: 'sBin',       level: 1, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwCfg']], // zwCfg in case no other valid fields
-    [name: 'sBin',       level: 1, clos: 'statusHubBinary',          var: 'boolean',  args: 1, type: ['local', 'statHub']],
+    [name: 'sBin',       level: 1, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwCfg']],
+    [name: 'sBin',       level: 1, clos: 'statusHubBinary',          var: 'boolean',  args: 0, type: ['local', 'statHub']],
     [name: 'secLevel',   level: 1, clos: 'networkSecurityLevel',     var: 'string',   args: 1, type: ['zwCfg']],
     [name: 'secure',     level: 1, clos: 'zwaveSecure',              var: 'boolean',  args: 1, type: ['zwCcs', 'zwCfg']],
     [name: 'sunrise',    level: 1, clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
     [name: 'sunset',     level: 1, clos: 'sunset',                   var: 'string',   args: 0, type: ['local']],
-    [name: 'TCP',        level: 1, clos: 'hubTCPport',               var: 'integer',  args: 0, type: ['local']],
-    [name: 'tBattery',   level: 1, clos: 'batteryChange',            var: 'integer',  args: 1, type: ['device', 'statDev']],
+    [name: 'tBattery',   level: 1, clos: 'batteryChangeDate',        var: 'integer',  args: 1, type: ['device', 'statDev']],
+    [name: 'tCP',        level: 1, clos: 'hubTCPport',               var: 'integer',  args: 0, type: ['local']],
     [name: 'tDay',       level: 1, clos: 'timeOfDay',                var: 'integer',  args: 1, type: ['enum', 'number']],
     [name: 'tElap',      level: 1, clos: 'timeElapsed',              var: 'integer',  args: 1, type: ['enum', 'number']],
     [name: 'tElapText',  level: 3, clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number']],
     [name: 'tLastAct',   level: 1, clos: 'timeLastActivity',         var: 'integer',  args: 1, type: ['device']],
     [name: 'tLastEvent', level: 1, clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
     [name: 'tOffset',    level: 2, clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
-    [name: 'tStamp',     level: 1, clos: 'timestamp',                var: 'integer',  args: 1, type: ['enum', 'hub', 'number', 'vector3']],
+    [name: 'tStamp',     level: 1, clos: 'timestamp',                var: 'integer',  args: 1, type: ['day', 'enum', 'hub', 'number', 'vector3']],
     [name: 'tWrite',     level: 2, clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
     [name: 'vLastEvent', level: 1, clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
     [name: 'wakeUpInt',  level: 1, clos: 'wakeUpInterval',           var: 'integer',  args: 1, type: ['statDev', 'zwCfg']],
@@ -764,13 +763,13 @@ def getCurrentValueRounded() { return { currentValue(it).setScale(decimalPlaces(
 
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
-def getCurrentValueHue() { return { currentColorMap(it).hue } }
-def getCurrentValueSat() { return { currentColorMap(it).saturation } }
+def getCurrentHue() { return { currentColorMap(it).hue } }
+def getCurrentSat() { return { currentColorMap(it).saturation } }
 def getCurrentColorMap() { return { parseJson(it) } }
 
-def getCurrentValueX() { return { it.xyzValue.x / gravityFactor() } }
-def getCurrentValueY() { return { it.xyzValue.y / gravityFactor() } }
-def getCurrentValueZ() { return { it.xyzValue.z / gravityFactor() } }
+def getCurrentX() { return { it.xyzValue.x / gravityFactor() } }
+def getCurrentY() { return { it.xyzValue.y / gravityFactor() } }
+def getCurrentZ() { return { it.xyzValue.z / gravityFactor() } }
 def getGravityFactor() { return { -> (1024) } }
 
 /*****************************************************************************************************************
@@ -809,6 +808,13 @@ def getPreviousValue() { return {
 } }
 
 /*****************************************************************************************************************
+ *  Fields Event Details - Value Difference:
+ *****************************************************************************************************************/
+def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
+
+def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+
+/*****************************************************************************************************************
  *  Fields Event Details - Time Difference:
  *****************************************************************************************************************/
 def getTimeElapsedText() { return {
@@ -844,13 +850,6 @@ def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 /*****************************************************************************************************************
- *  Fields Event Details - Value Difference:
- *****************************************************************************************************************/
-def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
-
-def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
-
-/*****************************************************************************************************************
  *  Fields Event Details - Time Values:
  *****************************************************************************************************************/
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculates elapsed time of day in milliseconds
@@ -867,24 +866,6 @@ def getTimeWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 /*****************************************************************************************************************
  *  Fields Metadata:
  *****************************************************************************************************************/
-def getBattery() { return {
-    if (it?.hasAttribute('battery')) {
-        it?.latestValue('battery') ?: 100 // in case battery is still 100 and no battery report has been sent
-    } else {
-        ''
-    }
-}}
-
-def getBatteryChange() { return {
-    if (it?.hasAttribute('batteryChange')) {
-        it?.latestState('batteryChange')?.date?.time ?: 0
-    } else {
-        ''
-    }
-}}
-
-def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
-
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
@@ -894,9 +875,19 @@ def getConfiguredParametersList() { return {
     }
 } }
 
-def getConfigure() { return { it?.latestValue('configure') ?: '' } }
+def getBattery() { return {
+    if (it?.hasAttribute('battery')) {
+        it?.latestValue('battery') ?: 100 // in case battery is still 100 and no battery report has been sent
+    } else {
+        ''
+    }
+}}
 
 def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
+
+def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
+
+def getConfigure() { return { it?.latestValue('configure') ?: '' } }
 
 def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
 
@@ -957,6 +948,14 @@ def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse')) ? 't'
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
 def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
+
+def getBatteryChangeDate() { return {
+    if (it?.hasAttribute('batteryChange')) {
+        it?.latestState('batteryChange')?.date?.time ?: 0
+    } else {
+        ''
+    }
+}}
 
 /*****************************************************************************************************************
  *  Main Commands:

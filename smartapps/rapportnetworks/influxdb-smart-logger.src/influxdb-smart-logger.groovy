@@ -49,8 +49,51 @@ preferences {
 
 def mainPage() {
     dynamicPage(name: 'mainPage', uninstall: true, install: true) {
-        section('General') {
-            input(name: 'configLoggingLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', '2': 'Warning', '3': 'Info', '4': 'Debug', '5': 'Trace'], defaultValue: '3', displayDuringSetup: true, required: false)
+        section('Logging') {
+            input(name: 'configLoggingLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
+
+            input(name: 'configLoggingLevelDB', title: "Data Logging Level:\nSelect amount of tags and fields to be logged.", type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
+
+            input(
+                    name: 'paraLoggingDB',
+                    title: 'Select Measurements to Log.',
+                    description: 'Tap each item to set.',
+                    type: 'paragraph',
+                    element: 'paragraph'
+            )
+            input(
+                    name: 'configLoggingEvents',
+                    title: 'Events',
+                    description: '',
+                    type: 'bool',
+                    defaultValue: false,
+                    required: false
+            )
+            input(
+                    name: 'configLoggingMetadata',
+                    title: 'Metadata',
+                    description: '',
+                    type: 'bool',
+                    defaultValue: true,
+                    required: false
+            )
+            input(
+                    name: 'configLoggingStatuses',
+                    title: 'Statuses',
+                    description: '',
+                    type: 'bool',
+                    defaultValue: false,
+                    required: false
+            )
+            input(
+                    name: 'configLoggingConfigs',
+                    title: 'Configurations',
+                    description: '',
+                    type: 'bool',
+                    defaultValue: true,
+                    required: false
+            )
+
         }
         section('Influx Database') {
             input(name: 'prefDbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: true)
@@ -166,6 +209,12 @@ def updated() { // runs when app settings are changed
     logger('updated: Setting logging lever', 'trace')
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
 
+    state.logLevelDB = (settings.configLoggingLevelDB) ? settings.configLoggingLevelDB.toInteger() : 1
+    state.logEvents = settings.configLoggingEvents ?: false
+    state.logMetadata = settings.configLoggingMetadata ?: false
+    state.logStatuses = settings.configLoggingStatuses ?: false
+    state.logConfigs = settings.configLoggingConfigs ?: false
+
     logger('updated: Setting database parameters', 'trace')
     state?.dbVersion = settings.prefDbVersion
     state?.dbLocation = (settings.prefDbRemote) ? 'Remote' : 'Local'
@@ -226,47 +275,61 @@ def handleAppTouch(evt) { // Touch event on Smart App TODO ? Configure so that t
 }
 
 def handleEnumEvent(evt) {
-    def measurementType = 'enum'
-    def measurementName = 'states'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'enum'
+        def measurementName = 'states'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 def handleNumberEvent(evt) {
-    def measurementType = 'number'
-    def measurementName = 'values'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'number'
+        def measurementName = 'values'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 def handleVector3Event(evt) {
-    def measurementType = 'vector3'
-    def measurementName = 'threeaxes'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'vector3'
+        def measurementName = 'threeaxes'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 def handleStringEvent(evt) {
-    def measurementType = 'string'
-    def measurementName = 'statuses'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'string'
+        def measurementName = 'statuses'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 def handleColorMapEvent(evt) {
-    def measurementType = 'colorMap'
-    def measurementName = 'values'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'colorMap'
+        def measurementName = 'values'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 // def handleJsonObjectEvent() { } // TODO - if needed?
 
 def handleDaylight(evt) {
-    def measurementType = 'day'
-    def measurementName = 'daylight'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'day'
+        def measurementName = 'daylight'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 def handleHubStatus(evt) {
-    def measurementType = 'hub'
-    def measurementName = 'hub'
-    influxLineProtocol(evt, measurementName, measurementType)
+    if (state.logEvents) {
+        def measurementType = 'hub'
+        def measurementName = 'hub'
+        influxLineProtocol(evt, measurementName, measurementType)
+    }
 }
 
 /*****************************************************************************************************************
@@ -279,22 +342,26 @@ def pollStatus() {
 
 def pollStatusHubs() {
     logger('pollStatusHubs: running now', 'trace')
-    def measurementType = 'statHub'
-    def measurementName = 'hubS'
-    def bucket          = 'statuses'
-    def items           = ['placeholder']
-    influxLineProtocol(items, measurementName, measurementType, bucket)
+    if (state.logStatuses) {
+        def measurementType = 'statHub'
+        def measurementName = 'hubS'
+        def bucket = 'statuses'
+        def items = ['placeholder']
+        influxLineProtocol(items, measurementName, measurementType, bucket)
+    }
 }
 
 def pollStatusDevices() {
     logger('pollStatusDevices: running now', 'trace')
-    def measurementType = 'statDev'
-    def measurementName = 'deviceS'
-    def bucket          = 'statuses'
-    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    // influxLineProtocol(items, measurementName, measurementType, bucket)
-    items.each {
-        influxLineProtocol(it, measurementName, measurementType, bucket)
+    if (state.logStatuses) {
+        def measurementType = 'statDev'
+        def measurementName = 'deviceS'
+        def bucket = 'statuses'
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        // influxLineProtocol(items, measurementName, measurementType, bucket)
+        items.each {
+            influxLineProtocol(it, measurementName, measurementType, bucket)
+        }
     }
 }
 
@@ -303,40 +370,47 @@ def pollStatusDevices() {
  *****************************************************************************************************************/
 def pollLocations() {
     logger('pollLocations: running now', 'trace')
-    def measurementType = 'local'
-    def measurementName = 'locations'
-    def retentionPolicy = 'metadata'
-    def bucket          = 'metadata'
-    def items           = ['placeholder'] // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
-    influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+    if (state.logMetadata) {
+        def measurementType = 'local'
+        def measurementName = 'locations'
+        def retentionPolicy = 'metadata'
+        def bucket = 'metadata'
+        def items = ['placeholder']
+        // location (only 1 location where Smart App is installed) is an injected property so need 'dummy' item in list
+        influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+    }
 }
 
 def pollDevices() {
+    if (state.logMetadata) {
     logger('pollDevices: running now', 'trace')
     def measurementType = 'device'
     def measurementName = 'devices'
     def retentionPolicy = 'metadata'
     def bucket          = 'metadata'
-    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-    // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
-    items.each {
-        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        // influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+        items.each {
+            influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+        }
     }
 }
 
 def pollAttributes() {
     logger('pollAttributes: running now', 'trace')
+    if (state.logMetadata) {
     def measurementType = 'attribute'
     def measurementName = 'attributes'
     def retentionPolicy = 'metadata'
     def bucket          = 'metadata'
-    getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
-        def items = getDeviceAllowedAttrs(dev) as List
-        def superItem = dev
-        // if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy, superItem)
-        if (items) {
-            items.each {
-                influxLineProtocol(["${it}"], measurementName, measurementType, bucket, retentionPolicy, superItem)
+        getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
+            def items = getDeviceAllowedAttrs(dev) as List
+            def superItem = dev
+            // if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy, superItem)
+            if (items) {
+                items.each {
+                    influxLineProtocol(["${it}"], measurementName, measurementType, bucket, retentionPolicy, superItem)
+                }
             }
         }
     }
@@ -344,27 +418,35 @@ def pollAttributes() {
 
 def pollZwavesCcs() {
     logger('pollZwavesCcs: running now', 'trace')
+    if (state.logConfigs) {
     def measurementType = 'zwCcs'
     def measurementName = 'zwaveCCs'
     def retentionPolicy = 'metadata'
     def bucket          = 'configs'
-    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
-    items.each {
-        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+        def items = getSelectedDevices()?.findAll {
+            !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw')
+        }
+        // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        items.each {
+            influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+        }
     }
 }
 
 def pollZwavesCfg() {
     logger('pollZwavesCfg: running now', 'trace')
-    def measurementType = 'zwCfg'
-    def measurementName = 'zwave'
-    def retentionPolicy = 'metadata'
-    def bucket          = 'configs'
-    def items           = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-    // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
-    items.each {
-        influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+    if (state.logConfigs) {
+        def measurementType = 'zwCfg'
+        def measurementName = 'zwave'
+        def retentionPolicy = 'metadata'
+        def bucket = 'configs'
+        def items = getSelectedDevices()?.findAll {
+            !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw')
+        }
+        // influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        items.each {
+            influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy)
+        }
     }
 }
 
@@ -376,7 +458,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
     items.each { item ->
         influxLP.append(measurementName)
         tags().each { tag ->
-            if ('all' in tag.type || measurementType in tag.type) {
+            if (tag.level <= state.logLevelDB && ('all' in tag.type || measurementType in tag.type)) {
                 def tagValue
                 switch (tag.args) {
                     case 0:
@@ -411,7 +493,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         influxLP.append(' ')
         def fieldCount = 0
         fields().each { field ->
-            if ('all' in field.type || measurementType in field.type) {
+            if (field.level <= state.logLevelDB && ('all' in field.type || measurementType in field.type)) {
                 def fieldValue
                 switch (field.args) {
                     case 0:

@@ -224,7 +224,14 @@ def updated() { // runs when app settings are changed
     logger('updated: Setting database parameters', 'trace')
     state?.dbVersion = settings.prefDbVersion
     state?.dbLocation = (settings.prefDbRemote) ? 'Remote' : 'Local'
-    state?.uri = "http${(settings.prefDbSSL) ? 's' : ''}://${settings.prefDbHost}:${settings.prefDbPort}"
+
+    if (prefDbRemote) {
+        state?.uri = "http${(settings.prefDbSSL) ? 's' : ''}://${settings.prefDbHost}:${settings.prefDbPort}"
+    }
+    else {
+        state?.uri = "${settings.prefDbHost}:${settings.prefDbPort}"
+    }
+
     state?.dbName = settings.prefDbName
     state?.dbUsername = settings.prefDbUsername
     state?.dbPasword = settings.prefDbPassword
@@ -461,7 +468,7 @@ def pollZwavesCfg() {
  *****************************************************************************************************************/
 def influxLineProtocol(items, measurementName, measurementType, bucket = 'events', retentionPolicy = 'autogen', superItem = false) {
     def influxLP = new StringBuilder()
-    def eventId
+    def eventId = 'notEvent'
     items.each { item ->
         influxLP.append(measurementName)
         tags().each { tag ->
@@ -1070,12 +1077,12 @@ def getBatteryChangeDate() { return {
 /*****************************************************************************************************************
  *  Main Commands:
  *****************************************************************************************************************/
-def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
+def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
     try {
         def headers = [
             HOST                   : state.uri,
-            'Content-Type'         : 'application/octet-stream',
-            'Request-Content-Type' : 'application/json'
+            'Request-Content-Type' : 'application/json',
+            'Content-Type'         : 'application/octet-stream'
         ]
 
         def query = [precision : 'ms']
@@ -1100,7 +1107,7 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
                 break
 
             default:
-                headers << [ authorization : "Token ${prefDbToken}"]
+                headers << [authorization : "Token ${prefDbToken}"]
 
                 query << [
                     org    : prefDbOrganisation,
@@ -1111,29 +1118,23 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
                 break
         }
 
-        def dni = null // device network Id - recommended to use MAC address - but not needed
-
-        def options = [
-                callback : handleInfluxDBResponseLocal
-                // type : 'LAN_TYPE_CLIENT', // (default)
-                // protocol : 'LAN_PROTOCOL_TCP' // (default)
-        ]
+        def options = [callback : handleInfluxDBResponseLocal]
 
         logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
-        def hubAction = new physicalgraph.device.HubAction(params, dni, options)
-        sendHubCommand(hubAction)
+        sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
     }
     catch (e) {
-        logger("postToInfluxDBhubAction: Exception ${e} on ${hubAction}", 'error')
+        logger("postToInfluxDBhubAction: Exception ${e} on hubAction.", 'error')
     }
 }
 
 def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
-    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
-    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
+    logger("postToInfluxDBLocal: ${hubResponse.status} ${hubResponse.headers} ${hubResponse.body} ${hubResponse.json}", 'trace')
+    // if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
+    // if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket, eventId = 'notEvent') {
+def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
 
     def query = [precision : 'ms']
 

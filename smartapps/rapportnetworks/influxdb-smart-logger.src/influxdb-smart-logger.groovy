@@ -97,17 +97,17 @@ def mainPage() {
 
             input(name: 'prefDbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: false)
 
-            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', required: true)
+            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: true)
 
             input(name: 'prefDbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'prefDbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', required: false)
+            input(name: 'prefDbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'prefDbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', required: false)
+            input(name: 'prefDbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
             input(name: 'prefDbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
 
-            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', required: false)
+            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
             input(name: 'prefDbToken', type: 'password', title: 'Database Authorisation Token (v2)', defaultValue: '*', required: false)
         }
@@ -461,11 +461,12 @@ def pollZwavesCfg() {
  *****************************************************************************************************************/
 def influxLineProtocol(items, measurementName, measurementType, bucket = 'events', retentionPolicy = 'autogen', superItem = false) {
     def influxLP = new StringBuilder()
+    def eventId
     items.each { item ->
         influxLP.append(measurementName)
         tags().each { tag ->
             if (tag.level <= state.logLevelDB && ('all' in tag.type || measurementType in tag.type)) {
-                def tagValue
+                def tagValue // TODO - ? Would it be neater as tag.value ?
                 switch (tag.args) {
                     case 0:
                         try {
@@ -510,7 +511,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         def fieldCount = 0
         fields().each { field ->
             if (field.level <= state.logLevelDB && ('all' in field.type || measurementType in field.type)) {
-                def fieldValue
+                def fieldValue // TODO - ? Would it be neater as field.value ?
                 switch (field.args) {
                     case 0:
                         try {
@@ -555,11 +556,17 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                     if (field.var == 'integer') influxLP.append('i')
 
                     fieldCount++
+
+                    if (field.name == 'eventId') eventId = "${fieldValue}"
                 }
             }
         }
-        if (isEventObject(item)) influxLP.append(' ').append(timestamp(item))
-        influxLP.append('\n')
+        if (isEventObject(item)) {
+            influxLP.append(' ').append(timestamp(item))
+        }
+        else {
+            influxLP.append('\n')
+        }
     }
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
@@ -572,7 +579,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
     }
 */
     if (state.logDB) {
-        "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket)
+        "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket, eventId)
     }
     else {
         logger("influxLineProtocol: ${influxLP.toString()}", 'debug')
@@ -1067,26 +1074,25 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
     try {
         def headers = [
             HOST                   : state.uri,
-            'Request-Content-Type' : 'application/octet-stream',
-            'Content-Type'         : 'application/json'
+            'Content-Type'         : 'application/octet-stream',
+            'Request-Content-Type' : 'application/json'
         ]
 
         def query = [precision : 'ms']
 
         def params = [
             method   : 'POST',
-            protocol : 'Protocol.LAN',
             headers  : headers,
             query    : query,
             body     : data
         ]
 
-        switch(state.dbVersion) {
+        switch(prefDbVersion) {
             case 1:
                 query << [
-                    db : state.dbName,
-                    u  : state.dbUsername,
-                    p  : state.dbPassword,
+                    db : prefDbName,
+                    u  : prefDbUsername,
+                    p  : prefDbPassword,
                     rp : retentionPolicy
                 ]
 
@@ -1094,10 +1100,10 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
                 break
 
             default:
-                headers << [ authorization : "Token ${state.dbToken}"]
+                headers << [ authorization : "Token ${prefDbToken}"]
 
                 query << [
-                    org    : state.dbOrganisation,
+                    org    : prefDbOrganisation,
                     bucket : bucket
                 ]
 
@@ -1108,13 +1114,13 @@ def postToInfluxDBLocal(data, retentionPolicy = 'autogen', bucket) {
         def dni = null // device network Id - recommended to use MAC address - but not needed
 
         def options = [
-                callback : 'handleInfluxDBResponseLocal'
+                callback : handleInfluxDBResponseLocal
                 // type : 'LAN_TYPE_CLIENT', // (default)
                 // protocol : 'LAN_PROTOCOL_TCP' // (default)
         ]
 
+        logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
         def hubAction = new physicalgraph.device.HubAction(params, dni, options)
-        logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
         sendHubCommand(hubAction)
     }
     catch (e) {
@@ -1127,24 +1133,24 @@ def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
 }
 
-def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket) {
+def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket, eventId = 'notEvent') {
 
     def query = [precision : 'ms']
 
     def params = [
         uri                : state.uri,
         query              : query,
-        requestContentType : 'application/octet-stream',
-        contentType        : 'application/json',
+        requestContentType : 'application/octet-stream',  // 'Content-Type'
+        contentType        : 'application/json', // 'Accept'
         body               : data
     ]
 
-    switch(state.dbVersion) {
+    switch(prefDbVersion) {
         case 1:
             query << [
-                    db : state.dbName,
-                    u  : state.dbUsername,
-                    p  : state.dbPassword,
+                    db : prefDbName,
+                    u  : prefDbUsername,
+                    p  : prefDbPassword,
                     rp : retentionPolicy
             ]
 
@@ -1152,10 +1158,10 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket) {
             break
 
         default:
-            params << [headers : [authorization : "Token ${state.dbToken}"]]
+            params << [headers : [authorization : "Token ${prefDbToken}"]]
 
             query << [
-                    org    : state.dbOrganisation,
+                    org    : prefDbOrganisation,
                     bucket : bucket
             ]
 
@@ -1163,15 +1169,15 @@ def postToInfluxDBRemote(data, retentionPolicy = 'autogen', bucket) {
             break
     }
 
-    // def passdata = [:] - optional map to pass to response handler
+    def passData = [eventId : eventId]
 
     logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}, Query: ${query}, Data: ${data}", 'info')
-    asynchttp_v1.post(handleInfluxDBResponseRemote, params)
+    asynchttp_v1.post(handleInfluxDBResponseRemote, params, passData)
 }
 
-def handleInfluxDBResponseRemote(response, passData) { // TODO - Check / tidy up - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
-    if (response.status == 204) logger("postToInfluxDBRemote: Success! Status: ${response.status}.", 'trace')
-    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Response from InfluxDB: Status: ${response.status}, Headers: ${response.headers}, Body: ${response.json}", 'error')
+def handleInfluxDBResponseRemote(response, passData) { // TODO - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+    if (response.status == 204) logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
+    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Code: ${response.status} Error: ${response.errorJson.error} (id: ${passData.eventId})", 'error')
 }
 
 /*****************************************************************************************************************

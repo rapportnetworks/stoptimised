@@ -48,7 +48,7 @@ preferences {
 }
 
 def mainPage() {
-    dynamicPage(name: 'mainPage', uninstall: true, install: true, refreshInterval: 10) { // refreshInterval to update summary of attributes if a device is deselected and now no device for a given attribute
+    dynamicPage(name: 'mainPage', uninstall: true, install: true) {
         section('Logging') {
             input(name: 'logLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
 
@@ -114,7 +114,7 @@ def mainPage() {
 
         if (state.devicesConfigured) {
             section('Selected Devices') {
-                pageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames))
+                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames), null)
             }
         } else {
             devicesPageContent
@@ -122,7 +122,7 @@ def mainPage() {
 
         if (state.attributesConfigured) {
             section('Selected Events') {
-                pageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()))
+                getPageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()), null)
             }
         } else {
             attributesPageContent
@@ -797,8 +797,10 @@ def fields() { [
     [name: 'pValue',     level: 1, clos: 'previousValue',            var: 'float',    args: 1, type: ['number']],
     [name: 'rDiff',      level: 1, clos: 'difference',               var: 'float',    args: 1, type: ['number']],
     [name: 'rDiffText',  level: 3, clos: 'differenceText',           var: 'string',   args: 1, type: ['number']],
-    [name: 'sBin',       level: 1, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwave']],
-    [name: 'sBin',       level: 1, clos: 'statusHubBinary',          var: 'boolean',  args: 0, type: ['local', 'statHub']],
+    [name: 'sBin',       level: 2, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwave']],
+    [name: 'sBin',       level: 2, clos: 'statusHubBinary',          var: 'boolean',  args: 0, type: ['local', 'statHub']],
+    [name: 'sLevel',     level: 1, clos: 'statusDeviceLevel',        var: 'integer',  args: 1, type: ['device', 'statDev', 'zwave']],
+    [name: 'sLevel',     level: 1, clos: 'statusHubLevel',           var: 'integer',  args: 0, type: ['local', 'statHub']],
     [name: 'secLevel',   level: 1, clos: 'networkSecurityLevel',     var: 'string',   args: 1, type: ['zwave']],
     [name: 'secure',     level: 1, clos: 'zwaveSecure',              var: 'boolean',  args: 1, type: ['zwave', 'zwCCs']],
     [name: 'sunrise',    level: 1, clos: 'sunrise',                  var: 'string',   args: 0, type: ['local']],
@@ -1061,6 +1063,10 @@ def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse')) ? 't'
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
 def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
+
+def getStatusDeviceLevel() { return { (statusDevice(it) in ['active', 'online']) ? 1 : -1 } }
+
+def getStatusHubLevel() { return { (statusHub() == 'active') ? 1 : -1 } }
 
 def getBatteryChangeDate() { return {
     if (it?.hasAttribute('batteryChange')) {

@@ -50,14 +50,14 @@ preferences {
 def mainPage() {
     dynamicPage(name: 'mainPage', uninstall: true, install: true) {
         section('Logging') {
-            input(name: 'configLoggingLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
+            input(name: 'logLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
 
-            input(name: 'configLoggingLevelDB', title: "Data Logging Level:\nSelect amount of tags and fields to be logged.", type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
+            input(name: 'logLevelDB', title: "Data Logging Level:\nSelect amount of tags and fields to be logged.", type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
 
             input(name: 'paraLoggingDB', title: 'Measurements to Log:', type: 'paragraph', description: '', element: 'paragraph', required: false)
 
             input(
-                    name: 'configLoggingEvents',
+                    name: 'logEvents',
                     title: 'Events',
                     description: '',
                     type: 'bool',
@@ -65,7 +65,7 @@ def mainPage() {
                     required: false
             )
             input(
-                    name: 'configLoggingMetadata',
+                    name: 'logMetadata',
                     title: 'Metadata',
                     description: '',
                     type: 'bool',
@@ -73,7 +73,7 @@ def mainPage() {
                     required: false
             )
             input(
-                    name: 'configLoggingStatuses',
+                    name: 'logStatuses',
                     title: 'Statuses',
                     description: '',
                     type: 'bool',
@@ -81,7 +81,7 @@ def mainPage() {
                     required: false
             )
             input(
-                    name: 'configLoggingConfigs',
+                    name: 'logConfigs',
                     title: 'Configurations',
                     description: '',
                     type: 'bool',
@@ -91,25 +91,25 @@ def mainPage() {
 
         }
         section('Influx Database') {
-            input(name: 'prefDbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: false)
+            input(name: 'dbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: false)
 
-            input(name: 'prefDbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: false)
+            input(name: 'dbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: false)
 
-            input(name: 'prefDbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: false)
+            input(name: 'dbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: false)
 
-            input(name: 'prefDbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: true)
+            input(name: 'dbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: true)
 
-            input(name: 'prefDbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
+            input(name: 'dbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'prefDbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'prefDbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'prefDbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
+            input(name: 'dbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
 
-            input(name: 'prefDbOrganisation', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbOrganization', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'prefDbToken', type: 'password', title: 'Database Authorisation Token (v2)', defaultValue: '*', required: false)
+            input(name: 'dbToken', type: 'password', title: 'Database Authorisation Token (v2)', defaultValue: '*', required: false)
         }
 
         if (state.devicesConfigured) {
@@ -192,7 +192,7 @@ private buildSummary(items) {
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() { // runs when the app is first installed
-    state.loggingLevelIDE = 5
+    state.logLevelIDE = 5
     logger("installed: ${app.label} installed with settings: ${settings}", 'trace')
 }
 
@@ -202,44 +202,48 @@ def uninstalled() { // runs when the app is uninstalled
 
 def updated() { // runs when app settings are changed
     logger('updated: Setting logging lever', 'trace')
-    state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
+    state.logLevelIDE = (settings.logLevelIDE) ? settings.logLevelIDE.toInteger() : 3
 
-    state.logLevelDB = (settings.configLoggingLevelDB) ? settings.configLoggingLevelDB.toInteger() : 1
+    /**
+     * sets level of tags and fields logged to database (1: 'Minimal', 2: 'Intermediate', 3: 'All')
+     */
+    state.logLevelDB = (settings.logLevelDB) ? settings.logLevelDB.toInteger() : 1
 
-    if (!settings.configLoggingEvents && !settings.configLoggingMetadata && !settings.configLoggingStatuses && !settings.configLoggingConfigs) {
-        state.logDB = false
-        state.logEvents = true
+    /**
+     * if all database logging options are off, then influx line protcol will still be assembled, but only shown in IDE
+     */
+    if (!settings.logEvents && !settings.logMetadata && !settings.logStatuses && !settings.logConfigs) {
+        state.logToDB     = false
+        state.logEvents   = true
         state.logMetadata = true
-        state.logStatues = true
-        state.logConfigs = true
+        state.logStatuses = true
+        state.logConfigs  = true
     }
     else {
-        state.logDB = true
-        state.logEvents = settings.configLoggingEvents ?: false
-        state.logMetadata = settings.configLoggingMetadata ?: false
-        state.logStatuses = settings.configLoggingStatuses ?: false
-        state.logConfigs = settings.configLoggingConfigs ?: false
+        state.logToDB     = true
+        state.logEvents   = settings?.logEvents   ?: false
+        state.logMetadata = settings?.logMetadata ?: false
+        state.logStatuses = settings?.logStatuses ?: false
+        state.logConfigs  = settings?.logConfigs  ?: false
     }
 
-    logger('updated: Setting database parameters', 'trace')
-    state?.dbVersion = settings.prefDbVersion
-    state?.dbLocation = (settings.prefDbRemote) ? 'Remote' : 'Local'
-
-    if (prefDbRemote) {
-        state?.uri = "http${(settings.prefDbSSL) ? 's' : ''}://${settings.prefDbHost}:${settings.prefDbPort}"
+    /**
+     * create uri depending on database (Local | Remote) and whether using SSL
+     */
+    if (settings.dbRemote) {
+        state.uri = "http${(settings?.dbSSL) ? 's' : ''}://${settings?.dbHost}:${settings?.dbPort}"
     }
     else {
-        state?.uri = "${settings.prefDbHost}:${settings.prefDbPort}"
+        state.uri = "${settings?.dbHost}:${settings?.dbPort}"
     }
 
-    state?.dbName = settings.prefDbName
-    state?.dbUsername = settings.prefDbUsername
-    state?.dbPasword = settings.prefDbPassword
-    state?.dbOrganisation = settings.prefDbOrganisation
-    state?.dbToken = settings.prefDbToken
+    /**
+     * sets parameter for determining which post method to call
+     */
+    state.dbLocation = (settings?.dbRemote) ? 'Remote' : 'Local'
 
     logger('updated: Building state map of group Ids and group names', 'debug')
-    state.houseType = 'House'
+    state.dwellingType = 'House'
     state.groupNames = [:]
     if (settings.bridgePref) {
         def groupId
@@ -578,14 +582,12 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
-        postToInfluxDB(tags.toString(), retentionPolicy)
-    def location = (state.databaseRemote) ? 'Remote' : 'Local'
-    "postToInfluxDB${location}"(data, retentionPolicy)
+        postToInfluxDB...
     } else {
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
-    if (state.logDB) {
+    if (state.logToDB) {
         "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket, eventId)
     }
     else {
@@ -649,7 +651,7 @@ def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 /*****************************************************************************************************************
  *  Tags Group Details:
  *****************************************************************************************************************/
-def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.houseType } } // gets group name from created state.groupNames map
+def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } } // gets group name from created state.groupNames map
 
 def getGroupId() { return {
     if (isEventObject(it)) {
@@ -738,7 +740,7 @@ def getUnit() { return {
  *****************************************************************************************************************/
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
-def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.houseType} . Hub" } }
+def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
 
 def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
@@ -1078,64 +1080,52 @@ def getBatteryChangeDate() { return {
  *  Main Commands:
  *****************************************************************************************************************/
 def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
-    try {
-        def headers = [
-            HOST                   : state.uri,
-            'Request-Content-Type' : 'application/json',
-            'Content-Type'         : 'application/octet-stream'
-        ]
+    def headers = [
+        HOST                   : state.uri,
+        'Request-Content-Type' : 'application/json',
+        'Content-Type'         : 'application/octet-stream'
+    ]
 
-        def query = [precision : 'ms']
+    def query = [precision : 'ms']
 
-        def params = [
-            method   : 'POST',
-            headers  : headers,
-            query    : query,
-            body     : data
-        ]
+    def params = [
+        method   : 'POST',
+        headers  : headers,
+        query    : query,
+        body     : data
+    ]
 
-        switch(prefDbVersion) {
-            case 1:
-                query << [
-                    db : prefDbName,
-                    u  : prefDbUsername,
-                    p  : prefDbPassword,
-                    rp : retentionPolicy
-                ]
+    switch(settings.dbVersion) {
+        case 1:
+            query << [
+                db : settings?.dbName,
+                u  : settings?.dbUsername,
+                p  : settings?.dbPassword,
+                rp : retentionPolicy
+            ]
 
-                params << [path : '/write']
-                break
+            params << [path : '/write']
+            break
 
-            default:
-                headers << [authorization : "Token ${prefDbToken}"]
-
-                query << [
-                    org    : prefDbOrganisation,
-                    bucket : bucket
-                ]
-
-                params << [path : '/api/v2/write']
-                break
-        }
-
-        def options = [callback : handleInfluxDBResponseLocal]
-
-        logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
-        sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
+        default:
+            headers << [authorization : "Token ${settings?.dbToken}"]
+            query   << [org : settings?.dbOrganization, bucket : bucket]
+            params  << [path : '/api/v2/write']
+            break
     }
-    catch (e) {
-        logger("postToInfluxDBhubAction: Exception ${e} on hubAction.", 'error')
-    }
+
+    def options = [callback : handleInfluxDBResponseLocal]
+
+    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
+    sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
 }
 
 def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
-    logger("postToInfluxDBLocal: ${hubResponse.status} ${hubResponse.headers} ${hubResponse.body} ${hubResponse.json}", 'trace')
-    // if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Status: ${hubResponse.status}.", 'trace')
-    // if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Response from InfluxDB: Status: ${hubResponse.status}, Headers: ${hubResponse.headers}, Body: ${hubResponse.data}", 'error')
+    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Code: ${hubResponse.status}", 'trace')
+    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Code: ${hubResponse.status} Message: ${hubResponse.json.error}", 'error')
 }
 
 def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
-
     def query = [precision : 'ms']
 
     def params = [
@@ -1146,12 +1136,12 @@ def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
         body               : data
     ]
 
-    switch(prefDbVersion) {
+    switch(settings?.dbVersion) {
         case 1:
             query << [
-                    db : prefDbName,
-                    u  : prefDbUsername,
-                    p  : prefDbPassword,
+                    db : settings?.dbName,
+                    u  : settings?.dbUsername,
+                    p  : settings?.dbPassword,
                     rp : retentionPolicy
             ]
 
@@ -1159,13 +1149,8 @@ def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
             break
 
         default:
-            params << [headers : [authorization : "Token ${prefDbToken}"]]
-
-            query << [
-                    org    : prefDbOrganisation,
-                    bucket : bucket
-            ]
-
+            params << [headers : [authorization : "Token ${settings?.dbToken}"]]
+            query  << [org : settings?.dbOrganization, bucket : bucket]
             params << [path : '/api/v2/write']
             break
     }
@@ -1176,7 +1161,7 @@ def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
     asynchttp_v1.post(handleInfluxDBResponseRemote, params, passData)
 }
 
-def handleInfluxDBResponseRemote(response, passData) { // TODO - ?Does this work on local lans? - ?Can it use hostnames.local rather than ip addresses locally?
+def handleInfluxDBResponseRemote(response, passData) {
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Code: ${response.status} Error: ${response.errorJson.error} (id: ${passData.eventId})", 'error')
 }
@@ -1248,15 +1233,15 @@ private manageSubscriptions() {
 private logger(msg, level = 'debug') { // Wrapper method for all logging
     switch (level) {
         case 'error':
-            if (state.loggingLevelIDE >= 1) log.error(msg); break
+            if (state.logLevelIDE >= 1) log.error(msg); break
         case 'warn':
-            if (state.loggingLevelIDE >= 2) log.warn(msg); break
+            if (state.logLevelIDE >= 2) log.warn(msg); break
         case 'info':
-            if (state.loggingLevelIDE >= 3) log.info(msg); break
+            if (state.logLevelIDE >= 3) log.info(msg); break
         case 'debug':
-            if (state.loggingLevelIDE >= 4) log.debug(msg); break
+            if (state.logLevelIDE >= 4) log.debug(msg); break
         case 'trace':
-            if (state.loggingLevelIDE >= 5) log.trace(msg); break
+            if (state.logLevelIDE >= 5) log.trace(msg); break
         default:
             log.debug(msg); break
     }

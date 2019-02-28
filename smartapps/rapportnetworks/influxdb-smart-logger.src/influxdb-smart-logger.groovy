@@ -114,25 +114,25 @@ def mainPage() {
 
         if (state.devicesConfigured) {
             section('Selected Devices') {
-                getPageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(getSelectedDeviceNames()))
+                pageLink('devicesPageLink', 'Tap to change', 'devicesPage', null, buildSummary(selectedDeviceNames))
             }
         } else {
-            getDevicesPageContent()
+            devicesPageContent
         }
 
         if (state.attributesConfigured) {
             section('Selected Events') {
-                getPageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()))
+                pageLink('attributesPageLink', 'Tap to change', 'attributesPage', null, buildSummary(settings?.allowedAttributes?.sort()))
             }
         } else {
-            getattributesPageContent()
+            attributesPageContent
         }
     }
 }
 
 def devicesPage() {
     dynamicPage(name: 'devicesPage') {
-        getDevicesPageContent()
+        devicesPageContent
     }
 }
 
@@ -140,7 +140,7 @@ private getDevicesPageContent() {
     section("Choose Devices") {
         paragraph("Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top.")
 
-        getCapabilities().each {
+        capabilities.each {
             try {
                 input("${it.cap}Pref", "capability.${it.cap}", title: "${it.title}:", multiple: true, hideWhenEmpty: true, required: false, submitOnChange: true)
             }
@@ -153,12 +153,12 @@ private getDevicesPageContent() {
 
 def attributesPage() {
     dynamicPage(name: 'attributesPage') {
-        getAttributesPageContent()
+        attributesPageContent
     }
 }
 
 private getAttributesPageContent() {
-    def supportedAttr = getSupportedAttributes()?.sort()
+    def supportedAttr = supportedAttributes?.sort()
     if (supportedAttr) {
         section('Choose Events') {
             paragraph("Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included.")

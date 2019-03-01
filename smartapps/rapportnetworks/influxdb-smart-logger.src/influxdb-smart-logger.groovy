@@ -33,7 +33,7 @@ definition(
         namespace: 'rapportnetworks',
         author: 'Alasdair Thin',
         description: 'Log SmartThings device states to InfluxDB',
-        category: 'My Apps',
+        category: 'Logger Apps',
         iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
         iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
         iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
@@ -403,8 +403,8 @@ def pollAttributes() {
     }
 }
 
-def pollZwavesCcs() {
-    logger('pollZwavesCcs: running now', 'trace')
+def pollZwavesCCs() {
+    logger('pollZwavesCCs: running now', 'trace')
     if (state.logConfigs) {
         def measurementType = 'zwCCs'
         def measurementName = 'zwaveCCs'
@@ -416,8 +416,8 @@ def pollZwavesCcs() {
     }
 }
 
-def pollZwavesCfg() {
-    logger('pollZwavesCfg: running now', 'trace')
+def pollZwaves() {
+    logger('pollZwaves: running now', 'trace')
     if (state.logConfigs) {
         def measurementType = 'zwave'
         def measurementName = 'zwave'
@@ -1031,7 +1031,7 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIPaddress() { return { -> hub().localIP } }
 
-def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse')) ? 't' : 'f' } }
+def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse').contains('true')) ? 't' : 'f' } }
 
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
@@ -1158,12 +1158,12 @@ private manageSchedules() {
 }
 
 def pollingMethods() { [
-    pollStatus:     'runEvery1Hour',
-    pollLocations:  'runEvery3Hours',
-    pollDevices:    'runEvery3Hours',
-    pollAttributes: 'runEvery3Hours',
-    pollZwavesCcs:  'runEvery3Hours',
-    pollZwavesCfg:  'runEvery3Hours'
+    pollStatus     : 'runEvery1Hour',
+    pollLocations  : 'runEvery3Hours',
+    pollDevices    : 'runEvery3Hours',
+    pollAttributes : 'runEvery3Hours',
+    pollZwavesCCs  : 'runEvery3Hours',
+    pollZwaves     : 'runEvery3Hours'
 ] }
 
 private manageSubscriptions() {

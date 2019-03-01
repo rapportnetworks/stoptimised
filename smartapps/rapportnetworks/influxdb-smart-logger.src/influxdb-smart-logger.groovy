@@ -382,7 +382,7 @@ def pollDevices() {
         def retentionPolicy = 'metadata'
         def bucket          = 'metadata'
         def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-        influxLineProtocol(items, measurementName, measurementType, retentionPolicy)
+        influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
         // items.each { influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy) }
     }
 }

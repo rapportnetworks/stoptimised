@@ -3,9 +3,9 @@
  *
  *  Name: InfluxDB Smart Logger
  *
- *  Date: 2019-01-14
+ *  Date: 2019-02-28
  *
- *  Version: 2.0
+ *  Version: 2.1
  *
  *  Source:
  *
@@ -29,14 +29,14 @@
  *****************************************************************************************************************/
 
 definition(
-        name: 'InfluxDB Smart Logger V2',
-        namespace: 'rapportnetworks',
-        author: 'Alasdair Thin',
-        description: 'Log SmartThings device states to InfluxDB',
-        category: 'Logger Apps',
-        iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
-        iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
-        iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
+        name        : 'InfluxDB Smart Logger v2',
+        namespace   : 'rapportnetworks',
+        author      : 'Alasdair Thin',
+        description : 'Log SmartThings device states to InfluxDB',
+        category    : 'Health & Wellness',
+        iconUrl     : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals.png',
+        iconX2Url   : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals@2x.png',
+        iconX3Url   : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals@2x.png'
 )
 
 include 'asynchttp_v1'

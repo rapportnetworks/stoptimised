@@ -72,19 +72,19 @@ def mainPage() {
 
             input(name: 'dbSSL', type: 'bool', title: 'Encrypted Connection', defaultValue: true, required: false)
 
-            input(name: 'dbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: true)
+            input(name: 'dbHost', type: 'text', title: 'Host', capitalization: 'none', autoCorrect: false, required: true)
 
             input(name: 'dbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'dbName', type: 'text', title: 'Database (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbName', type: 'text', title: 'Database (v1)', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'dbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbUsername', type: 'text', title: 'Username (v1)', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'dbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
+            input(name: 'dbPassword', type: 'password', title: 'Password (v1)', required: false)
 
-            input(name: 'dbOrganization', type: 'text', title: 'Organization (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbOrganization', type: 'text', title: 'Organization (v2)', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'dbToken', type: 'password', title: 'Authorisation Token (v2)', defaultValue: '*', required: false)
+            input(name: 'dbToken', type: 'password', title: 'Authorisation Token (v2)', required: false)
         }
 
         if (state.devicesConfigured) {

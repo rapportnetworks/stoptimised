@@ -56,40 +56,15 @@ def mainPage() {
 
             input(name: 'paraLoggingDB', title: 'Measurements to Log:', type: 'paragraph', description: '', element: 'paragraph', required: false)
 
-            input(
-                    name: 'logEvents',
-                    title: 'Events',
-                    description: '',
-                    type: 'bool',
-                    defaultValue: false,
-                    required: false
-            )
-            input(
-                    name: 'logMetadata',
-                    title: 'Metadata',
-                    description: '',
-                    type: 'bool',
-                    defaultValue: false,
-                    required: false
-            )
-            input(
-                    name: 'logStatuses',
-                    title: 'Statuses',
-                    description: '',
-                    type: 'bool',
-                    defaultValue: false,
-                    required: false
-            )
-            input(
-                    name: 'logConfigs',
-                    title: 'Configurations',
-                    description: '',
-                    type: 'bool',
-                    defaultValue: false,
-                    required: false
-            )
+            input(name: 'logEvents', title: 'Events', description: '', type: 'bool', defaultValue: false, required: false)
 
+            input(name: 'logMetadata', title: 'Metadata', description: '', type: 'bool', defaultValue: false, required: false)
+
+            input(name: 'logStatuses', title: 'Statuses', description: '', type: 'bool', defaultValue: false, required: false)
+
+            input(name: 'logConfigs', title: 'Configurations', description: '', type: 'bool', defaultValue: false, required: false)
         }
+
         section('Influx Database') {
             input(name: 'dbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: false)
 
@@ -1083,7 +1058,7 @@ def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
     def headers = [
         HOST           : state.uri,
         'Content-Type' : 'application/octet-stream',
-        'Accept'       : 'application/json' // 'Request-Content-Type' // TODO - check this via server log
+        'Accept'       : 'application/json'
     ]
 
     def query = [precision : 'ms']

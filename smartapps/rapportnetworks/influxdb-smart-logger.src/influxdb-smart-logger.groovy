@@ -1089,7 +1089,8 @@ def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
 
     def options = [callback : handleInfluxDBResponseLocal]
 
-    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
+    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'info')
+    // logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
     sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
 }
 
@@ -1130,7 +1131,8 @@ def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
 
     def passData = [eventId : eventId]
 
-    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
+    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'info')
+    // logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
     asynchttp_v1.post(handleInfluxDBResponseRemote, params, passData)
 }
 

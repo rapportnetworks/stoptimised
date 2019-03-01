@@ -113,7 +113,7 @@ def devicesPage() {
 
 private getDevicesPageContent() {
     section('Choose Devices') {
-        paragraph('Select devices to log from. Each device only needs to be selected once and should be in either the Actuators or Sensors fields at the top.')
+        paragraph('Select devices to log. Each device only needs to be selected once and should be in either the Actuators or Sensors fields at the top.')
 
         capabilities.each {
             try {
@@ -136,7 +136,7 @@ private getAttributesPageContent() {
     def supportedAttr = supportedAttributes?.sort()
     if (supportedAttr) {
         section('Choose Events') {
-            paragraph('Select all the events that should get logged for all devices that support them.')
+            paragraph('Select all the events that should get logged, depending on devices supporting them.')
 
             input(name: 'allowedAttributes', type: 'enum', title: 'Events to log', required: true, multiple: true, submitOnChange: true, options: supportedAttr)
         }

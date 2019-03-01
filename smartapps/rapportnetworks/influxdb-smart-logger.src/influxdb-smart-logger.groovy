@@ -49,12 +49,12 @@ preferences {
 
 def mainPage() {
     dynamicPage(name: 'mainPage', uninstall: true, install: true) {
-        section('Logging') {
-            input(name: 'logLevelIDE', title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.", type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
+        section('Logging settings') {
+            input(name: 'logLevelIDE', title: 'IDE Logging Level', type: 'enum', options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'], defaultValue: 3, displayDuringSetup: true, required: false)
 
-            input(name: 'logLevelDB', title: "Data Logging Level:\nSelect amount of tags and fields to be logged.", type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
+            input(name: 'logLevelDB', title: 'Database Logging Level', type: 'enum', options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'], defaultValue: 1, displayDuringSetup: true, required: false)
 
-            input(name: 'paraLoggingDB', title: 'Measurements to Log:', type: 'paragraph', description: '', element: 'paragraph', required: false)
+            input(name: 'paraLoggingDB', title: 'Measurements to Log', type: 'paragraph', description: '', element: 'paragraph', required: false)
 
             input(name: 'logEvents', title: 'Events', description: '', type: 'bool', defaultValue: false, required: false)
 
@@ -65,26 +65,26 @@ def mainPage() {
             input(name: 'logConfigs', title: 'Configurations', description: '', type: 'bool', defaultValue: false, required: false)
         }
 
-        section('Influx Database') {
+        section('Influx Database settings') {
             input(name: 'dbVersion', type: 'number', title: 'Database version', range: '1..2', defaultValue: 2, required: false)
 
-            input(name: 'dbRemote', type: 'bool', title: 'Use Remote Database', defaultValue: true, required: false)
+            input(name: 'dbRemote', type: 'bool', title: 'Remote Database', defaultValue: true, required: false)
 
-            input(name: 'dbSSL', type: 'bool', title: 'Use Encrypted Connection', defaultValue: true, required: false)
+            input(name: 'dbSSL', type: 'bool', title: 'Encrypted Connection', defaultValue: true, required: false)
 
             input(name: 'dbHost', type: 'text', title: 'Host', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: true)
 
             input(name: 'dbPort', type: 'number', title: 'Port', defaultValue: '443', required: false)
 
-            input(name: 'dbName', type: 'text', title: 'Database Name (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbName', type: 'text', title: 'Database (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
             input(name: 'dbUsername', type: 'text', title: 'Username (v1)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
             input(name: 'dbPassword', type: 'password', title: 'Password (v1)', defaultValue: '*', required: false)
 
-            input(name: 'dbOrganization', type: 'text', title: 'Organisation (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
+            input(name: 'dbOrganization', type: 'text', title: 'Organization (v2)', defaultValue: '*', capitalization: 'none', autoCorrect: false, required: false)
 
-            input(name: 'dbToken', type: 'password', title: 'Database Authorisation Token (v2)', defaultValue: '*', required: false)
+            input(name: 'dbToken', type: 'password', title: 'Authorisation Token (v2)', defaultValue: '*', required: false)
         }
 
         if (state.devicesConfigured) {
@@ -112,12 +112,12 @@ def devicesPage() {
 }
 
 private getDevicesPageContent() {
-    section("Choose Devices") {
-        paragraph("Selecting a device from one of the fields below lets the SmartApp know that the device should be included in the logging process.\nEach device only needs to be selected once and which field you select it from has no effect on which events will be logged for it.\nThere's a field below for every capability, but you should be able to locate most of your devices in either the Actuators or Sensors fields at the top.")
+    section('Choose Devices') {
+        paragraph('Select devices to log from. Each device only needs to be selected once and should be in either the Actuators or Sensors fields at the top.')
 
         capabilities.each {
             try {
-                input("${it.cap}Pref", "capability.${it.cap}", title: "${it.title}:", multiple: true, hideWhenEmpty: true, required: false, submitOnChange: true)
+                input("${it.cap}Pref", "capability.${it.cap}", title: "${it.title}", multiple: true, hideWhenEmpty: true, required: false, submitOnChange: true)
             }
             catch (e) {
                 logger("preferences: Failed to create input for capability: ${it} - ${e.message}", 'error')
@@ -136,9 +136,9 @@ private getAttributesPageContent() {
     def supportedAttr = supportedAttributes?.sort()
     if (supportedAttr) {
         section('Choose Events') {
-            paragraph("Select all the events that should get logged for all devices that support them.\nIf the event you want to log isn't shown, verify that you've selected a device that supports it because only supported events are included.")
+            paragraph('Select all the events that should get logged for all devices that support them.')
 
-            input(name: 'allowedAttributes', type: 'enum', title: "Which events should be logged?", required: true, multiple: true, submitOnChange: true, options: supportedAttr)
+            input(name: 'allowedAttributes', type: 'enum', title: 'Events to log', required: true, multiple: true, submitOnChange: true, options: supportedAttr)
         }
     } else {
         section('Choose Events') {
@@ -176,7 +176,7 @@ def uninstalled() { // runs when the app is uninstalled
 }
 
 def updated() { // runs when app settings are changed
-    logger('updated: Setting logging lever', 'trace')
+    logger('updated: Setting IDE logging level', 'trace')
     state.logLevelIDE = (settings.logLevelIDE) ? settings.logLevelIDE.toInteger() : 3
 
     /**
@@ -217,7 +217,7 @@ def updated() { // runs when app settings are changed
      */
     state.dbLocation = (settings?.dbRemote) ? 'Remote' : 'Local'
 
-    logger('updated: Building state map of group Ids and group names', 'debug')
+    logger('updated: Creating map of group Ids and group names', 'debug')
     state.dwellingType = 'House'
     state.groupNames = [:]
     if (settings.bridgePref) {
@@ -236,7 +236,7 @@ def updated() { // runs when app settings are changed
         logger('updated: Configured - Devices Selected', 'trace')
         state.devicesConfigured = true
     } else {
-        logger("updated: Unconfigured - Choose Devices", 'debug')
+        logger('updated: Unconfigured - Choose Devices', 'debug')
     }
 
     if (settings?.allowedAttributes) {
@@ -648,7 +648,7 @@ def getDeviceLabel() { return {
             it?.device?.device?.label ?: 'unassigned'
         }
     } else {
-        it?.label
+        it?.label ?: 'unassigned'
     }
 } }
 
@@ -1031,7 +1031,15 @@ def getCommandClassesList() { return {
  *****************************************************************************************************************/
 def getHubIPaddress() { return { -> hub().localIP } }
 
-def getOnBattery() { return { -> (hub().hub?.getDataValue('batteryInUse').contains('true')) ? 't' : 'f' } }
+def getOnBattery() { return { ->
+    def battery = hub()?.hub?.getDataValue('batteryInUse')
+    if (battery) {
+        (battery.contains('true')) ? 't' : 'f'
+    }
+    else {
+        null
+    }
+} }
 
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 

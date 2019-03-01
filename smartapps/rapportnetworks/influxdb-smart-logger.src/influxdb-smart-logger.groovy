@@ -439,7 +439,6 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         influxLP.append(measurementName)
         tags().each { tag ->
             if (tag.level <= state.logLevelDB && ('all' in tag.type || measurementType in tag.type)) {
-                // def tagValue // TODO - ? Would it be neater as tag.value ?
                 switch (tag.args) {
                     case 0:
                         try {
@@ -484,7 +483,6 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         def fieldCount = 0
         fields().each { field ->
             if (field.level <= state.logLevelDB && ('all' in field.type || measurementType in field.type)) {
-                // def fieldValue // TODO - ? Would it be neater as field.value ?
                 switch (field.args) {
                     case 0:
                         try {
@@ -730,9 +728,9 @@ def getTimeZoneName() { return { -> location?.timeZone.ID } }
 /*****************************************************************************************************************
  *  Tags Statuses:
  *****************************************************************************************************************/
-def getStatusDevice() { return { "${it?.status}".toLowerCase() } }
+def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
 
-def getStatusHub() { return { -> "${hub()?.status}".toLowerCase() } }
+def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_', '') } }
 
 /*****************************************************************************************************************
  *  Fields Map:
@@ -788,7 +786,7 @@ def fields() { [
     [name: 'tLastAct',   level: 1, clos: 'timeLastActivity',         var: 'integer',  args: 1, type: ['device']],
     [name: 'tLastEvent', level: 1, clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute']],
     [name: 'tOffset',    level: 2, clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum']],
-    [name: 'tStamp',     level: 1, clos: 'timestamp',                var: 'integer',  args: 1, type: ['day', 'enum', 'hub', 'number', 'vector3']],
+    [name: 'tStamp',     level: 2, clos: 'timestamp',                var: 'integer',  args: 1, type: ['day', 'enum', 'hub', 'number', 'vector3']],
     [name: 'tWrite',     level: 2, clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3']],
     [name: 'vLastEvent', level: 1, clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute']],
     [name: 'wakeUpInt',  level: 1, clos: 'wakeUpInterval',           var: 'integer',  args: 1, type: ['statDev', 'zwave']],

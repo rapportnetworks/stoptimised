@@ -582,7 +582,7 @@ def tags() { [
     [name: 'power',       level: 1, clos: 'powerSource',               args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs']],
     [name: 'source',      level: 2, clos: 'source',                    args: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3']],
     [name: 'status',      level: 1, clos: 'statusDevice',              args: 1, type: ['attribute', 'device', 'statDev', 'zwave', 'zwCCs'], super: true],
-    [name: 'status',      level: 1, clos: 'statusHub',                 args: 0, type: ['local', 'statHub']],
+    [name: 'statusHub',   level: 1, clos: 'statusHub',                 args: 0, type: ['local', 'statDev', 'statHub']],
     [name: 'tempScale',   level: 2, clos: 'tempScale',                 args: 0, type: ['local']],
     [name: 'timeZone',    level: 2, clos: 'timeZoneName',              args: 0, type: ['local']],
     [name: 'unit',        level: 1, clos: 'unit',                      args: 1, type: ['number', 'vector3'], esc: true],

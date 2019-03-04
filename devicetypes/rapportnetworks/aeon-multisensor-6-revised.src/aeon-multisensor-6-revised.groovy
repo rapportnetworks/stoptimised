@@ -112,15 +112,15 @@ metadata {
         /**
          * attribute: motion
          */
-        standardTile('motion', 'device.motion', inactiveLabel: false, width: 2, height: 2) {
+        standardTile('motion', 'device.motion', canChangeIcon: false, width: 2, height: 2) {
+            state('inactive', label: 'no motion', icon: 'st.motion.motion.inactive', defaultState: true, backgroundColor: '#ffffff')
             state('active', label: 'motion', icon: 'st.motion.motion.active', backgroundColor: '#00a0dc')
-            state('inactive', label: 'no motion', icon: 'st.motion.motion.inactive', backgroundColor: '#ffffff')
         }
         /**
          * attribute: temperature
          */
-        valueTile('temperature', 'device.temperature', inactiveLabel: false, width: 2, height: 2) {
-            state 'temperature', label: '${currentValue}', unit: '°C', defaultState: true,
+        valueTile('temperature', 'device.temperature', width: 2, height: 2) {
+            state 'temperature', label: '${currentValue}\n°C', unit: '°C', defaultState: true,
                     backgroundColors: [
                             // Celsius
                             [value:  0, color: '#153591'],
@@ -143,45 +143,45 @@ metadata {
         /**
          * attribute: humidity
          */
-        valueTile('humidity', 'device.humidity', inactiveLabel: false, width: 2, height: 2) {
-            state 'humidity', label: '${currentValue}', unit: '% humidity', defaultState: true
+        valueTile('humidity', 'device.humidity', width: 2, height: 2) {
+            state 'humidity', label: '${currentValue}\n% humidity', unit: '%humidity', defaultState: true
         }
         /**
          * attribute: illuminance
          */
-        valueTile('illuminance', 'device.illuminance', inactiveLabel: false, width: 2, height: 2) {
-            state 'illuminance', label: '${currentValue}', unit: 'lux', defaultState: true
+        valueTile('illuminance', 'device.illuminance', width: 2, height: 2) {
+            state 'illuminance', label: '${currentValue}\nlux', unit: 'lux', defaultState: true
         }
         /**
          * attribute: ultraviolet index
          */
-        valueTile('ultravioletIndex', 'device.ultravioletIndex', inactiveLabel: false, width: 2, height: 2) {
-            state 'ultravioletIndex', label: '${currentValue}', unit: 'UV index', defaultState: true
+        valueTile('ultravioletIndex', 'device.ultravioletIndex', width: 2, height: 2) {
+            state 'ultravioletIndex', label: '${currentValue}\nUV index', unit: 'UV index', defaultState: true
         }
         /**
          * attribute: battery
          */
-        valueTile('battery', 'device.battery', inactiveLabel: false, decoration: 'flat', width: 2, height: 2) {
-            state 'battery', label: '${currentValue}', unit: '%', defaultState: true
+        valueTile('battery', 'device.battery', decoration: 'flat', width: 2, height: 2) {
+            state 'battery', label: '${currentValue}\n% battery', unit: '%battery', defaultState: true
         }
         /**
          * attribute: batteryStatus
          */
-        valueTile('batteryStatus', 'device.batteryStatus', inactiveLabel: false, decoration: 'flat', width: 2, height: 2) {
+        valueTile('batteryStatus', 'device.batteryStatus', decoration: 'flat', width: 2, height: 2) {
             state 'batteryStatus', label: '${currentValue}', unit: '', defaultState: true
         }
         /**
          * attribute: powerSource TODO - convert to standardTile (state)
          */
         valueTile('powerSource', 'device.powerSource', height: 2, width: 2, decoration: 'flat') {
-            state 'powerSource', label: '${currentValue}', unit: '', defaultState: true, backgroundColor: '#ffffff'
+            state 'powerSource', label: '${name}\npower', unit: '', defaultState: true, backgroundColor: '#ffffff'
         }
         /**
          * attribute: tamper
          * command:   resetTamper
          */
         standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
-            state 'clear', label: 'tamper clear', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true // *** remove action after testing
+            state 'clear', label: 'Tamper clear', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true // *** remove action after testing
             state 'detected', label: 'tampered', icon: 'st.secondary.tools', backgroundColor: '#ff0000', action: 'resetTamper'
         }
         /**
@@ -189,38 +189,42 @@ metadata {
          * command:   syncRemaining
          */
         valueTile('syncPending', 'device.syncPending', height: 2, width: 2, decoration: 'flat') {
-            state 'syncPending', label: '${currentValue}', unit: 'to sync', backgroundColor: '#ffffff', action: 'syncRemaining', defaultState: true
+            state 'syncPending', label: '${currentValue}\nto sync', unit: 'to sync', backgroundColor: '#ffffff', action: 'syncRemaining', defaultState: true
         }
         /**
          * command: syncAll
          */
         standardTile('syncAll', 'device.syncAll', height: 2, width: 2, decoration: 'flat') {
-            state 'syncAll', label: 'Sync All', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'syncAll', defaultState: true
+            state 'syncAll', label: 'Sync all', icon: 'st.secondary.tools', action: 'syncAll', defaultState: true
         }
         /**
          * attribute: logMessage
          * command:   resetLog
          */
         valueTile('logMessage', 'device.logMessage', height: 2, width: 4, decoration: 'flat') {
-            state 'clear', label: '${currentValue}', backgroundColor: '#ffffff', action: 'resetLog', defaultState: true
+            state 'clear', label: '${currentValue}', action: 'resetLog', defaultState: true
         }
         /**
          * command: batteryChange (used to record a change of device battery)
          */
         standardTile('batteryChange', 'device.batteryChange', height: 2, width: 2, decoration: 'flat') {
-            state 'batteryChange', label: 'Battery Change', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'batteryChange', defaultState: true
+            state 'batteryChange', label: 'Battery change', icon: 'st.secondary.tools', action: 'batteryChange', defaultState: true
         }
         /**
          * command: configure (sets/resets device configuration parameters to default/specified values)
          */
         standardTile('configure', 'device.configure', height: 2, width: 2, decoration: 'flat') {
-            state 'configure', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'configure', defaultState: true
+            state 'completed', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#ffffff', action: 'configure', defaultState: true
+            state 'received', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
+            state 'queued', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
+            state 'received', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
+            state 'syncing', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#44b621', action: 'configure'
         }
         /**
          * command: profile (requests power level and command class versions reports from the device)
          */
         standardTile('profile', 'device.profile', height: 2, width: 2, decoration: 'flat') {
-            state 'profile', label: 'profile', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'profile', defaultState: true
+            state 'profile', label: 'profile', icon: 'st.secondary.tools', action: 'profile', defaultState: true
         }
 
         main('motion')

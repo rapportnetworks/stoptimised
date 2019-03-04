@@ -1,199 +1,236 @@
 /**
  *  Copyright 2018 Alasdair Thin
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  Licensed under the Apache License, Version 2.0 (the 'License'); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  on an 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
  *	Based on ***
  */
 
 metadata {
-    definition(name: "Aeon Multisensor 6 Revised", namespace: "rapportnetworks", author: "Alasdair Thin") {
-        capability "Sensor"
-        capability "Battery"                       // attribute 'battery' (number)
-        capability "Configuration"                 // command   'configure'
-        capability "Health Check"                  // attribute 'checkInterval' (number); attribute 'DeviceWatch-DeviceStatus' (string); attribute 'healthStatus' (?); command 'ping'
-        capability "Illuminance Measurement"       // attribute 'illuminance' (number)
-        capability "Motion Sensor"                 // attribute 'motion' (enum: ['inactive', 'active'])
-        capability "Power Source"                  // attribute 'powerSource' (enum: ['battery', 'dc', 'mains', 'unknown']
-        capability "Relative Humidity Measurement" // attribute 'humidity' (number)
-        capability "Tamper Alert"                  // attribute 'tamper' (enum: ['detected', 'clear'])
-        capability "Temperature Measurement"       // attribute 'temperature' (number)
-        capability "Ultraviolet Index"             // attribute 'ultravioletIndex' (number)
-        // TODO - What about configUseStateOptions (contact and water attributes)?
+    definition(name: 'Aeon Multisensor 6 Revised', namespace: 'rapportnetworks', author: 'Alasdair Thin') {
+        /**
+         * ST Capabilities
+         */
+        capability 'Sensor'
+        capability 'Battery'                       // attribute: 'battery' (number)
+        capability 'Configuration'                 // command:   'configure'
+        capability 'Health Check'                  // attribute: 'checkInterval' (number), attribute: 'DeviceWatch-DeviceStatus' (string), attribute: 'healthStatus' (?), command: 'ping'
+        capability 'Illuminance Measurement'       // attribute: 'illuminance' (number)
+        capability 'Motion Sensor'                 // attribute: 'motion' (enum: ['inactive', 'active'])
+        capability 'Power Source'                  // attribute: 'powerSource' (enum: ['battery', 'dc', 'mains', 'unknown']
+        capability 'Relative Humidity Measurement' // attribute: 'humidity' (number)
+        capability 'Tamper Alert'                  // attribute: 'tamper' (enum: ['detected', 'clear'])
+        capability 'Temperature Measurement'       // attribute: 'temperature' (number)
+        capability 'Ultraviolet Index'             // attribute: 'ultravioletIndex' (number)
+        // TODO - What about deviceUseOptions (contact and water attributes)?
 
-        // Custom Attributes
-        attribute "batteryChange", "string"        // Used to log chaging of battery.
-        attribute "batteryStatus", "string"        // Indicates USB Cable or battery %.
-        attribute "configure", "string"            // Reports on configuration command status. (enum: ['completed', 'queued', 'received', 'syncing'])
-        attribute "logMessage", "string"           // Important log messages.
-        attribute "secureInclusion", "string"      // Indicates secure inclusion success/failed.
-        attribute "syncPending", "number"          // Number of config items that need to be synced with the physical device.
+        /**
+         * Custom Attributes
+         */
+        attribute 'batteryChange', 'string'        // Used to log chaging of battery.
+        attribute 'batteryStatus', 'string'        // Indicates USB Cable or battery %.
+        attribute 'configure', 'string'            // Reports on configuration command status. (enum: ['completed', 'queued', 'received', 'syncing'])
+        attribute 'logMessage', 'string'           // Important log messages.
+        attribute 'secureInclusion', 'string'      // Indicates secure inclusion success/failed.
+        attribute 'syncPending', 'number'          // Number of config items that need to be synced with the physical device.
 
-        // Custom Commands
-        command "batteryChange"                    // Manually logs change of battery. (enum: ['changed'])
-        command "profile"                          // Manually initiates profiling of the device (power level, command class versions)
-        command "resetLog"                         // Manually clears logMessage attribute
-        command "resetTamper"                      // Manually resets tamper attribute to 'clear'
-        command "syncAll"                          // Manually triggers the syncing of all device parameters
-        command "syncRemaining"                    // Manually triggers the syncing of any unsynched parameters (or queues them is a sleepy device)
+        /**
+         * Custom Commands
+         */
+        command 'batteryChange'                    // Manually logs change of battery. (enum: ['changed'])
+        command 'profile'                          // Manually initiates profiling of the device (power level, command class versions)
+        command 'resetLog'                         // Manually clears logMessage attribute
+        command 'resetTamper'                      // Manually resets tamper attribute to 'clear'
+        command 'syncAll'                          // Manually triggers the syncing of all device parameters
+        command 'syncRemaining'                    // Manually triggers the syncing of any unsynched parameters (or queues them is a sleepy device)
 
-        // Data values
-        // deviceUse:            what device (e.g. contact sensor) is being used for (optional configuration)
-        // event:                attribute for device event (based on optional configuration)
-        // inactiveState:        state when inactive (based on optional configuration)
-        // activeState:          state when active (based on optional configuration)
-        // commandClassVersions: list of all command classes supported by the device and their version numbers
-        // configurationType:    indicator of way device is configured [default, specified, user]
-        // configurationReport:  report of all configured parameter values (omits values that are not configured - i.e. remain at default values)
-        // messages:             counter of all messages received by parse method (i.e. sent by device)
-        // powerLevel:           device power level
-        // wakeUpInterval:       device wake up interval
-        // MSR:                  manufacturer specific report
-        // serialNumber:         device unique serial number (if it has one)
+        /**
+         * Data values
+         * deviceUse:            what device (e.g. contact sensor) is being used for (optional configuration)
+         * event:                attribute for device event (based on optional configuration)
+         * inactiveState:        state when inactive (based on optional configuration)
+         * activeState:          state when active (based on optional configuration)
+         * commandClassVersions: list of all command classes supported by the device and their version numbers
+         * configurationType:    indicator of way device is configured [default, specified, user]
+         * configurationReport:  report of all configured parameter values (omits values that are not configured - i.e. remain at default values)
+         * messages:             counter of all messages received by parse method (i.e. sent by device)
+         * MSR:                  manufacturer specific report
+         * powerLevel:           device power level
+         * serialNumber:         device unique serial number (if it has one)
+         * wakeUpInterval:       device wake up interval
+         */
 
-        // Preferences
-        // configAutoResetTamperDelay -> state.autoResetTamperDelay
-        // configDeviceUse -> deviceUse, event, inactiveState, activeState
-        // configLogLevelIDE -> state.logLevelIDE
-        // configLogLevelDevice -> state.logLevelDevice
-        // configParam${id} -> state."paramTarget$it.id" -> state."paramCache${it.id}"
-        // configWakeUpInterval -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
-        // paraDeviceParameters
-        // paraDeviceSettings
-        // paraLoggerSettings
+        /**
+         * Preferences
+         * configAutoResetTamperDelay -> state.autoResetTamperDelay
+         * configDeviceUse -> deviceUse, event, inactiveState, activeState
+         * configLogLevelIDE -> state.logLevelIDE
+         * configLogLevelDevice -> state.logLevelDevice
+         * configParam${id} -> state.'paramTarget${it.id}' -> state.'paramCache${it.id}'
+         * configWakeUpInterval -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
+         * paraDeviceParameters
+         * paraDeviceSettings
+         * paraLoggerSettings
+         */
 
-        // State variables
-        // state.messageCounter
-        // state.configuringDevice
-        // state.syncAll
-        // state.configReportBuffer ? is this needed?
-        // state.updatedLastRanAt
-        // state.queued << ['sync', 'profileNow']
-        // state.timeLastBatteryReport
-        // state.commandClassVersionsBuffer
+        /**
+         * State variables
+         * autoResetTamperDelay
+         * commandClassVersionsBuffer
+         * configReportBuffer ? is this needed?
+         * configuringDevice
+         * logLevelIDE
+         * logLevelDevice
+         * messageCounter
+         * 'paramTarget${it.id}', 'paramCache${it.id}'
+         * queued << ['sync', 'profileNow']
+         * syncAll
+         * timeLastBatteryReport
+         * updatedLastRanAt
+         * wakeUpIntervalTarget, wakeUpIntervalCache
+         */
 
-        fingerprint mfr: "0086", prod: "0102", model: "0064", deviceJoinName: "Aeotec MultiSensor 6"
+        fingerprint mfr: '0086', prod: '0102', model: '0064', deviceJoinName: 'Aeotec MultiSensor 6'
     }
 
     tiles(scale: 2) {
         /*
-        multiAttributeTile(name: "motion", type: "generic", width: 6, height: 4) {
-            tileAttribute("device.motion", key: "PRIMARY_CONTROL") {
-                attributeState "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#00A0DC"
-                attributeState "inactive", label: 'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#cccccc"
+        multiAttributeTile(name: 'motion', type: 'generic', width: 6, height: 4) {
+            tileAttribute('device.motion', key: 'PRIMARY_CONTROL') {
+                attributeState 'active', label: 'motion', icon: 'st.motion.motion.active', backgroundColor: '#00A0DC'
+                attributeState 'inactive', label: 'no motion', icon: 'st.motion.motion.inactive', backgroundColor: '#cccccc'
             }
         }
         */
         /**
-         * tile displaying value of motion attribute
+         * attribute: motion
          */
-        standardTile("motion", "device.motion", inactiveLabel: false, width: 2, height: 2) {
-            state "active", label: 'motion', icon: "st.motion.motion.active", backgroundColor: "#00A0DC"
-            state "inactive", label: 'no motion', icon: "st.motion.motion.inactive", backgroundColor: "#cccccc"
+        standardTile('motion', 'device.motion', inactiveLabel: false, width: 2, height: 2) {
+            state('active', label: 'motion', icon: 'st.motion.motion.active', backgroundColor: '#00a0dc')
+            state('inactive', label: 'no motion', icon: 'st.motion.motion.inactive', backgroundColor: '#ffffff')
         }
         /**
-         * tile displaying value of temperature attribute
+         * attribute: temperature
          */
-        valueTile("temperature", "device.temperature", inactiveLabel: false, width: 2, height: 2) {
-            state "temperature", label: '${currentValue}°C', unit: "°C", backgroundColors: [[value: 0, color: "#153591"], [value: 7, color: "#1e9cbb"], [value: 15, color: "#90d2a7"], [value: 23, color: "#44b621"], [value: 29, color: "#f1d801"], [value: 33, color: "#d04e00"], [value: 37, color: "#bc2323"]],  defaultState: true
+        valueTile('temperature', 'device.temperature', inactiveLabel: false, width: 2, height: 2) {
+            state 'temperature', label: '${currentValue}', unit: '°C', defaultState: true,
+                    backgroundColors: [
+                            // Celsius
+                            [value:  0, color: '#153591'],
+                            [value:  7, color: '#1e9cbb'],
+                            [value: 15, color: '#90d2a7'],
+                            [value: 23, color: '#44b621'],
+                            [value: 29, color: '#f1d801'],
+                            [value: 33, color: '#d04e00'],
+                            [value: 37, color: '#bc2323'],
+                            // Fahrenheit
+                            [value: 40, color: "#153591"],
+                            [value: 44, color: "#1e9cbb"],
+                            [value: 59, color: "#90d2a7"],
+                            [value: 74, color: "#44b621"],
+                            [value: 84, color: "#f1d801"],
+                            [value: 95, color: "#d04e00"],
+                            [value: 96, color: "#bc2323"]
+                    ]
         }
         /**
-         * tile displaying value of humidity attribute
+         * attribute: humidity
          */
-        valueTile("humidity", "device.humidity", inactiveLabel: false, width: 2, height: 2) {
-            state "humidity", label: '${currentValue} % humidity', unit: "% humidity", defaultState: true
+        valueTile('humidity', 'device.humidity', inactiveLabel: false, width: 2, height: 2) {
+            state 'humidity', label: '${currentValue}', unit: '% humidity', defaultState: true
         }
         /**
-         * tile displaying value of illuminance atribute
+         * attribute: illuminance
          */
-        valueTile("illuminance", "device.illuminance", inactiveLabel: false, width: 2, height: 2) {
-            state "illuminance", label: '${currentValue} lux', unit: "", defaultState: true
+        valueTile('illuminance', 'device.illuminance', inactiveLabel: false, width: 2, height: 2) {
+            state 'illuminance', label: '${currentValue}', unit: 'lux', defaultState: true
         }
         /**
-         * tile displaying value of ultraviolet index attribute
+         * attribute: ultraviolet index
          */
-        valueTile("ultravioletIndex", "device.ultravioletIndex", inactiveLabel: false, width: 2, height: 2) {
-            state "ultravioletIndex", label: '${currentValue} UV index', unit: "", defaultState: true
+        valueTile('ultravioletIndex', 'device.ultravioletIndex', inactiveLabel: false, width: 2, height: 2) {
+            state 'ultravioletIndex', label: '${currentValue}', unit: 'UV index', defaultState: true
         }
         /**
-         * tile displaying value of battery attribute
+         * attribute: battery
          */
-        valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "battery", label: '${currentValue}% battery', unit: "", defaultState: true
+        valueTile('battery', 'device.battery', inactiveLabel: false, decoration: 'flat', width: 2, height: 2) {
+            state 'battery', label: '${currentValue}', unit: '%', defaultState: true
         }
         /**
-         * tile displaying value of battery status attribute
+         * attribute: batteryStatus
          */
-        valueTile("batteryStatus", "device.batteryStatus", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "batteryStatus", label: '${currentValue}', unit: "", defaultState: true
+        valueTile('batteryStatus', 'device.batteryStatus', inactiveLabel: false, decoration: 'flat', width: 2, height: 2) {
+            state 'batteryStatus', label: '${currentValue}', unit: '', defaultState: true
         }
         /**
-         * tile displaying value of power source attribute
+         * attribute: powerSource TODO - convert to standardTile (state)
          */
-        valueTile("powerSource", "device.powerSource", height: 2, width: 2, decoration: "flat") {
-            state "powerSource", label: '${currentValue} powered', backgroundColor: "#ffffff", defaultState: true
+        valueTile('powerSource', 'device.powerSource', height: 2, width: 2, decoration: 'flat') {
+            state 'powerSource', label: '${currentValue}', unit: '', defaultState: true, backgroundColor: '#ffffff'
         }
         /**
-         * tile displaying value of tamper attribute
-         * on tap triggers the resetTamper command
+         * attribute: tamper
+         * command:   resetTamper
          */
-        standardTile("tamper", "device.tamper", height: 2, width: 2, decoration: "flat") {
-            state "clear", label: 'tamper clear', backgroundColor: "#ffffff", defaultState: true, action: "resetTamper" // *** remove action after testing
-            state "detected", label: 'tampered', icon: 'st.secondary.tools', action: "resetTamper", backgroundColor: "#ff0000"
+        standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
+            state 'clear', label: 'tamper clear', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true // *** remove action after testing
+            state 'detected', label: 'tampered', icon: 'st.secondary.tools', backgroundColor: '#ff0000', action: 'resetTamper'
         }
         /**
-         * tile displaying value of syncPending attribute - number of configuration parameters that remain to be synched with the device
-         * on tap triggers the syncRemaining command
+         * attribute: syncPending (number of configuration parameters that remain to be synched with the device)
+         * command:   syncRemaining
          */
-        valueTile("syncPending", "device.syncPending", height: 2, width: 2, decoration: "flat") {
-            state "syncPending", label: '${currentValue} to sync', action: "syncRemaining", backgroundColor: "#ffffff", defaultState: true
+        valueTile('syncPending', 'device.syncPending', height: 2, width: 2, decoration: 'flat') {
+            state 'syncPending', label: '${currentValue}', unit: 'to sync', backgroundColor: '#ffffff', action: 'syncRemaining', defaultState: true
         }
         /**
-         * on tap triggers the syncAll command
+         * command: syncAll
          */
-        standardTile("syncAll", "device.syncAll", height: 2, width: 2, decoration: "flat") {
-            state "syncAll", label: 'Sync All', icon: 'st.secondary.tools', action: "syncAll", backgroundColor: "#ffffff", defaultState: true
+        standardTile('syncAll', 'device.syncAll', height: 2, width: 2, decoration: 'flat') {
+            state 'syncAll', label: 'Sync All', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'syncAll', defaultState: true
         }
         /**
-         * tile displaying value of logMessage attribute
-         * on tap triggers the resetLog command
+         * attribute: logMessage
+         * command:   resetLog
          */
-        valueTile("logMessage", "device.logMessage", height: 2, width: 4, decoration: "flat") {
-            state "clear", label: '${currentValue}', action: "resetLog", backgroundColor: "#ffffff", defaultState: true
+        valueTile('logMessage', 'device.logMessage', height: 2, width: 4, decoration: 'flat') {
+            state 'clear', label: '${currentValue}', backgroundColor: '#ffffff', action: 'resetLog', defaultState: true
         }
         /**
-         * on tap triggers the batteryChange command (used to record a change of device battery)
+         * command: batteryChange (used to record a change of device battery)
          */
-        standardTile("batteryChange", "device.batteryChange", height: 2, width: 2, decoration: "flat") {
-            state "batteryChange", label: 'Battery Change', icon: 'st.secondary.tools', action: "batteryChange", backgroundColor: "#ffffff", defaultState: true
+        standardTile('batteryChange', 'device.batteryChange', height: 2, width: 2, decoration: 'flat') {
+            state 'batteryChange', label: 'Battery Change', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'batteryChange', defaultState: true
         }
         /**
-         * on tap triggers the configure command (sets/resets device configuration parameters to default/specified values)
+         * command: configure (sets/resets device configuration parameters to default/specified values)
          */
-        standardTile("configure", "device.configure", height: 2, width: 2, decoration: "flat") {
-            state "configure", label: 'configure', icon: 'st.secondary.tools', action: "configure", backgroundColor: "#ffffff", defaultState: true
+        standardTile('configure', 'device.configure', height: 2, width: 2, decoration: 'flat') {
+            state 'configure', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'configure', defaultState: true
         }
         /**
-         * on tap triggers the profile command (requests power level and command class versions reports from the device)
+         * command: profile (requests power level and command class versions reports from the device)
          */
-        standardTile("profile", "device.profile", height: 2, width: 2, decoration: "flat") {
-            state "profile", label: 'profile', icon: 'st.secondary.tools', action: "profile", backgroundColor: "#ffffff", defaultState: true
+        standardTile('profile', 'device.profile', height: 2, width: 2, decoration: 'flat') {
+            state 'profile', label: 'profile', icon: 'st.secondary.tools', backgroundColor: '#cccccc', action: 'profile', defaultState: true
         }
 
-        main(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex"])
-        details(["motion", "temperature", "humidity", "illuminance", "ultravioletIndex", "batteryStatus", "tamper", "syncPending", "syncAll", "logMessage", "batteryChange", "configure", "profile"])
+        main('motion')
+
+        details(['motion', 'temperature', 'humidity', 'illuminance', 'ultravioletIndex', 'batteryStatus', 'tamper', 'syncPending', 'syncAll', 'logMessage', 'batteryChange', 'configure', 'profile'])
     }
 
     simulator {
-        status "no motion": "command: 9881, payload: 00300300"
-        status "motion": "command: 9881, payload: 003003FF"
+        status 'no motion': 'command: 9881, payload: 00300300'
+        status 'motion': 'command: 9881, payload: 003003FF'
 
         for (int i = 0; i <= 100; i += 20) {
             status "temperature ${i}F": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().sensorMultilevelV2.sensorMultilevelReport(scaledSensorValue: i, precision: 1, sensorType: 1, scale: 1)).incomingMessage()
@@ -211,12 +248,12 @@ metadata {
             status "battery ${i}%": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().batteryV1.batteryReport(batteryLevel: i)).incomingMessage()
         }
 
-        status "low battery alert": new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().batteryV1.batteryReport(batteryLevel: 255)).incomingMessage()
+        status 'low battery alert': new physicalgraph.zwave.Zwave().securityV1.securityMessageEncapsulation().encapsulate(new physicalgraph.zwave.Zwave().batteryV1.batteryReport(batteryLevel: 255)).incomingMessage()
 
-        status "wake up": "command: 8407, payload: "
+        status 'wake up': 'command: 8407, payload: '
 
-        // reply "2001FF,delay 100,2502": "command: 2503, payload: FF"
-        // reply "200100,delay 100,2502": "command: 2503, payload: 00"
+        // reply '2001FF,delay 100,2502': 'command: 2503, payload: FF'
+        // reply '200100,delay 100,2502': 'command: 2503, payload: 00'
     }
 
     preferences {
@@ -230,9 +267,9 @@ metadata {
             )
 
             if ('deviceUse' in configDeviceSettings()) {
-                def uses = configUseStateOptions().collectEntries { [(it.item): it.use] }
-                def defaultUse = configUseStateOptions().find { it.default }.item
-                def defaultUseName = configUseStateOptions().find { it.default }.use
+                def uses           = deviceUseOptions().collectEntries { [(it.item): it.use] }
+                def defaultUse     = deviceUseOptions().find { it.default }.item
+                def defaultUseName = deviceUseOptions().find { it.default }.use
                 input(
                         name: 'configDeviceUse',
                         title: "What type of sensor do you want to use this device for? (default: ${defaultUseName})",
@@ -256,9 +293,9 @@ metadata {
             }
 
             if ('wakeUpInterval' in configDeviceSettings()) {
-                def intervals = configWakeIntervalOptions().collectEntries { [(it.item): it.interval] }
-                def defaultInterval = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
-                def defaultIntervalName = (configWakeIntervalOptions()?.find { it.specified }?.interval) ?: configWakeIntervalOptions().find { it.default }.interval
+                def intervals           = wakeUpIntervalOptions().collectEntries { [(it.item): it.interval] }
+                def defaultInterval     = (wakeUpIntervalOptions()?.find { it.specified }?.item)     ?: wakeUpIntervalOptions().find { it.default }.item
+                def defaultIntervalName = (wakeUpIntervalOptions()?.find { it.specified }?.interval) ?: wakeUpIntervalOptions().find { it.default }.interval
                 input(
                         name: 'configWakeUpInterval',
                         title: "Device Wake Up Interval. (default: ${defaultIntervalName})",
@@ -333,7 +370,7 @@ private generateParametersPreferences() {
 
             def specific = parametersSpecifiedValues()?.find { spec -> spec.id == it.id }
 
-            def prefDefault = (specific) ? specific.specifiedValue : it.defaultValue
+            def prefDefault = (specific) ? specific.specified : it.default
 
             switch(it.type) {
                 case 'number':
@@ -380,8 +417,8 @@ private generateParametersPreferences() {
                             element: 'paragraph'
                     )
                     it.flags.each { flag ->
-                        def defaultOrSpecified = (specific) ? specific?.flags.find { specflag -> specflag.id == flag.id }?.specifiedValue : flag.defaultValue
-                        def prefDefaultFlag = (defaultOrSpecified == flag.flagValue) ? true : false
+                        def defaultOrSpecified = (specific) ? specific?.flags.find { specflag -> specflag.id == flag.id }?.specified : flag.default
+                        def prefDefaultFlag = (flag.flag == defaultOrSpecified) ? true : false
                         input(
                                 name: "configParam${id}${flag.id}",
                                 title: "${flag.id}) ${flag.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
@@ -439,9 +476,9 @@ def installed() {
     state.logLevelIDE = 5; state.logLevelDevice = 2
 
     /**
-     * sends event to set checkInterval default value TODO - need to sort defaultCheckInterval - calculate? based on default/specified option?
+     * sends event to set checkInterval default value TODO - need to sort checkIntervalDefault - calculate? based on default/specified option?
      */
-    sendEvent(name: 'checkInterval', value: configIntervals().defaultCheckInterval, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+    sendEvent(name: 'checkInterval', value: intervalsSpecifiedValues().checkIntervalDefault, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
 
     /**
      * sends event to clear any tamper due to installation
@@ -512,7 +549,7 @@ def configure() {
     catch(e) {}
 
     if (commandClassesVersions().containsKey(0x84)) {
-        def wakeUpIntervalDefault = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
+        def wakeUpIntervalDefault = (wakeUpIntervalOptions()?.find { it.specified }?.item) ?: wakeUpIntervalOptions().find { it.default }.item
         state.wakeUpIntervalTarget = wakeUpIntervalDefault
         try {
             device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault)
@@ -525,11 +562,11 @@ def configure() {
     parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
 
         def specific = parametersSpecifiedValues()?.find { paramSV -> paramSV.id == it.id }
-        def defaultValue = (specific) ? specific.specifiedValue : it.defaultValue
+        def defaultValue = (specific) ? specific.specified : it.default
         def resetType = (specific) ? 'specified' : 'default'
-        state."paramTarget$it.id" = defaultValue
+        state."paramTarget${it.id}" = defaultValue
 
-        def id = it.id.toString().padLeft(3, "0")
+        def id = it.id.toString().padLeft(3, '0')
 
         switch(it.type) {
             case 'number':
@@ -549,7 +586,7 @@ def configure() {
                 break
 
             case 'bool':
-                def resetBool = (defaultValue == it.trueValue) ? true : false
+                def resetBool = (defaultValue == it.true) ? true : false
                 try {
                     device.updateSetting("configParam$id", resetBool)
                     logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'debug')
@@ -560,11 +597,11 @@ def configure() {
             case 'flags':
                 def defaultOrSpecified = (specific) ? specific.flags : it.flags
                 defaultOrSpecified.each { flag ->
-                    def defaultValueFlag = (flag?.specifiedValue != null) ? flag.specifiedValue : flag.defaultValue
-                    def resetBool = (defaultValueFlag == flag.flagValue) ? true : false
+                    def defaultValueFlag = (flag?.specified != null) ? flag.specified : flag.default
+                    def resetBool = (flag.flag == defaultValueFlag) ? true : false
                     try {
-                        device.updateSetting("configParam$id$flag.id", resetBool)
-                        logger("configure: Parameter: $id$flag.id, resetting flag preference to ($resetType): $resetBool", 'debug')
+                        device.updateSetting("configParam$id${flag.id}", resetBool)
+                        logger("configure: Parameter: $id${flag.id}, resetting flag preference to ($resetType): $resetBool", 'debug')
                     }
                     catch(e) {}
                 }
@@ -614,7 +651,7 @@ def updated() {
 
             parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
 
-                def id = it.id.toString().padLeft(3, "0")
+                def id = it.id.toString().padLeft(3, '0')
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
 
                     switch (it.type) {
@@ -631,7 +668,7 @@ def updated() {
                             break
 
                         case 'bool':
-                            def setting = (settings."configParam$id") ? it.trueValue : it.falseValue
+                            def setting = (settings."configParam$id") ? it.true : it.false
                             logger("updated: Parameter $id set to match bool preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
@@ -639,7 +676,7 @@ def updated() {
                         case 'flags':
                             def target = 0
                             settings.findAll { set -> set.key ==~ /configParam${id}[a-z]/ }.each { key, value ->
-                                if (value) target += it.flags.find { flag -> flag.id == "${key.reverse().take(1)}" }.flagValue
+                                if (value) target += it.flags.find { flag -> flag.id == "${key.reverse().take(1)}" }.flag
                             }
                             logger("updated: Parameter $it.id set to match sum of flag preference values: $target", 'debug')
                             state."paramTarget$it.id" = target
@@ -753,7 +790,7 @@ private updateSyncPending() {
     if (!listening()) {
         def target = state?.wakeUpIntervalTarget
         if (target != null && target != state.wakeUpIntervalCache) syncPending++
-        def specificInterval = (configWakeIntervalOptions()?.find { it.specified }?.item) ?: configWakeIntervalOptions().find { it.default }.item
+        def specificInterval = (wakeUpIntervalOptions()?.find { it.specified }?.item) ?: wakeUpIntervalOptions().find { it.default }.item
         if (target != specificInterval) userConfig++
     }
 
@@ -821,9 +858,9 @@ private byteArrayToUInt(byteArray) {
 void deviceUseStates() {
     def useStates
     if (settings?.configDeviceUse) {
-        useStates = configUseStateOptions()?.find { it.item == settings.configDeviceUse.toInteger() }
+        useStates = deviceUseOptions()?.find { it.item == settings.configDeviceUse.toInteger() }
     } else {
-        useStates = configUseStateOptions()?.find { it.default == true }
+        useStates = deviceUseOptions()?.find { it.default == true }
     }
     def deviceUse = (useStates) ? useStates.use : 'Water'
     def event = (useStates) ? useStates.event : 'water'
@@ -997,7 +1034,7 @@ def syncRemaining() {
  **********************************************************************************************************************/
 /*
 private association(commands) {
-    sendEvent(descriptionText: "Setting 1st Association Group", displayed: false)
+    sendEvent(descriptionText: 'Setting 1st Association Group', displayed: false)
     commands << zwave.associationV2.associationSet(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
 }
 */
@@ -1030,7 +1067,7 @@ private powerlevelGet() {
 
 /*
 private sensorBinary(commands) {
-    sendEvent(descriptionText: "Requesting Binary Sensor Report", displayed: false)
+    sendEvent(descriptionText: 'Requesting Binary Sensor Report', displayed: false)
     commands << zwave.sensorBinaryV2.sensorBinaryGet()
 }
 */
@@ -1201,11 +1238,11 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
         switch (cmd.event) {
             case 0x00:
                 result += motionEvent(0)
-                // result << createEvent(name: "tamper", value: "clear") // is this needed - check other handlers
+                // result << createEvent(name: 'tamper', value: 'clear') // is this needed - check other handlers
                 break
 
             case 0x03:
-                result += createEvent(name: "tamper", value: "detected", descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
+                result += createEvent(name: 'tamper', value: 'detected', descriptionText: "$device.displayName was tampered", displayed: true, isStateChange: true)
                 if (state.autoResetTamperDelay > 0) {
                     unschedule(resetTamper)
                     runIn(state.autoResetTamperDelay, resetTamper)
@@ -1328,8 +1365,8 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
     logger('DeviceSpecificReport: Serial number report received.', 'info')
     logger("DeviceSpecificReport: Serial number raw report: $cmd", 'debug')
-    def serialNumber = "0"
-    // serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? (cmd.deviceIdData.each { data -> serialNumber += "${String.format(" % 02 X ", data)}" }) : "0"
+    def serialNumber = '0'
+    // serialNumber = (cmd.deviceIdType == 1 && cmd.deviceIdDataFormat == 1) ? (cmd.deviceIdData.each { data -> serialNumber += "${String.format(' % 02 X ', data)}" }) : '0'
     updateDataValue('serialNumber', serialNumber)
     updateSyncPending()
 }
@@ -1345,8 +1382,8 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
     log.debug "manufacturerName: ${cmd.manufacturerName}"
     log.debug "productId:        ${cmd.productId}"
     log.debug "productTypeId:    ${cmd.productTypeId}"
-    def msr = String.format("%04X-%04X-%04X", cmd.manufacturerId, cmd.productTypeId, cmd.productId)
-    updateDataValue("MSR", msr)
+    def msr = String.format('%04X-%04X-%04X', cmd.manufacturerId, cmd.productTypeId, cmd.productId)
+    updateDataValue('MSR', msr)
 }
 
 /**
@@ -1361,7 +1398,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     state.commandClassVersionsBuffer << [(ccValue): ccVersion]
     if (state.commandClassVersionsBuffer.size() == commandClassesQuery().size()) {
         logger('VersionCommandClassReport: All Command Class Versions Reported.', 'info')
-        updateDataValue("commandClassVersions", state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(","))
+        updateDataValue('commandClassVersions', state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(','))
         state?.queued?.removeAll { it == 'profileNow' }
     }
 }
@@ -1403,8 +1440,8 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     }
 
     if (!listening()) {
-        if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + configIntervals().batteryRefreshInterval) {
-            logger("WakeUpNotification: Requesting Battery report.", 'trace')
+        if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + intervalsSpecifiedValues().batteryRefreshInterval) {
+            logger('WakeUpNotification: Requesting Battery report.', 'trace')
             cmds += batteryGet()
             cmds += powerlevelGet()
         }
@@ -1512,9 +1549,9 @@ private motionEvent(value) {
  */
 private sensorValueEvent(Short value) {
     def eventValue = null
-    if (value == 0x00) {eventValue = "dry"}
-    if (value == 0xFF) {eventValue = "wet"}
-    def result = createEvent(name: "water", value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
+    if (value == 0x00) {eventValue = 'dry'}
+    if (value == 0xFF) {eventValue = 'wet'}
+    def result = createEvent(name: 'water', value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
     return result
 }
 
@@ -1584,7 +1621,7 @@ private commandClassesVersions() { [
 
 /**
  * configDeviceSettings - menu items available in mobile app to be configured by user
- * @return
+ * @return list of items to configure
  */
 private configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval'] }
 
@@ -1594,18 +1631,10 @@ private configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpIn
 private configLoggerSettings() { ['logLevelDevice', 'logLevelIDE'] }
 
 /**
- * configUseStateOptions() - map of states for contact sensor depending on use
- * @return
+ * deviceUseOptions() - map of states for contact sensor depending on use
+ * @return map of device use options
  */
-/*
-private configUseStateOptions() { [
-        Bed: [event: 'contact', inactive: 'empty', active: 'occupied'],
-        Chair: [event: 'contact', inactive: 'vacant', active: 'occupied'],
-        Toilet: [event: 'contact', inactive: 'full', active: 'flushing'],
-        Water: [event: 'water', inactive: 'dry', active: 'wet', default: true]
-] }
-*/
-private configUseStateOptions() { [
+private deviceUseOptions() { [
     [item: 0, use: 'Bed', event: 'contact', inactive: 'empty', active: 'occupied'],
     [item: 1, use: 'Chair', event: 'contact', inactive: 'vacant', active: 'occupied'],
     [item: 2, use: 'Toilet', event: 'contact', inactive: 'full', active: 'flushing'],
@@ -1613,20 +1642,20 @@ private configUseStateOptions() { [
 ] }
 
 /**
- * configIntervals() - list of values for intervals both device defaults and specified optimal values
+ * intervalsSpecifiedValues - list of values for intervals both device defaults and specified optimal values
  * @return
  */
-private configIntervals() { [
-        defaultWakeUpInterval: 4_000, defaultCheckInterval: 8_500,
-        specifiedWakeUpInterval: 86_400, specifiedCheckInterval: 180_000,
+private intervalsSpecifiedValues() { [
+        wakeUpIntervalDefault: 4_000, checkIntervalDefault: 8_500,
+        wakeUpIntervalSpecified: 86_400, checkIntervalSpecified: 180_000,
         batteryRefreshInterval: 604_800
 ] }
 
 /**
- * configWakeIntervalOptions
+ * wakeUpIntervalOptions
  * @return map of preference options for configuring device wake interval
  */
-private configWakeIntervalOptions() { [
+private wakeUpIntervalOptions() { [
     [item: 3_600, interval: '1 hour', specified: true],
     [item: 7_200, interval: '2 hours', default: true],
     [item: 34_200, interval: '12 hours'],
@@ -1634,6 +1663,7 @@ private configWakeIntervalOptions() { [
 
 /**
  * configParameters() - set of device configuration parameters with a specified value required for optimal operation
+ * 0 will make all items in parametersMetadata available
  * @return list of device parameters
  */
 private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
@@ -1643,16 +1673,16 @@ private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112,
  * @return map of specified/default values for device parameters
  */
 private parametersSpecifiedValues() { [
-    [id:2,size:1,defaultValue:0,specifiedValue:1],
-    [id:3,size:2,defaultValue:240,specifiedValue:30],
-    [id:4,size:1,defaultValue:5,specifiedValue:5],
-    [id:5,size:1,defaultValue:1,specifiedValue:2],
-    [id:40,size:1,defaultValue:0,specifiedValue:0],
-    [id:81,size:1,defaultValue:0,specifiedValue:2],
-    [id:101,size:4,defaultValue:241,specifiedValue:240,flags:[[id:'a',flagValue:1,defaultValue:1,specifiedValue:0],[id:'b',flagValue:16,defaultValue:16,specifiedValue:16],[id:'c',flagValue:32,defaultValue:32,specifiedValue:32],[id:'d',flagValue:64,defaultValue:64,specifiedValue:64],[id:'e',flagValue:128,defaultValue:128,specifiedValue:128]]],
-    [id:102,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
-    [id:103,size:4,defaultValue:0,specifiedValue:0,flags:[[id:'a',flagValue:1,defaultValue:0,specifiedValue:0],[id:'b',flagValue:16,defaultValue:0,specifiedValue:0],[id:'c',flagValue:32,defaultValue:0,specifiedValue:0],[id:'d',flagValue:64,defaultValue:0,specifiedValue:0],[id:'e',flagValue:128,defaultValue:0,specifiedValue:0]]],
-    [id:111,size:4,defaultValue:3600,specifiedValue:3600]
+    [id:2,size:1,default:0,specified:1],
+    [id:3,size:2,default:240,specified:30],
+    [id:4,size:1,default:5,specified:5],
+    [id:5,size:1,default:1,specified:2],
+    [id:40,size:1,default:0,specified:0],
+    [id:81,size:1,default:0,specified:2],
+    [id:101,size:4,default:241,specified:240,flags:[[id:'a',flag:1,default:1,specified:0],[id:'b',flag:16,default:16,specified:16],[id:'c',flag:32,default:32,specified:32],[id:'d',flag:64,default:64,specified:64],[id:'e',flag:128,default:128,specified:128]]],
+    [id:102,size:4,default:0,specified:0,flags:[[id:'a',flag:1,default:0,specified:0],[id:'b',flag:16,default:0,specified:0],[id:'c',flag:32,default:0,specified:0],[id:'d',flag:64,default:0,specified:0],[id:'e',flag:128,default:0,specified:0]]],
+    [id:103,size:4,default:0,specified:0,flags:[[id:'a',flag:1,default:0,specified:0],[id:'b',flag:16,default:0,specified:0],[id:'c',flag:32,default:0,specified:0],[id:'d',flag:64,default:0,specified:0],[id:'e',flag:128,default:0,specified:0]]],
+    [id:111,size:4,default:3600,specified:3600]
 ] }
 
 /**
@@ -1673,18 +1703,18 @@ private powerSourceParameter() { 9 }
  * @return map of all device configuration parameters
  */
 private parametersMetadata() { [
-    [id:2,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',falseValue:0,trueValue:1],
-    [id:3,size:2,type:'number',range: '10..3600',defaultValue:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
-    [id:4,size:1,type:'enum',defaultValue:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
-    [id:5,size:1,type:'enum',defaultValue:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
-    [id:8,size:1,type:'number',range: '15..60',defaultValue:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
+    [id:2,size:1,type:'bool',default:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',false:0,true:1],
+    [id:3,size:2,type:'number',range: '10..3600',default:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
+    [id:4,size:1,type:'enum',default:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],
+    [id:5,size:1,type:'enum',default:1,required:false,readonly:false,isSigned:false,name:'Which command?',description:'Command sent when the motion sensor triggered.',options:[1:'send Basic Set CC',2:'send Sensor Binary Report CC']],
+    [id:8,size:1,type:'number',range: '15..60',default:15,required:false,readonly:false,isSigned:false,name: 'Timeout of after Wake Up',description:'Set the timeout of awake after the Wake Up CC is sent out'],
     [id:9,size:2,type:'flags',required:false,readonly:true,isSigned:false,name:'Report the current power mode and the product state for battery power mode',description:'Report the current power mode and the product state for battery power mode'],
-    [id:40,size:1,type:'bool',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',falseValue:0,trueValue:1],
-    [id:81,size:1,type:'enum',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
-    [id:101,size:4,type:'flags',defaultValue:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:1],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:16],[id:'c',description:'enable temperature',flagValue:32,defaultValue:32],[id:'d',description:'enable humidity',flagValue:64,defaultValue:64],[id:'e',description:'enable luminance',flagValue:128,defaultValue:128]]],
-    [id:102,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 2 Report',description:'Which report needs to be sent in Report group 2',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
-    [id:103,size:4,type:'flags',defaultValue:0,required:false,readonly:false,isSigned:false,name:'Group 3 Report',description:'Which report needs to be sent in Report group 3',flags:[[id:'a',description:'enable battery',flagValue:1,defaultValue:0],[id:'b',description:'enable ultraviolet',flagValue:16,defaultValue:0],[id:'c',description:'enable temperature',flagValue:32,defaultValue:0],[id:'d',description:'enable humidity',flagValue:64,defaultValue:0],[id:'e',description:'enable luminance',flagValue:128,defaultValue:0]]],
-    [id:111,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 1 report',description:'The interval time of sending reports in group 1'],
-    [id:112,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 2 report',description:'The interval time of sending reports in group 2'],
-    [id:113,size:4,type:'number',range: '300..12000',defaultValue:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3']
+    [id:40,size:1,type:'bool',default:0,required:false,readonly:false,isSigned:false,name:'Selective reporting',description:'Enable selective reporting',false:0,true:1],
+    [id:81,size:1,type:'enum',default:0,required:false,readonly:false,isSigned:false,name:'Enable LED',description:'Enable/disable the LED blinking',options:[0:'Enable LED blinking',1:'Disable LED blinking only when the PIR is triggered',2:'Completely disable LED for motion; wakeup; and sensor report']],
+    [id:101,size:4,type:'flags',default:241,required:false,readonly:false,isSigned:false,name:'Group 1 Report',description:'Which report needs to be sent in Report group 1',flags:[[id:'a',description:'enable battery',flag:1,default:1],[id:'b',description:'enable ultraviolet',flag:16,default:16],[id:'c',description:'enable temperature',flag:32,default:32],[id:'d',description:'enable humidity',flag:64,default:64],[id:'e',description:'enable luminance',flag:128,default:128]]],
+    [id:102,size:4,type:'flags',default:0,required:false,readonly:false,isSigned:false,name:'Group 2 Report',description:'Which report needs to be sent in Report group 2',flags:[[id:'a',description:'enable battery',flag:1,default:0],[id:'b',description:'enable ultraviolet',flag:16,default:0],[id:'c',description:'enable temperature',flag:32,default:0],[id:'d',description:'enable humidity',flag:64,default:0],[id:'e',description:'enable luminance',flag:128,default:0]]],
+    [id:103,size:4,type:'flags',default:0,required:false,readonly:false,isSigned:false,name:'Group 3 Report',description:'Which report needs to be sent in Report group 3',flags:[[id:'a',description:'enable battery',flag:1,default:0],[id:'b',description:'enable ultraviolet',flag:16,default:0],[id:'c',description:'enable temperature',flag:32,default:0],[id:'d',description:'enable humidity',flag:64,default:0],[id:'e',description:'enable luminance',flag:128,default:0]]],
+    [id:111,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 1 report',description:'The interval time of sending reports in group 1'],
+    [id:112,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 2 report',description:'The interval time of sending reports in group 2'],
+    [id:113,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3']
 ] }

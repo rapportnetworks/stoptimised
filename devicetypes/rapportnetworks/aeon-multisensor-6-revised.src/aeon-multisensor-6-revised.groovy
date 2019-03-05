@@ -120,7 +120,7 @@ metadata {
          * attribute: temperature
          */
         valueTile('temperature', 'device.temperature', width: 2, height: 2) {
-            state 'temperature', label: '${currentValue}\n°C', unit: '°C', defaultState: true,
+            state 'temperature', label: '${currentValue}°C', unit: '°C', defaultState: true,
                     backgroundColors: [
                             // Celsius
                             [value:  0, color: '#153591'],
@@ -144,7 +144,7 @@ metadata {
          * attribute: humidity
          */
         valueTile('humidity', 'device.humidity', width: 2, height: 2) {
-            state 'humidity', label: '${currentValue}\n% humidity', unit: '%humidity', defaultState: true
+            state 'humidity', label: '${currentValue} %\nhumidity', unit: '%humidity', defaultState: true
         }
         /**
          * attribute: illuminance
@@ -156,13 +156,13 @@ metadata {
          * attribute: ultraviolet index
          */
         valueTile('ultravioletIndex', 'device.ultravioletIndex', width: 2, height: 2) {
-            state 'ultravioletIndex', label: '${currentValue}\nUV index', unit: 'UV index', defaultState: true
+            state 'ultravioletIndex', label: '${currentValue} UV\nindex', unit: 'UV index', defaultState: true
         }
         /**
          * attribute: battery
          */
         valueTile('battery', 'device.battery', decoration: 'flat', width: 2, height: 2) {
-            state 'battery', label: '${currentValue}\n% battery', unit: '%battery', defaultState: true
+            state 'battery', label: '${currentValue} %\nbattery', unit: '%battery', defaultState: true
         }
         /**
          * attribute: batteryStatus
@@ -171,18 +171,22 @@ metadata {
             state 'batteryStatus', label: '${currentValue}', unit: '', defaultState: true
         }
         /**
-         * attribute: powerSource TODO - convert to standardTile (state)
+         * attribute: powerSource TODO - convert to standardTile (state) - create states for each possibility plus icon
+         * ['battery', 'dc', 'mains', 'unknown']
          */
-        valueTile('powerSource', 'device.powerSource', height: 2, width: 2, decoration: 'flat') {
-            state 'powerSource', label: '${name}\npower', unit: '', defaultState: true, backgroundColor: '#ffffff'
+        standardTile('powerSource', 'device.powerSource', height: 2, width: 2, decoration: 'flat') {
+            state 'battery', label: '${name}', backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/battery@2x.png'
+            state 'dc', label: '${name}', backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/dc@2x.png'
+            state 'mains', label: '${name}', backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
+            state 'unknown', label: '${name}', defaultState: true, backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/unknown@2x.png'
         }
         /**
          * attribute: tamper
-         * command:   resetTamper
+         * command:   resetTamper TODO - get "Tampered" icon
          */
         standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
-            state 'clear', label: 'Tamper clear', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true // *** remove action after testing
-            state 'detected', label: 'tampered', icon: 'st.secondary.tools', backgroundColor: '#ff0000', action: 'resetTamper'
+            state 'clear', label: 'TAMPER CLEAR', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
+            state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
         }
         /**
          * attribute: syncPending (number of configuration parameters that remain to be synched with the device)
@@ -195,7 +199,7 @@ metadata {
          * command: syncAll
          */
         standardTile('syncAll', 'device.syncAll', height: 2, width: 2, decoration: 'flat') {
-            state 'syncAll', label: 'Sync all', icon: 'st.secondary.tools', action: 'syncAll', defaultState: true
+            state 'syncAll', label: 'SYNC ALL', action: 'syncAll', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncall@2x.png'
         }
         /**
          * attribute: logMessage
@@ -208,23 +212,22 @@ metadata {
          * command: batteryChange (used to record a change of device battery)
          */
         standardTile('batteryChange', 'device.batteryChange', height: 2, width: 2, decoration: 'flat') {
-            state 'batteryChange', label: 'Battery change', icon: 'st.secondary.tools', action: 'batteryChange', defaultState: true
+            state 'batteryChange', label: '${currentValue}', action: 'batteryChange', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/battery@2x.png'
         }
         /**
          * command: configure (sets/resets device configuration parameters to default/specified values)
          */
         standardTile('configure', 'device.configure', height: 2, width: 2, decoration: 'flat') {
-            state 'completed', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#ffffff', action: 'configure', defaultState: true
-            state 'received', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
-            state 'queued', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
-            state 'received', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#90d2a7', action: 'configure'
-            state 'syncing', label: 'configure', icon: 'st.secondary.tools', backgroundColor: '#44b621', action: 'configure'
+            state 'completed', label: 'configure', backgroundColor: '#ffffff', action: 'configure', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
+            state 'received', label: 'configure', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/received@2x.png'
+            state 'queued', label: 'configure', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/queued@2x.png'
+            state 'syncing', label: 'configure', backgroundColor: '#44b621', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncing@2x.png'
         }
         /**
          * command: profile (requests power level and command class versions reports from the device)
          */
         standardTile('profile', 'device.profile', height: 2, width: 2, decoration: 'flat') {
-            state 'profile', label: 'profile', icon: 'st.secondary.tools', action: 'profile', defaultState: true
+            state 'profile', label: 'PROFILE', action: 'profile', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/profile@2x.png'
         }
 
         main('motion')
@@ -498,13 +501,14 @@ def installed() {
         sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     }
 
+    // TODO - rewrite with value: powerSourceDefault() method (so as to not assume anything about powerSource if more than one)
     /**
      * checks whether device is listening or sleepy (on battery) and sends events to set appropriate states
      */
     if (listening()) {
         logger('installed: Device is in listening mode (powered).', 'debug')
         sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
-        sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false)
+        sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false) // TODO - is this needed?
     } else {
         logger('installed: Device is in sleepy mode (battery).', 'debug')
         sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
@@ -1623,6 +1627,17 @@ private commandClassesVersions() { [
     0x7A=2, // Firmware Update Md
     0x85=2, // Association
 */
+
+/**
+ * getPowerSourceDefault
+ * @return name of default power source for device
+ */
+private getPowerSourceDefault() {
+    battery // for battery powered devices
+    // dc // for usb powered devices
+    // mains // for mains powered devices
+    // unknown // for devices with more than one power source
+}
 
 /**
  * configDeviceSettings - menu items available in mobile app to be configured by user

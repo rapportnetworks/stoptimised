@@ -186,9 +186,9 @@ metadata {
          */
         standardTile('configure', 'device.configure', height: 2, width: 2, decoration: 'flat') {
             state 'completed', label: 'configure', backgroundColor: '#ffffff', action: 'configure', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
-            state 'received', label: 'configure', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/received@2x.png'
-            state 'queued', label: 'configure', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/queued@2x.png'
-            state 'syncing', label: 'configure', backgroundColor: '#44b621', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncing@2x.png'
+            state 'received', label: '${name}', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/received@2x.png'
+            state 'queued', label: '${name}', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/queued@2x.png'
+            state 'syncing', label: '${name}', backgroundColor: '#44b621', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncing@2x.png'
         }
         /**
          * command: profile (requests power level and command class versions reports from the device)
@@ -868,19 +868,26 @@ void batteryChange() {
 }
 
 /**
- * profile - initiates profiling of theh device (profileNow()) TODO - ? create separate queued items, so that each can be removed separately from queue?
+ * profile - initiates profiling of theh device (profileNow())
  * @return
  */
 def profile() {
+    def profile = ['powerlevelGet', 'versionCommandClassGet']
     if (listening()) {
-        logger('profile: Calling profileNow.', 'info')
-        sendCommandSequence(profileNow())
-    } else {
-        logger('profile: Queuing profileNow.', 'info')
+        logger('profile: Profiling now.', 'info')
+        def cmds = []
+        profile.each {
+            cmds += "$it"()
+        }
+        sendCommandSequence(cmds)
+    }
+    else {
+        logger('profile: Queuing profiling.', 'info')
         if (state.queued) {
-            state.queued << 'profileNow'
-        } else {
-            state.queued = ['profileNow']
+            state.queued << profile
+        }
+        else {
+            state.queued = profile
         }
     }
 }
@@ -889,6 +896,7 @@ def profile() {
  * profileNow - gets reports from device on transmission power level and which versions of commands classes that it supports
  * @return
  */
+/*
 private profileNow() {
     logger('profileNow: Called.', 'info')
     def cmds = []
@@ -898,6 +906,7 @@ private profileNow() {
     cmds += versionCommandClassGet()
     cmds
 }
+*/
 
 /**
  * resetTamper - resets tamper (after configured period as there is not zwave tamper clear message)
@@ -1317,7 +1326,7 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
     if (state.commandClassVersionsBuffer.size() == commandClassesQuery().size()) {
         logger('VersionCommandClassReport: All Command Class Versions Reported.', 'info')
         updateDataValue('commandClassVersions', state.commandClassVersionsBuffer.findAll { it.value > 0 }.sort().collect { it }.join(','))
-        state?.queued?.removeAll { it == 'profileNow' }
+        state?.queued?.removeAll { it == 'versionCommandClassGet' }
     }
 }
 
@@ -1384,7 +1393,7 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
     logger("PowerlevelReport: $powerLevel dBm", 'info')
     updateDataValue('powerLevel', "$powerLevel")
-    state?.queued?.removeAll { it == 'profileNow' } // TODO - need to create a separate method for powerLevel and CommandClassVersions - so that can be removed separately from state.queued
+    state?.queued?.removeAll { it == 'powerlevelGet' }
 }
 
 /***********************************************************************************************************************

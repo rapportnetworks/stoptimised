@@ -942,7 +942,8 @@ def refresh() {
  * batteryChange - sends an event to log change of battery TODO - check details of attribute, add to logger app and database
  */
 void batteryChange() {
-    sendEvent(name: 'batteryChange', value: 'changed', descriptionText: 'Device battery was changed.', isStateChange: true, displayed: false)
+    def date = new Date().format( 'yyyy-MM-dd' )
+    sendEvent(name: 'batteryChange', value: date, descriptionText: 'Device battery was changed.', isStateChange: true, displayed: false)
 }
 
 /**

@@ -35,9 +35,7 @@ metadata {
          * Custom Attributes
          */
         attribute 'batteryChange', 'string'        // Used to log chaging of battery.
-        attribute 'batteryStatus', 'string'        // Indicates USB Cable or battery %.
         attribute 'configure', 'string'            // Reports on configuration command status. (enum: ['completed', 'queued', 'received', 'syncing'])
-        attribute 'logMessage', 'string'           // Important log messages.
         attribute 'secureInclusion', 'string'      // Indicates secure inclusion success/failed.
         attribute 'syncPending', 'number'          // Number of config items that need to be synced with the physical device.
 
@@ -46,7 +44,6 @@ metadata {
          */
         command 'batteryChange'                    // Manually logs change of battery. (enum: ['changed'])
         command 'profile'                          // Manually initiates profiling of the device (power level, command class versions)
-        command 'resetLog'                         // Manually clears logMessage attribute
         command 'resetTamper'                      // Manually resets tamper attribute to 'clear'
         command 'syncAll'                          // Manually triggers the syncing of all device parameters
         command 'syncRemaining'                    // Manually triggers the syncing of any unsynched parameters (or queues them is a sleepy device)
@@ -70,11 +67,11 @@ metadata {
         /**
          * Preferences
          * configAutoResetTamperDelay -> state.autoResetTamperDelay
-         * configDeviceUse -> deviceUse, event, inactiveState, activeState
-         * configLogLevelIDE -> state.logLevelIDE
-         * configLogLevelDevice -> state.logLevelDevice
-         * configParam${id} -> state.'paramTarget${it.id}' -> state.'paramCache${it.id}'
-         * configWakeUpInterval -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
+         * configDeviceUse            -> deviceUse, event, inactiveState, activeState
+         * configLogLevelIDE          -> state.logLevelIDE
+         * configLogLevelDevice       -> state.logLevelDevice
+         * configParam${id}           -> state.'paramTarget${it.id}' -> state.'paramCache${it.id}'
+         * configWakeUpInterval       -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
          * paraDeviceParameters
          * paraDeviceSettings
          * paraLoggerSettings
@@ -89,8 +86,8 @@ metadata {
          * logLevelIDE
          * logLevelDevice
          * messageCounter
-         * 'paramTarget${it.id}', 'paramCache${it.id}'
-         * queued << ['sync', 'profileNow']
+         * "paramTarget${it.id}", "paramCache${it.id}"
+         * queued
          * syncAll
          * timeLastBatteryReport
          * updatedLastRanAt
@@ -159,16 +156,12 @@ metadata {
             state 'ultravioletIndex', label: '${currentValue} UV\nindex', unit: 'UV index', defaultState: true
         }
         /**
-         * attribute: battery
+         * attribute: tamper
+         * command:   resetTamper TODO - get "Tampered" icon
          */
-        valueTile('battery', 'device.battery', decoration: 'flat', width: 2, height: 2) {
-            state 'battery', label: '${currentValue} %\nbattery', unit: '%battery', defaultState: true
-        }
-        /**
-         * attribute: batteryStatus
-         */
-        valueTile('batteryStatus', 'device.batteryStatus', decoration: 'flat', width: 2, height: 2) {
-            state 'batteryStatus', label: '${currentValue}', unit: '', defaultState: true
+        standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
+            state 'clear', label: 'TAMPER CLEAR', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
+            state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
         }
         /**
          * attribute: powerSource TODO - convert to standardTile (state) - create states for each possibility plus icon
@@ -181,12 +174,16 @@ metadata {
             state 'unknown', label: '${name}', defaultState: true, backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/unknown@2x.png'
         }
         /**
-         * attribute: tamper
-         * command:   resetTamper TODO - get "Tampered" icon
+         * attribute: battery
          */
-        standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
-            state 'clear', label: 'TAMPER CLEAR', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
-            state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
+        valueTile('battery', 'device.battery', decoration: 'flat', width: 2, height: 2) {
+            state 'battery', label: '${currentValue} %\nbattery', unit: '%battery', defaultState: true
+        }
+        /**
+         * command: batteryChange (used to record a change of device battery)
+         */
+        standardTile('batteryChange', 'device.batteryChange', height: 2, width: 2, decoration: 'flat') {
+            state 'batteryChange', label: '${currentValue}', action: 'batteryChange', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/battery@2x.png'
         }
         /**
          * attribute: syncPending (number of configuration parameters that remain to be synched with the device)
@@ -200,19 +197,6 @@ metadata {
          */
         standardTile('syncAll', 'device.syncAll', height: 2, width: 2, decoration: 'flat') {
             state 'syncAll', label: 'SYNC ALL', action: 'syncAll', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncall@2x.png'
-        }
-        /**
-         * attribute: logMessage
-         * command:   resetLog
-         */
-        valueTile('logMessage', 'device.logMessage', height: 2, width: 4, decoration: 'flat') {
-            state 'clear', label: '${currentValue}', action: 'resetLog', defaultState: true
-        }
-        /**
-         * command: batteryChange (used to record a change of device battery)
-         */
-        standardTile('batteryChange', 'device.batteryChange', height: 2, width: 2, decoration: 'flat') {
-            state 'batteryChange', label: '${currentValue}', action: 'batteryChange', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/battery@2x.png'
         }
         /**
          * command: configure (sets/resets device configuration parameters to default/specified values)
@@ -231,8 +215,7 @@ metadata {
         }
 
         main('motion')
-
-        details(['motion', 'temperature', 'humidity', 'illuminance', 'ultravioletIndex', 'batteryStatus', 'tamper', 'syncPending', 'syncAll', 'logMessage', 'batteryChange', 'configure', 'profile'])
+        details(['motion', 'temperature', 'humidity', 'illuminance', 'ultravioletIndex', 'tamper', 'powerSource', 'battery', 'batteryChange', 'syncPending', 'syncAll', 'configure', 'profile'])
     }
 
     simulator {
@@ -332,17 +315,6 @@ metadata {
                         type: 'enum',
                         options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
                         defaultValue: 3,
-                        required: false
-                )
-            }
-
-            if ('logLevelDevice' in configLoggerSettings()) {
-                input(
-                        name: 'configLogLevelDevice',
-                        title: 'Device Logging Level for messages with this level and higher.',
-                        type: 'enum',
-                        options: [0: 'None', 1: 'Error', 2: 'Warning'],
-                        defaultValue: 2,
                         required: false
                 )
             }
@@ -501,18 +473,12 @@ def installed() {
         sendEvent(name: "${getDataValue('event')}", value: "${getDataValue('inactiveState')}", displayed: false)
     }
 
-    // TODO - rewrite with value: powerSourceDefault() method (so as to not assume anything about powerSource if more than one)
     /**
-     * checks whether device is listening or sleepy (on battery) and sends events to set appropriate states
+     * set device power source (if only one) or 'unknown' if more than one option
      */
-    if (listening()) {
-        logger('installed: Device is in listening mode (powered).', 'debug')
-        sendEvent(name: 'powerSource', value: 'dc', descriptionText: 'Device is connected to DC power supply.')
-        sendEvent(name: 'batteryStatus', value: 'DC-power', displayed: false) // TODO - is this needed?
-    } else {
-        logger('installed: Device is in sleepy mode (battery).', 'debug')
-        sendEvent(name: 'powerSource', value: 'battery', descriptionText: 'Device is using battery.')
-    }
+    def powerSource = powerSourceDefault()
+    logger("installed: Device power source is ${powerSource}.", 'debug')
+    sendEvent(name: 'powerSource', value: powerSource, descriptionText: "Device power source is ${powerSource}.")
 
     /**
      * sets up counter to track number of messages sent by device
@@ -545,14 +511,6 @@ def configure() {
     try {
         device.updateSetting('configLogLevelIDE', logLevelIDEDefault)
         logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace')
-    }
-    catch(e) {}
-
-    def logLevelDeviceDefault = 2
-    state.logLevelDevice = logLevelDeviceDefault
-    try {
-        device.updateSetting('configLogLevelDevice', logLevelDeviceDefault)
-        logger("configure: Resetting configLogLevelDevice preference to ${logLevelDeviceDefault}.", 'trace')
     }
     catch(e) {}
 
@@ -647,11 +605,6 @@ def updated() {
                 logger("updated: Updating logLevelIDE value to $state.logLevelIDE", 'debug')
             }
 
-            if (settings?.configLogLevelDevice != null) {
-                state.logLevelDevice = settings.configLogLevelDevice.toInteger()
-                logger("updated: Updating logLevelDevice value to $state.logLevelDevice", 'debug')
-            }
-
             if (settings?.configWakeUpInterval != null) {
                 state.wakeUpIntervalTarget = settings.configWakeUpInterval.toInteger()
                 logger("updated: Updating wakeUpIntervalTarget value to $state.wakeUpIntervalTarget", 'debug')
@@ -706,8 +659,8 @@ def updated() {
         }
 
         /**
-         * If the device is mains powered (i.e. listening), the configuration commands can be sent immediately.
-         * If the device is battery powered (i.e. sleepy), the configuration commands are queued (state.queued) until the device next wakes up.
+         * If a listening device, the configuration commands can be sent immediately.
+         * If a sleepy device, the configuration commands are queued (state.queued) until the device next wakes up.
          */
         if (listening()) {
             logger('updated: Listening device, calling sync now.', 'info')
@@ -722,7 +675,7 @@ def updated() {
             }
         }
     } else {
-        logger('updated: Ran within last 2 seconds so aborting update.', 'trace')
+        logger('updated: Ran within last 2 seconds, so aborting update.', 'trace')
     }
 }
 
@@ -782,18 +735,6 @@ private sync() {
 private updateSyncPending() {
     def syncPending = 0
     def userConfig = 0
-
-    /*
-    if (state.syncAll) { // TODO - is this needed? - aren't they all deleted in sync?
-        logger('updateSyncPending: Deleting all cached values.', 'debug')
-        state.wakeUpIntervalCache = null
-        parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
-            state."paramCache${it.id}" = null
-        }
-        updateDataValue('serialNumber', null)
-        state.syncAll = false
-    }
-    */
 
     if (!listening()) {
         def target = state?.wakeUpIntervalTarget
@@ -870,10 +811,10 @@ void deviceUseStates() {
     } else {
         useStates = deviceUseOptions()?.find { it.default == true }
     }
-    def deviceUse = (useStates) ? useStates.use : 'Water'
-    def event = (useStates) ? useStates.event : 'water'
+    def deviceUse     = (useStates) ? useStates.use : 'Water'
+    def event         = (useStates) ? useStates.event : 'water'
     def inactiveState = (useStates) ? useStates.inactive : 'dry'
-    def activeState = (useStates) ? useStates.active : 'wet'
+    def activeState   = (useStates) ? useStates.active : 'wet'
     updateDataValue('deviceUse', deviceUse)
     updateDataValue('event', event)
     updateDataValue('inactiveState', inactiveState)
@@ -886,29 +827,22 @@ void deviceUseStates() {
  * @param level
  * @return
  */
-private logger(msg, level = 'debug') {
+private logger(msg, level = 'debug') { // TODO - Check whether want all the events sent
     switch(level) {
         case 'error':
-            if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: $msg", displayed: false, isStateChange: true)
-            if (state.logLevelDevice >= 1) sendEvent(name: 'logMessage', value: "Error: $msg", displayed: false, isStateChange: true)
-            break
+            if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: ${msg}", displayed: false, isStateChange: true); break
 
         case 'warn':
-            if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: $msg", displayed: false, isStateChange: true)
-            if (state.logLevelDevice >= 2) sendEvent(name: 'logMessage', value: "Warning: $msg", displayed: false, isStateChange: true)
-            break
+            if (state.logLevelIDE >= 2) log.warn(msg); sendEvent(descriptionText: "Warning: ${msg}", displayed: false, isStateChange: true); break
 
         case 'info':
-            if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: $msg", displayed: false, isStateChange: true)
-            break
+            if (state.logLevelIDE >= 3) log.info(msg); sendEvent(descriptionText: "Info: ${msg}", displayed: false, isStateChange: true); break
 
         case 'debug':
-            if (state.logLevelIDE >= 4) log.debug(msg); sendEvent(descriptionText: "Debug: $msg", displayed: false, isStateChange: true)
-            break
+            if (state.logLevelIDE >= 4) log.debug(msg); break // sendEvent(descriptionText: "Debug: ${msg}", displayed: false, isStateChange: true);
 
         case 'trace':
-            if (state.logLevelIDE >= 5) log.trace(msg)
-            break
+            if (state.logLevelIDE >= 5) log.trace(msg); break
 
         default:
             log.debug(msg); sendEvent(descriptionText: "Log: $msg", displayed: false, isStateChange: true)
@@ -951,7 +885,7 @@ void batteryChange() {
 }
 
 /**
- * profile - initiates profiling of theh device (profileNow())
+ * profile - initiates profiling of theh device (profileNow()) TODO - ? create separate queued items, so that each can be removed separately from queue?
  * @return
  */
 def profile() {
@@ -980,14 +914,6 @@ private profileNow() {
     logger('profileNow: Requesting command class versions report', 'trace')
     cmds += versionCommandClassGet()
     cmds
-}
-
-/**
- * resetLog - resets log messages displatey in mobile app
- * @return
- */
-def resetLog() {
-    sendEvent(name: 'logMessage', value: 'log clear', displayed: false, isStateChange: true)
 }
 
 /**
@@ -1568,7 +1494,7 @@ private powerSourceReport(cmd) {
     def result = []
     if (cmd.configurationValue[0] == 0) {
         result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
-        result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
+        // result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
     }
     else if (cmd.configurationValue[0] == 1) {
         result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
@@ -1633,10 +1559,10 @@ private commandClassesVersions() { [
  * @return name of default power source for device
  */
 private getPowerSourceDefault() {
-    battery // for battery powered devices
+    // battery // for battery powered devices
     // dc // for usb powered devices
     // mains // for mains powered devices
-    // unknown // for devices with more than one power source
+    unknown // for devices with more than one power source
 }
 
 /**
@@ -1666,9 +1592,11 @@ private deviceUseOptions() { [
  * @return
  */
 private intervalsSpecifiedValues() { [
-        wakeUpIntervalDefault: 4_000, checkIntervalDefault: 8_500,
-        wakeUpIntervalSpecified: 86_400, checkIntervalSpecified: 180_000,
-        batteryRefreshInterval: 604_800
+        wakeUpIntervalDefault   :   4_000,
+        checkIntervalDefault    :   8_500,
+        wakeUpIntervalSpecified :  86_400,
+        checkIntervalSpecified  : 180_000,
+        batteryRefreshInterval  : 604_800
 ] }
 
 /**

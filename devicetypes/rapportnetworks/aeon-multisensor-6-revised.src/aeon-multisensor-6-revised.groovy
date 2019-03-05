@@ -70,7 +70,7 @@ metadata {
          * configDeviceUse            -> deviceUse, event, inactiveState, activeState
          * configLogLevelIDE          -> state.logLevelIDE
          * configLogLevelDevice       -> state.logLevelDevice
-         * configParam${id}           -> state.'paramTarget${it.id}' -> state.'paramCache${it.id}'
+         * configParam${id}           -> state."paramTarget${it.id}" -> state."paramCache${it.id}"
          * configWakeUpInterval       -> state.wakeUpIntervalTarget -> state.wakeUpIntervalCache
          * paraDeviceParameters
          * paraDeviceSettings
@@ -98,14 +98,6 @@ metadata {
     }
 
     tiles(scale: 2) {
-        /*
-        multiAttributeTile(name: 'motion', type: 'generic', width: 6, height: 4) {
-            tileAttribute('device.motion', key: 'PRIMARY_CONTROL') {
-                attributeState 'active', label: 'motion', icon: 'st.motion.motion.active', backgroundColor: '#00A0DC'
-                attributeState 'inactive', label: 'no motion', icon: 'st.motion.motion.inactive', backgroundColor: '#cccccc'
-            }
-        }
-        */
         /**
          * attribute: motion
          */
@@ -127,14 +119,6 @@ metadata {
                             [value: 29, color: '#f1d801'],
                             [value: 33, color: '#d04e00'],
                             [value: 37, color: '#bc2323'],
-                            // Fahrenheit
-                            [value: 40, color: "#153591"],
-                            [value: 44, color: "#1e9cbb"],
-                            [value: 59, color: "#90d2a7"],
-                            [value: 74, color: "#44b621"],
-                            [value: 84, color: "#f1d801"],
-                            [value: 95, color: "#d04e00"],
-                            [value: 96, color: "#bc2323"]
                     ]
         }
         /**
@@ -164,8 +148,7 @@ metadata {
             state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
         }
         /**
-         * attribute: powerSource TODO - convert to standardTile (state) - create states for each possibility plus icon
-         * ['battery', 'dc', 'mains', 'unknown']
+         * attribute: powerSource
          */
         standardTile('powerSource', 'device.powerSource', height: 2, width: 2, decoration: 'flat') {
             state 'battery', label: '${name}', backgroundColor: '#ffffff', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/battery@2x.png'
@@ -213,7 +196,6 @@ metadata {
         standardTile('profile', 'device.profile', height: 2, width: 2, decoration: 'flat') {
             state 'profile', label: 'PROFILE', action: 'profile', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/profile@2x.png'
         }
-
         main('motion')
         details(['motion', 'temperature', 'humidity', 'illuminance', 'ultravioletIndex', 'tamper', 'powerSource', 'battery', 'batteryChange', 'syncPending', 'syncAll', 'configure', 'profile'])
     }
@@ -465,7 +447,7 @@ def installed() {
     sendEvent(name: 'tamper', value: 'clear', descriptionText: 'Tamper cleared', displayed: false)
 
     /**
-     * sets device use (if an option) and sends event to set inactive state
+     * sets device use (if an option) and sends event to set inactive state TODO - check how this is reset/specified
      */
     if ('deviceUse' in configDeviceSettings()) {
         logger('installed: Setting device use states.', 'debug')
@@ -494,7 +476,7 @@ def installed() {
 def configure() {
     logger('configure: Setting/Resetting device configuration targets to default/specified values.', 'info')
 
-    sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false) // custom attribute to report status to Configurator SmartApp
+    sendEvent(name: 'configure', value: 'received', descriptionText: 'Configuration command received by device.', isStateChange: true, displayed: false)
 
     state.configuringDevice = true
 
@@ -579,8 +561,9 @@ def configure() {
     }
 
     state.syncAll = true
-    state.configReportBuffer = [:] // TODO - is this needed?
+
     updateDataValue('serialNumber', null) // TODO - is this needed here?
+
     updated()
 }
 
@@ -649,8 +632,6 @@ def updated() {
                 }
             }
         }
-
-        state.configuringDevice = false
 
         if ('deviceUse' in configDeviceSettings()) {
             logger('updateded: setting device use states', 'debug')
@@ -724,7 +705,7 @@ private sync() {
     }
 
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
-    logger("sync: Returning '$cmds'", 'debug') // TODO - check / alter this
+    logger("sync: Returning '$cmds'", 'debug') // TODO - check / alter this to make it more readable
     cmds
 }
 
@@ -764,6 +745,8 @@ private updateSyncPending() {
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 
     if (syncPending == 0) { // TODO - is  && device.latestValue('configure') == 'syncing') required to stop this occurring unecessarily or is it only called in response to a configuration parameter report or wakeup interval report from device?
+        state.configuringDevice = false
+
         state?.queued?.removeAll { it == 'sync' }
 
         def configurationType = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
@@ -877,7 +860,7 @@ def refresh() {
  *  Device Handler Custom Commands (resetLog, resetTamper, syncAll, syncRemaining, profile)
  **********************************************************************************************************************/
 /**
- * batteryChange - sends an event to log change of battery TODO - check details of attribute, add to logger app and database
+ * batteryChange - sends an event to log change of battery
  */
 void batteryChange() {
     def date = new Date().format( 'yyyy-MM-dd' )
@@ -1574,7 +1557,7 @@ private configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpIn
 /**
  * configLoggerSettings() - set logging level of device handler
  */
-private configLoggerSettings() { ['logLevelDevice', 'logLevelIDE'] }
+private configLoggerSettings() { ['logLevelIDE'] }
 
 /**
  * deviceUseOptions() - map of states for contact sensor depending on use
@@ -1604,8 +1587,8 @@ private intervalsSpecifiedValues() { [
  * @return map of preference options for configuring device wake interval
  */
 private wakeUpIntervalOptions() { [
-    [item: 3_600, interval: '1 hour', specified: true],
-    [item: 7_200, interval: '2 hours', default: true],
+    [item:  3_600, interval:  '1 hour', specified: true],
+    [item:  7_200, interval:  '2 hours', default: true],
     [item: 34_200, interval: '12 hours'],
 ] }
 

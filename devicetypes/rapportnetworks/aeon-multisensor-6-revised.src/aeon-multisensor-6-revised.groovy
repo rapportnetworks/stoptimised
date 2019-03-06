@@ -640,7 +640,7 @@ def updated() {
             logger('updated: Listening device, calling sync now.', 'info')
             def cmds = sync()
             if (cmds) {
-                response(sendCommandSequence(cmds))
+                response(sendCommandSequence(cmds))  // response wrapper needed in updated()
             }
             else {
                 null
@@ -946,7 +946,7 @@ def syncRemaining() {
         logger('syncRemaining: Calling sync.', 'info')
         def cmds = sync()
         if (cmds) {
-            response(sendCommandSequence(cmds))
+            sendCommandSequence(cmds)
         }
         else {
             null
@@ -1126,7 +1126,7 @@ def parse(String description) {
              */
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {
                 logger('parse: sync called', 'debug')
-                result += response(sendCommandSequence(sync()))
+                result += response(sendCommandSequence(sync())) // response wrapper needed in parse()
             }
         } else {
             logger("parse: Could not parse.  raw message '$description'", 'error')

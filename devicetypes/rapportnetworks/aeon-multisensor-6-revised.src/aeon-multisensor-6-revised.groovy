@@ -56,7 +56,7 @@ metadata {
          * activeState:          state when active (based on optional configuration)
          * commandClassVersions: list of all command classes supported by the device and their version numbers
          * configurationType:    indicator of way device is configured [default, specified, user]
-         * configurationReport:  report of all configured parameter values (omits values that are not configured - i.e. remain at default values)
+         * configuredParameters: list of all configured parameter values (omits values that are not configured - i.e. remain at default values)
          * messages:             counter of all messages received by parse method (i.e. sent by device)
          * MSR:                  manufacturer specific report
          * powerLevel:           device power level
@@ -185,10 +185,10 @@ metadata {
          * command: configure (sets/resets device configuration parameters to default/specified values)
          */
         standardTile('configure', 'device.configure', height: 2, width: 2, decoration: 'flat') {
-            state 'completed', label: 'configure', backgroundColor: '#ffffff', action: 'configure', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
-            state 'received', label: '${name}', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/received@2x.png'
-            state 'queued', label: '${name}', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/queued@2x.png'
-            state 'syncing', label: '${name}', backgroundColor: '#44b621', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncing@2x.png'
+            state 'completed', label: 'CONFIGURE', backgroundColor: '#ffffff', action: 'configure', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
+            state 'received', label: 'RECEIVED', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/received@2x.png'
+            state 'queued', label: 'QUEUED', backgroundColor: '#90d2a7', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/queued@2x.png'
+            state 'syncing', label: 'SYNCING', backgroundColor: '#44b621', action: 'configure', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/syncing@2x.png'
         }
         /**
          * command: profile (requests power level and command class versions reports from the device)
@@ -437,9 +437,10 @@ def installed() {
     state.logLevelIDE = 5; state.logLevelDevice = 2
 
     /**
-     * sends event to set checkInterval default value TODO - need to sort checkIntervalDefault - calculate? based on default/specified option?
+     * sends event to set checkInterval default value
      */
-    sendEvent(name: 'checkInterval', value: intervalsSpecifiedValues().checkIntervalDefault, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
+    def interval = wakeUpIntervalOptions().find { it.default }.item.multiply(2.2).trunc()
+    sendEvent(name: 'checkInterval', value: interval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
 
     /**
      * sends event to clear any tamper due to installation
@@ -744,7 +745,7 @@ private updateSyncPending() {
     logger("updateSyncPending: $syncPending item(s) remaining", 'trace')
     sendEvent(name: 'syncPending', value: syncPending, displayed: false)
 
-    if (syncPending == 0) { // TODO - is  && device.latestValue('configure') == 'syncing') required to stop this occurring unecessarily or is it only called in response to a configuration parameter report or wakeup interval report from device?
+    if (syncPending == 0) {
         state.configuringDevice = false
 
         state?.queued?.removeAll { it == 'sync' }
@@ -761,12 +762,12 @@ private updateSyncPending() {
         }
 
         logger('ConfigurationReport: All Configuration Values Reported.', 'info')
-        updateDataValue('configurationReport', configurationReport.sort().collect { it }.join(','))
+        updateDataValue('configuredParameters', configurationReport.sort().collect { it }.join(','))
     }
 }
 
 /**
- * checks whether or not device is a 'Listening' device i.e. powered by mains
+ * checks whether or not device is a 'Listening' device (usually powered by dc or mains)
  * @return
  */
 private listening() {
@@ -1252,13 +1253,10 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 
     logger("ConfigurationReport: Parameter $cmd.parameterNumber has been set to value (${(signed) ? 'signed' : 'unsigned'}) $paramValue", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
-    if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 
-    if (cmd.parameterNumber == powerSourceParameter()) {
-        return powerSourceReport(cmd)
-    } else {
-        return null
-    }
+    if (cmd.parameterNumber == powerSourceParameter()) powerSourceReport(cmd)
+
+    if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 }
 
 /***********************************************************************************************************************
@@ -1340,9 +1338,9 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     def wakeUpInterval = cmd.seconds
     state.wakeUpIntervalCache = wakeUpInterval
     updateDataValue('wakeUpInterval', "$wakeUpInterval")
+    def interval = wakeUpInterval.toDouble().multiply(2.2).trunc()
+    createEvent(name: 'checkInterval', value: interval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
     updateSyncPending()
-    def checkInterval = wakeUpInterval.toDouble().multiply(2.2).round()
-    createEvent(name: 'checkInterval', value: checkInterval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
 }
 
 /**
@@ -1486,7 +1484,6 @@ private powerSourceReport(cmd) {
     def result = []
     if (cmd.configurationValue[0] == 0) {
         result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
-        // result += createEvent(name: 'batteryStatus', value: 'USB Cable', displayed: false) // ??is this needed??
     }
     else if (cmd.configurationValue[0] == 1) {
         result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
@@ -1504,7 +1501,7 @@ private powerSourceReport(cmd) {
 private commandClassesQuery() { [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C] }
 
 /**
- * commandClassesSecure() -  *** don't think this is needed
+ * commandClassesSecure() -  TODO - is this needed?
  * @return
  */
 private commandClassesSecure() { [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C] }
@@ -1547,17 +1544,6 @@ private commandClassesVersions() { [
 */
 
 /**
- * getPowerSourceDefault
- * @return name of default power source for device
- */
-private getPowerSourceDefault() {
-    // battery // for battery powered devices
-    // dc // for usb powered devices
-    // mains // for mains powered devices
-    unknown // for devices with more than one power source
-}
-
-/**
  * configDeviceSettings - menu items available in mobile app to be configured by user
  * @return list of items to configure
  */
@@ -1580,33 +1566,52 @@ private deviceUseOptions() { [
 ] }
 
 /**
- * intervalsSpecifiedValues - list of values for intervals both device defaults and specified optimal values
- * @return
- */
-private intervalsSpecifiedValues() { [
-        wakeUpIntervalDefault   :   4_000,
-        checkIntervalDefault    :   8_500,
-        wakeUpIntervalSpecified :  86_400,
-        checkIntervalSpecified  : 180_000,
-        batteryRefreshInterval  : 604_800
-] }
-
-/**
  * wakeUpIntervalOptions
  * @return map of preference options for configuring device wake interval
  */
 private wakeUpIntervalOptions() { [
-    [item:  3_600, interval:  '1 hour', specified: true],
-    [item:  7_200, interval:  '2 hours', default: true],
-    [item: 34_200, interval: '12 hours'],
+        [item:  3_600, interval:  '1 hour', specified: true],
+        [item:  7_200, interval:  '2 hours', default: true],
+        [item: 34_200, interval: '12 hours'],
 ] }
 
 /**
- * configParameters() - set of device configuration parameters with a specified value required for optimal operation
+ * configParameters - set of device configuration parameters with a specified value required for optimal operation
  * 0 will make all items in parametersMetadata available
  * @return list of device parameters
  */
 private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
+
+/**
+ * configParametersUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
+ * set to [0] to make all configuration parameters available to user
+ * @return list of device parameters
+ */
+private configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
+
+/**
+ * powerSourceParameter - device configuration parameter number that relates to devices power source (if alternatives)
+ * set to 0 if not applicable
+ * @return power source parameter number
+ */
+private powerSourceParameter() { 9 }
+
+/**
+ * getPowerSourceDefault
+ * @return name of default power source for device
+ */
+private getPowerSourceDefault() {
+    // battery // for battery powered devices
+    // dc // for usb powered devices
+    // mains // for mains powered devices
+    unknown // for devices with more than one power source
+}
+
+/**
+ * batteryRefreshInterval
+ * @return
+ */
+private batteryRefreshInterval() { 604_800 }
 
 /**
  * parametersSpecifiedValues - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
@@ -1626,21 +1631,8 @@ private parametersSpecifiedValues() { [
 ] }
 
 /**
- * configParametersUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
- * set to [0] to make all configuration parameters available to user
- * @return list of device parameters
- */
-private configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
-
-/**
- * powerSourceParameter - device parameter number that relates to devices power source (if alternatives)
- * @return parameter number (0 if not applicable)
- */
-private powerSourceParameter() { 9 }
-
-/**
- * parametersMetadata - complete map of all device configuration parameters
- * @return map of all device configuration parameters
+ * parametersMetadata - complete map of all (relevant) device configuration parameters
+ * @return map of device configuration parameters
  */
 private parametersMetadata() { [
     [id:2,size:1,type:'bool',default:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',false:0,true:1],

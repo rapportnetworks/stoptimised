@@ -81,7 +81,6 @@ metadata {
          * State variables
          * autoResetTamperDelay
          * commandClassVersionsBuffer
-         * configReportBuffer ? is this needed?
          * configuringDevice
          * logLevelIDE
          * logLevelDevice
@@ -1115,7 +1114,8 @@ def parse(String description) {
         if (cmd) {
             result += zwaveEvent(cmd)
             /**
-             * trigger for listening devices to sync if any parameters remain unsynced
+             * unsolicited command class message acts as a trigger for listening devices to sync if any parameters remain unsynced
+             * (otherwise reports requested via sync() would call sync() again)
              * (sleepy devices triggered via Wake Up report)
              */
             if (listening() && device.latestValue('syncPending') > 0 && cmd.commandClassId in commandClassesUnsolicited()) {

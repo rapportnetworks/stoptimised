@@ -105,9 +105,10 @@ metadata {
         }
         /**
          * attribute: temperature
+         * needs Fahrenheit values to work (some internal conversion going on?)
          */
         valueTile('temperature', 'device.temperature', width: 2, height: 2) {
-            state 'temperature', label: '${currentValue}°C', unit: '°C', defaultState: true,
+            state('temperature', label: '${currentValue}°C', unit: '°C', defaultState: true,
                     backgroundColors: [
                             // Celsius
                             [value:  0, color: '#153591'],
@@ -117,7 +118,16 @@ metadata {
                             [value: 29, color: '#f1d801'],
                             [value: 33, color: '#d04e00'],
                             [value: 37, color: '#bc2323'],
+                            // Fahrenheit
+                            [value: 40, color: "#153591"],
+                            [value: 44, color: "#1e9cbb"],
+                            [value: 59, color: "#90d2a7"],
+                            [value: 74, color: "#44b621"],
+                            [value: 84, color: "#f1d801"],
+                            [value: 95, color: "#d04e00"],
+                            [value: 96, color: "#bc2323"]
                     ]
+            )
         }
         /**
          * attribute: humidity
@@ -139,11 +149,11 @@ metadata {
         }
         /**
          * attribute: tamper
-         * command:   resetTamper TODO - get "Tampered" icon
+         * command:   resetTamper
          */
         standardTile('tamper', 'device.tamper', height: 2, width: 2, decoration: 'flat') {
             state 'clear', label: 'TAMPER CLEAR', backgroundColor: '#ffffff', action: 'resetTamper', defaultState: true, icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/completed@2x.png'
-            state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/mains@2x.png'
+            state 'detected', label: 'TAMPERED', backgroundColor: '#ff0000', action: 'resetTamper', icon: 'https://github.com/rapportnetworks/stoptimised/raw/master/devicetypes/icons/tamper@2x.png'
         }
         /**
          * attribute: powerSource
@@ -237,8 +247,8 @@ metadata {
             )
 
             if ('deviceUse' in configDeviceSettings()) {
-                def uses = deviceUseOptions().collectEntries { [(it.item): it.use] }
-                def defaultUse = deviceUseOptions().find { it.default }.item
+                def uses           = deviceUseOptions().collectEntries { [(it.item): it.use] }
+                def defaultUse     = deviceUseOptions().find { it.default }.item
                 def defaultUseName = deviceUseOptions().find { it.default }.use
                 input(
                         name: 'configDeviceUse',
@@ -263,13 +273,9 @@ metadata {
             }
 
             if ('wakeUpInterval' in configDeviceSettings()) {
-                def intervals = wakeUpIntervalOptions().collectEntries { [(it.item): it.interval] }
-                def defaultInterval = (wakeUpIntervalOptions()?.find {
-                    it.specified
-                }?.item) ?: wakeUpIntervalOptions().find { it.default }.item
-                def defaultIntervalName = (wakeUpIntervalOptions()?.find {
-                    it.specified
-                }?.interval) ?: wakeUpIntervalOptions().find { it.default }.interval
+                def intervals           = wakeUpIntervalOptions().collectEntries { [(it.item): it.interval] }
+                def defaultInterval     = (wakeUpIntervalOptions()?.find { it.specified }?.item)     ?: wakeUpIntervalOptions().find { it.default }.item
+                def defaultIntervalName = (wakeUpIntervalOptions()?.find { it.specified }?.interval) ?: wakeUpIntervalOptions().find { it.default }.interval
                 input(
                         name: 'configWakeUpInterval',
                         title: "Device Wake Up Interval. (default: ${defaultIntervalName})",
@@ -393,7 +399,7 @@ private generateParametersPreferences() {
  * getTimeOptionValueMap
  * @return
  */
-private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list
+private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list - not currently used!
     '10 seconds': 10,
     '20 seconds': 20,
     '40 seconds': 40,
@@ -704,7 +710,7 @@ private sync() {
     }
 
     sendEvent(name: 'syncPending', value: syncPending, displayed: false, descriptionText: 'Change to syncPending.', isStateChange: true) // TODO - check this
-    logger("sync: Commands: '$cmds'", 'trace') // TODO - check / alter this to make it more readable
+    logger("sync: Commands: '$cmds'", 'trace')
     cmds
 }
 
@@ -794,10 +800,10 @@ void deviceUseStates() {
     } else {
         useStates = deviceUseOptions()?.find { it.default == true }
     }
-    def deviceUse     = (useStates) ? useStates.use : 'Water'
-    def event         = (useStates) ? useStates.event : 'water'
+    def deviceUse     = (useStates) ? useStates.use      : 'Water'
+    def event         = (useStates) ? useStates.event    : 'water'
     def inactiveState = (useStates) ? useStates.inactive : 'dry'
-    def activeState   = (useStates) ? useStates.active : 'wet'
+    def activeState   = (useStates) ? useStates.active   : 'wet'
     updateDataValue('deviceUse', deviceUse)
     updateDataValue('event', event)
     updateDataValue('inactiveState', inactiveState)
@@ -853,8 +859,7 @@ def poll() { // depreciated
 /**
  * refresh
  */
-def refresh() {
-}
+def refresh() { }
 
 /***********************************************************************************************************************
  *  Device Handler Custom Commands (resetLog, resetTamper, syncAll, syncRemaining, profile)
@@ -868,7 +873,7 @@ void batteryChange() {
 }
 
 /**
- * profile - initiates profiling of theh device (profileNow())
+ * profile - initiates profiling of the device
  * @return
  */
 def profile() {
@@ -893,23 +898,7 @@ def profile() {
 }
 
 /**
- * profileNow - gets reports from device on transmission power level and which versions of commands classes that it supports
- * @return
- */
-/*
-private profileNow() {
-    logger('profileNow: Called.', 'info')
-    def cmds = []
-    logger('profileNow: Requesting power level report', 'trace')
-    cmds += powerlevelGet()
-    logger('profileNow: Requesting command class versions report', 'trace')
-    cmds += versionCommandClassGet()
-    cmds
-}
-*/
-
-/**
- * resetTamper - resets tamper (after configured period as there is not zwave tamper clear message)
+ * resetTamper - resets tamper (after configured period as there is not a zwave tamper clear message)
  * @return
  */
 def resetTamper() {
@@ -923,18 +912,7 @@ def resetTamper() {
  */
 def syncAll() {
     state.syncAll = true
-    if (listening()) {
-        logger('syncAll: Calling sync.', 'info')
-        sendCommandSequence(sync())
-    } else {
-        logger('syncAll: Queuing sync.', 'info')
-        if (state.queued) {
-            state.queued << 'sync'
-        } else {
-            state.queued = ['sync']
-        }
-    }
-
+    syncRemaining()
 }
 
 /**
@@ -942,8 +920,9 @@ def syncAll() {
  * @return
  */
 def syncRemaining() {
+    def caller = (state.syncAll) ? 'syncAll' : 'syncRemaining'
     if (listening()) {
-        logger('syncRemaining: Calling sync.', 'info')
+        logger("${caller}: Calling sync.", 'info')
         def cmds = sync()
         if (cmds) {
             sendCommandSequence(cmds)
@@ -952,7 +931,7 @@ def syncRemaining() {
             null
         }
     } else {
-        logger('syncRemaining: Queuing sync.', 'info')
+        logger("${caller}: Queuing sync.", 'info')
         if (state.queued) {
             state.queued << 'sync'
         } else {
@@ -1487,7 +1466,7 @@ private sensorValueEvent(Short value) {
     if (value == 0x00) {eventValue = 'dry'}
     if (value == 0xFF) {eventValue = 'wet'}
     def result = createEvent(name: 'water', value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
-    return result
+    result
 }
 
 private powerSourceReport(cmd) {

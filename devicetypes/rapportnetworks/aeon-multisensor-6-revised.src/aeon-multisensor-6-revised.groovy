@@ -347,8 +347,8 @@ private generateParametersPreferences() {
                 case 'enum':
                     input(
                             name: "configParam${id}",
-                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefault}.value})",
-                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefault}.value})",
+                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefault}?.value})",
+                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefault}?.value})",
                             type: it.type,
                             options: it.options,
                             defaultValue: prefDefault,
@@ -376,8 +376,8 @@ private generateParametersPreferences() {
                             element: 'paragraph'
                     )
                     it.flags.each { flag ->
-                        def defaultOrSpecified = (specific) ? specific?.flags.find { specflag -> specflag.id == flag.id }?.specified : flag.default
-                        def prefDefaultFlag = (flag.flag == defaultOrSpecified) ? true : false
+                        def defaultOrSpecified = (specific) ? specific?.flags?.find { specflag -> specflag.id == flag.id }?.specified : flag.default
+                        def prefDefaultFlag = (flag.flag == defaultOrSpecified)
                         input(
                                 name: "configParam${id}${flag.id}",
                                 title: "${flag.id}) ${flag.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
@@ -399,7 +399,7 @@ private generateParametersPreferences() {
  * getTimeOptionValueMap
  * @return
  */
-private getTimeOptionValueMap() { [ // TODO - create a generalised lookup list - not currently used!
+private static getTimeOptionValueMap() { [ // TODO - create a generalised lookup list - not currently used!
     '10 seconds': 10,
     '20 seconds': 20,
     '40 seconds': 40,
@@ -485,7 +485,9 @@ def configure() {
         device.updateSetting('configAutoResetTamperDelay', autoResetTamperDelayDefault)
         logger("configure: Resetting autoResetTamperDelay preference to ${autoResetTamperDelayDefault}.", 'trace')
     }
-    catch(e) {}
+    catch(e) {
+        logger("configure: Unable to reset autoResetTamperDelay preference to ${autoResetTamperDelayDefault}. Error ${e}.", 'error')
+    }
 
     def logLevelIDEDefault = 5 // TODO - set to 3 when finished debugging
     state.logLevelIDE = logLevelIDEDefault
@@ -493,7 +495,9 @@ def configure() {
         device.updateSetting('configLogLevelIDE', logLevelIDEDefault)
         logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace')
     }
-    catch(e) {}
+    catch(e) {
+        logger("configure: Unable to reset configLogLevelIDE preference to ${logLevelIDEDefault}. Error ${e}.", 'error')
+    }
 
     if (commandClassesVersions().containsKey(0x84)) {
         def wakeUpIntervalDefault = (wakeUpIntervalOptions()?.find { it.specified }?.item) ?: wakeUpIntervalOptions().find { it.default }.item
@@ -502,7 +506,9 @@ def configure() {
             device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault)
             logger("configure: Resetting configWakeUpInterval preference to ${wakeUpIntervalDefault}.", 'trace')
         }
-        catch(e) {}
+        catch(e) {
+            logger("configure: Unable to reset configWakeUpInterval preference to ${wakeUpIntervalDefault}. Error ${e}.", 'error')
+        }
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'trace')
@@ -519,38 +525,46 @@ def configure() {
             case 'number':
                 try {
                     device.updateSetting("configParam$id", defaultValue)
-                    logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue", 'debug')
+                    logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue.", 'debug')
                 }
-                catch(e) {}
+                catch(e) {
+                    logger("configure: Parameter $id, unable to reset number preference to ($resetType): $defaultValue. Error ${e}.", 'error')
+                }
                 break
 
             case 'enum':
                 try {
                     device.updateSetting("configParam$id", defaultValue)
-                    logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue", 'debug')
+                    logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue.", 'debug')
                 }
-                catch(e) {}
+                catch(e) {
+                    logger("configure: Parameter $id, unable to reset enum preference to ($resetType): $defaultValue. Error ${e}.", 'error')
+                }
                 break
 
             case 'bool':
-                def resetBool = (defaultValue == it.true) ? true : false
+                def resetBool = (defaultValue == it.true)
                 try {
                     device.updateSetting("configParam$id", resetBool)
-                    logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool", 'debug')
+                    logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool.", 'debug')
                 }
-                catch(e) {}
+                catch(e) {
+                    logger("configure: Parameter: $id, unable to reset bool preference to ($resetType): $resetBool. Error ${e}.", 'error')
+                }
                 break
 
             case 'flags':
                 def defaultOrSpecified = (specific) ? specific.flags : it.flags
                 defaultOrSpecified.each { flag ->
                     def defaultValueFlag = (flag?.specified != null) ? flag.specified : flag.default
-                    def resetBool = (flag.flag == defaultValueFlag) ? true : false
+                    def resetBool = (flag.flag == defaultValueFlag)
                     try {
                         device.updateSetting("configParam$id${flag.id}", resetBool)
-                        logger("configure: Parameter: $id${flag.id}, resetting flag preference to ($resetType): $resetBool", 'debug')
+                        logger("configure: Parameter: $id${flag.id}, resetting flag preference to ($resetType): $resetBool.", 'debug')
                     }
-                    catch(e) {}
+                    catch(e) {
+                        logger("configure: Parameter: $id${flag.id}, unable to reset flag preference to ($resetType): $resetBool. Error ${e}.", 'error')
+                    }
                 }
                 break
 
@@ -573,7 +587,7 @@ def configure() {
  */
 def updated() {
     logger('updated: Updating configuration targets to match any user selected preferences.', 'info')
-    if (!state.updatedLastRanAt || now() >= state.updatedLastRanAt + 2000) {
+    if (now() >= state.updatedLastRanAt + 2000 || !state.updatedLastRanAt) {
         state.updatedLastRanAt = now()
 
         if (!state.configuringDevice) {
@@ -699,6 +713,7 @@ private sync() {
             logger("sync: Syncing parameter ${it.id.toString().padLeft(3, '0')} with new value: ${target}", 'debug')
             cmds += configurationSet(it.id, it.size, target)
             cmds += configurationGet(it.id)
+            //noinspection GroovyResultOfIncrementOrDecrementUsed
             syncPending++
         }
     }
@@ -732,10 +747,12 @@ private updateSyncPending() {
     parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
+                //noinspection GroovyResultOfIncrementOrDecrementUsed
                 syncPending++
             } else if (state."paramCache${it.id}" != it.defaultValue) {
                 def specific = parametersSpecifiedValues()?.find { paramSV -> paramSV.id == it.id }?.specifiedValue
                 if (state."paramCache${it.id}" != specific) {
+                    //noinspection GroovyResultOfIncrementOrDecrementUsed
                     userConfig++
                 }
             }
@@ -754,6 +771,7 @@ private updateSyncPending() {
 
         state?.queued?.removeAll { it == 'sync' }
 
+        //noinspection GroovyNestedConditional
         def configurationType = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
         logger("updateSyncPending: Sync Complete. Configuration type: $configurationType", 'info')
         updateDataValue('configurationType', configurationType)
@@ -785,7 +803,7 @@ private listening() {
  * @param byteArray
  * @return signed integer
  */
-private byteArrayToUInt(byteArray) {
+private static byteArrayToUInt(byteArray) {
     def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
 }
 
@@ -1027,11 +1045,11 @@ private wakeUpNoMoreInformation() {
  * Send Zwave Commands to Device
  **********************************************************************************************************************/
 private sendCommandSequence(cmds, delay = 1200) {
+    def cmdsSeq = cmds
     if (!listening()) {
-        cmds += wakeUpNoMoreInformation()
+        cmdsSeq += wakeUpNoMoreInformation()
     }
-    delayBetween(cmds.collect { selectEncapsulation(it) }, delay)
-    // sendHubCommand(commands.collect { response(it) }, delay)
+    delayBetween(cmdsSeq.collect { selectEncapsulation(it) }, delay)
 }
 /**
  * selectEncapsulation - depends on device capabilites
@@ -1487,25 +1505,25 @@ private powerSourceReport(cmd) {
  * commandClassesQuery() - list of all potential command classes to query device to see if it supports them
  * @return
  */
-private commandClassesQuery() { [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C] }
+private static commandClassesQuery() { [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C] }
 
 /**
  * commandClassesSecure() -  TODO - is this needed?
  * @return
  */
-private commandClassesSecure() { [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C] }
+private static commandClassesSecure() { [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C] }
 
 /**
  * commandClassesUnsolicited() - list of command classes of sensor reports (i.e. unsolicited) - can be used to trigger sync if device on battery
  * @return
  */
-private commandClassesUnsolicited() { [0x20, 0x30, 0x31, 0x60, 0x71, 0x9C] }
+private static commandClassesUnsolicited() { [0x20, 0x30, 0x31, 0x60, 0x71, 0x9C] }
 
 /**
  * commandClassesVersions() - versions of command classes to use so that functionality is correctly supported
  * @return
  */
-private commandClassesVersions() { [
+private static commandClassesVersions() { [
     0x20: 1, // Basic
     0x30: 2, // Sensor Binary
     0x31: 5, // Sensor Multilevel
@@ -1536,13 +1554,13 @@ private commandClassesVersions() { [
  * configDeviceSettings - menu items available in mobile app to be configured by user
  * @return list of items to configure
  */
-private configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval', 'logLevelIDE'] }
+private static configDeviceSettings() { ['deviceUse', 'autoResetTamperDelay', 'wakeUpInterval', 'logLevelIDE'] }
 
 /**
  * deviceUseOptions() - map of states for contact sensor depending on use
  * @return map of device use options
  */
-private deviceUseOptions() { [
+private static deviceUseOptions() { [
     [item: 0, use: 'Bed', event: 'contact', inactive: 'empty', active: 'occupied'],
     [item: 1, use: 'Chair', event: 'contact', inactive: 'vacant', active: 'occupied'],
     [item: 2, use: 'Toilet', event: 'contact', inactive: 'full', active: 'flushing'],
@@ -1553,7 +1571,7 @@ private deviceUseOptions() { [
  * wakeUpIntervalOptions
  * @return map of preference options for configuring device wake interval
  */
-private wakeUpIntervalOptions() { [
+private static wakeUpIntervalOptions() { [
         [item:  3_600, interval:  '1 hour', specified: true],
         [item:  7_200, interval:  '2 hours', default: true],
         [item: 34_200, interval: '12 hours'],
@@ -1564,21 +1582,21 @@ private wakeUpIntervalOptions() { [
  * 0 will make all items in parametersMetadata available
  * @return list of device parameters
  */
-private configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
+private static configParameters() { [2, 3, 4, 5, 8, 9, 40, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
  * configParametersUser - subset of device configuration parameters that are made available for configuration by the user in the mobile app
  * set to [0] to make all configuration parameters available to user
  * @return list of device parameters
  */
-private configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
+private static configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 112, 113] }
 
 /**
  * powerSourceParameter - device configuration parameter number that relates to devices power source (if alternatives)
  * set to 0 if not applicable
  * @return power source parameter number
  */
-private powerSourceParameter() { 9 }
+private static powerSourceParameter() { 9 }
 
 /**
  * getPowerSourceDefault
@@ -1595,13 +1613,13 @@ private getPowerSourceDefault() {
  * batteryRefreshInterval
  * @return
  */
-private batteryRefreshInterval() { 604_800 }
+private static batteryRefreshInterval() { 604_800 }
 
 /**
  * parametersSpecifiedValues - map of specified configuration values for optimal operation (some may be same as default) - means device configuration can be set/reset
  * @return map of specified/default values for device parameters
  */
-private parametersSpecifiedValues() { [
+private static parametersSpecifiedValues() { [
     [id:2,size:1,default:0,specified:1],
     [id:3,size:2,default:240,specified:30],
     [id:4,size:1,default:5,specified:5],
@@ -1618,7 +1636,7 @@ private parametersSpecifiedValues() { [
  * parametersMetadata - complete map of all (relevant) device configuration parameters
  * @return map of device configuration parameters
  */
-private parametersMetadata() { [
+private static parametersMetadata() { [
     [id:2,size:1,type:'bool',default:0,required:false,readonly:false,isSigned:false,name:'Enable waking up for 10 minutes',description:'when re-power on (battery mode) the MultiSensor',false:0,true:1],
     [id:3,size:2,type:'number',range: '10..3600',default:240,required:false,readonly:false,isSigned:false,name: 'PIR reset time',description:'Reset time for PIR sensor'],
     [id:4,size:1,type:'enum',default:5,required:false,readonly:false,isSigned:false,name:'PIR Sensitivity',description:'Set the sensitivity of motion sensor',options:[0:'Off',1:'level 1 (minimum)',2:'level 2',3:'level 3',4:'level 4',5:'level 5 (maximum)']],

@@ -1,4 +1,4 @@
-/**
+/*
  *  Copyright 2018 Alasdair Thin
  *
  *  Licensed under the Apache License, Version 2.0 (the 'License'); you may not use this file except
@@ -10,11 +10,11 @@
  *  on an 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *	Based on ***
+ *  Based on
  */
 
 metadata {
-    definition(name: 'Aeon Multisensor 6 Revised', namespace: 'rapportnetworks', author: 'Alasdair Thin') {
+    definition(name:'Aeon Multisensor 6 Revised', namespace:'rapportnetworks', author:'Alasdair Thin') {
         /**
          * ST Capabilities
          */
@@ -119,13 +119,13 @@ metadata {
                             [value: 33, color: '#d04e00'],
                             [value: 37, color: '#bc2323'],
                             // Fahrenheit
-                            [value: 40, color: "#153591"],
-                            [value: 44, color: "#1e9cbb"],
-                            [value: 59, color: "#90d2a7"],
-                            [value: 74, color: "#44b621"],
-                            [value: 84, color: "#f1d801"],
-                            [value: 95, color: "#d04e00"],
-                            [value: 96, color: "#bc2323"]
+                            [value: 40, color: '#153591'],
+                            [value: 44, color: '#1e9cbb'],
+                            [value: 59, color: '#90d2a7'],
+                            [value: 74, color: '#44b621'],
+                            [value: 84, color: '#f1d801'],
+                            [value: 95, color: '#d04e00'],
+                            [value: 96, color: '#bc2323']
                     ]
             )
         }
@@ -243,7 +243,7 @@ metadata {
                     title: 'DEVICE SETTINGS',
                     description: 'Tap each item to set.',
                     type: 'paragraph',
-                    element: 'paragraph'
+                    element: 'paragraph',
             )
 
             if ('deviceUse' in configDeviceSettings()) {
@@ -257,7 +257,7 @@ metadata {
                         options: uses,
                         defaultValue: defaultUse,
                         required: true,
-                        displayDuringSetup: true
+                        displayDuringSetup: true,
                 )
             }
 
@@ -268,7 +268,7 @@ metadata {
                         type: 'enum',
                         options: [30: '30 seconds', 60: '1 minute', 120: '2 minutes', 300: '5 minutes', 3600: '1 hour'],
                         defaultValue: 30,
-                        required: false
+                        required: false,
                 )
             }
 
@@ -282,7 +282,7 @@ metadata {
                         type: 'enum',
                         options: intervals,
                         defaultValue: defaultInterval,
-                        required: false
+                        required: false,
                 )
             }
 
@@ -293,7 +293,7 @@ metadata {
                         type: 'enum',
                         options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
                         defaultValue: 3,
-                        required: false
+                        required: false,
                 )
             }
         }
@@ -315,15 +315,15 @@ private generateParametersPreferences() {
             title: 'DEVICE PARAMETERS',
             description: 'These are used to customise the operation of the device. Refer to the product documentation for a full description of each parameter.',
             type: 'paragraph',
-            element: 'paragraph'
+            element: 'paragraph',
     )
 
-    parametersMetadata().findAll{ it.id in configParameters() && !it.readonly }.each{
+    parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
         /**
          * Gets list of parameters available to user to configure.
          * If the list is [0], all parameters in configParameters will be made available to the user.
          */
-        if (configParametersUser()[0] == 0 || it.id in configParametersUser()) {
+        if (configParametersUser()[0] == 0 || it.id.toInteger() in configParametersUser()) {
 
             def id = it.id.toString().padLeft(3, '0')
 
@@ -340,19 +340,19 @@ private generateParametersPreferences() {
                             type: it.type,
                             range: it.range,
                             defaultValue: prefDefault,
-                            required: it.required
+                            required: it.required,
                     )
                     break
 
                 case 'enum':
                     input(
                             name: "configParam${id}",
-                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefault}?.value})",
-                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefault}?.value})",
+                            title: "${it.id}. ${it.name} (default: ${it.options?.find { op -> op.key == prefDefault }?.value})",
+                            description: "${it.description} (default: ${it.options?.find { op -> op.key == prefDefault }?.value})",
                             type: it.type,
                             options: it.options,
                             defaultValue: prefDefault,
-                            required: it.required
+                            required: it.required,
                     )
                     break
 
@@ -363,7 +363,7 @@ private generateParametersPreferences() {
                             description: "${it.description} (default: ${(prefDefault) ? 'on' : 'off'})",
                             type: it.type,
                             defaultValue: prefDefault,
-                            required: it.required
+                            required: it.required,
                     )
                     break
 
@@ -373,17 +373,17 @@ private generateParametersPreferences() {
                             title: "${it.id}. ${it.name}",
                             description: it.description,
                             type: 'paragraph',
-                            element: 'paragraph'
+                            element: 'paragraph',
                     )
                     it.flags.each { flag ->
-                        def defaultOrSpecified = (specific) ? specific?.flags?.find { specflag -> specflag.id == flag.id }?.specified : flag.default
+                        Integer defaultOrSpecified = (specific) ? specific?.flags?.find { specifiedFlag -> specifiedFlag.id == flag.id }?.specified : flag.default
                         def prefDefaultFlag = (flag.flag == defaultOrSpecified)
                         input(
                                 name: "configParam${id}${flag.id}",
                                 title: "${flag.id}) ${flag.description} (default: ${(prefDefaultFlag) ? 'on' : 'off'})",
                                 type: 'bool',
                                 defaultValue: prefDefaultFlag,
-                                required: it.required
+                                required: it.required,
                         )
                     }
                     break
@@ -415,7 +415,7 @@ private static getTimeOptionValueMap() { [ // TODO - create a generalised lookup
     '6 hours': 6 * 60 * 60,
     '12 hours': 12 * 60 * 60,
     '18 hours': 18 * 60 * 60,
-    '24 hours': 24 * 60 * 60
+    '24 hours': 24 * 60 * 60,
 ] }
 
 /***********************************************************************************************************************
@@ -437,7 +437,7 @@ def installed() {
     /**
      * sends event to set checkInterval default value
      */
-    def interval = wakeUpIntervalOptions().find { it.default }.item.multiply(2.2).trunc()
+    Integer interval = wakeUpIntervalOptions().find { it.default }.item * (2.2).trunc()
     sendEvent(name: 'checkInterval', value: interval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Default checkInterval')
 
     /**
@@ -457,7 +457,8 @@ def installed() {
     /**
      * set device power source (if only one) or 'unknown' if more than one option
      */
-    def powerSource = powerSourceDefault()
+    //noinspection GroovyAssignabilityCheck
+    String powerSource = powerSourceName()
     logger("installed: Device power source is ${powerSource}.", 'debug')
     sendEvent(name: 'powerSource', value: powerSource, descriptionText: "Device power source is ${powerSource}.")
 
@@ -512,7 +513,7 @@ def configure() {
     }
 
     logger('configure: getting default/specified values and resetting any existing preferences', 'trace')
-    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+    parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
 
         def specific = parametersSpecifiedValues()?.find { paramSV -> paramSV.id == it.id }
         def defaultValue = (specific) ? specific.specified : it.default
@@ -556,7 +557,7 @@ def configure() {
             case 'flags':
                 def defaultOrSpecified = (specific) ? specific.flags : it.flags
                 defaultOrSpecified.each { flag ->
-                    def defaultValueFlag = (flag?.specified != null) ? flag.specified : flag.default
+                    Integer defaultValueFlag = (flag?.specified != null) ? flag.specified : flag.default
                     def resetBool = (flag.flag == defaultValueFlag)
                     try {
                         device.updateSetting("configParam$id${flag.id}", resetBool)
@@ -585,6 +586,7 @@ def configure() {
  * If called after configure, any selected user preferences will be ignored (and may have already been reset to defaults).
  * Due to a ST system bug, updated() is called twice in immediate succession. As a result, there is a check to abort the second call.
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def updated() {
     logger('updated: Updating configuration targets to match any user selected preferences.', 'info')
     if (now() >= state.updatedLastRanAt + 2000 || !state.updatedLastRanAt) {
@@ -606,20 +608,20 @@ def updated() {
                 logger("updated: wakeUpIntervalTarget set to value $state.wakeUpIntervalTarget", 'debug')
             }
 
-            parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+            parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
 
                 def id = it.id.toString().padLeft(3, '0')
                 if (settings?."configParam$id" != null || settings?."configParam${id}a" != null) {
 
                     switch (it.type) {
                         case 'number':
-                            def setting = settings."configParam$id"
+                            Integer setting = settings."configParam$id"
                             logger("updated: Parameter $id set to match number preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
 
                         case 'enum':
-                            def setting = settings."configParam$id".toInteger()
+                            Integer setting = settings."configParam$id".toInteger()
                             logger("updated: Parameter $id set to match enum preference value: $setting", 'debug')
                             state."paramTarget$it.id" = setting
                             break
@@ -658,9 +660,9 @@ def updated() {
          */
         if (listening()) {
             logger('updated: Listening device, calling sync now.', 'info')
-            def cmds = sync()
+            List cmds = sync()
             if (cmds) {
-                response(sendCommandSequence(cmds))  // response wrapper needed in updated()
+                response(sendCommandSequence(cmds))  // 'response()' wrapper is needed in updated()
             }
             else {
                 null
@@ -695,7 +697,7 @@ private sync() {
     if (state.syncAll) {
         logger('sync: Syncing all - deleting all cached configuration values.', 'debug')
         state.wakeUpIntervalCache = null
-        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each { state."paramCache${it.id}" = null }
+        parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each { state."paramCache${it.id}" = null }
         updateDataValue('serialNumber', null)
         state.syncAll = false
     }
@@ -707,12 +709,12 @@ private sync() {
         syncPending++
     }
 
-    parametersMetadata().findAll( { it.id in configParameters() && !it.readonly } ).each {
+    parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
         if (state."paramTarget${it.id}" != null && state."paramTarget${it.id}" != state."paramCache${it.id}") {
-            def target = state."paramTarget${it.id}"
+            Integer target = state."paramTarget${it.id}"
             logger("sync: Syncing parameter ${it.id.toString().padLeft(3, '0')} with new value: ${target}", 'debug')
-            cmds += configurationSet(it.id, it.size, target)
-            cmds += configurationGet(it.id)
+            cmds += configurationSet(it.id as Integer, it.size as Integer, target)
+            cmds += configurationGet(it.id as Integer)
             //noinspection GroovyResultOfIncrementOrDecrementUsed
             syncPending++
         }
@@ -738,13 +740,13 @@ private updateSyncPending() {
     def userConfig = 0
 
     // if (!listening()) { TODO - check if wakeup interval applies to all listening devices? - need to be consistent with sync()
-        def target = state?.wakeUpIntervalTarget
+        Integer target = state?.wakeUpIntervalTarget
         if (target != null && target != state.wakeUpIntervalCache) syncPending++
         def specificInterval = (wakeUpIntervalOptions()?.find { it.specified }?.item) ?: wakeUpIntervalOptions().find { it.default }.item
         if (target != specificInterval) userConfig++
     // }
 
-    parametersMetadata().findAll({ it.id in configParameters() && !it.readonly }).each {
+    parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
         if (state."paramTarget${it.id}" != null) {
             if (state."paramCache${it.id}" != state."paramTarget${it.id}") {
                 //noinspection GroovyResultOfIncrementOrDecrementUsed
@@ -769,7 +771,7 @@ private updateSyncPending() {
     if (syncPending == 0) {
         state.configuringDevice = false
 
-        state?.queued?.removeAll { it == 'sync' }
+        state?.queued?.removeAll { String it -> it == 'sync' }
 
         //noinspection GroovyNestedConditional
         def configurationType = (userConfig > 0) ? 'user' : (parametersSpecifiedValues()) ? 'specified' : 'default'
@@ -777,14 +779,16 @@ private updateSyncPending() {
         updateDataValue('configurationType', configurationType)
         sendEvent(name: 'configure', value: 'completed', descriptionText: "Device reports Configuration ($configurationType) completed.", isStateChange: true, displayed: false)
 
-        def configurationReport = [:]
-        parametersMetadata().findAll( { it.id in configParameters() && !it.readonly} ).each {
+        Map configurationReport = [:]
+        parametersMetadata().findAll { it.id.toInteger() in configParameters() && !it.readonly }.each {
             def id = it.id.toString().padLeft(3, '0')
             configurationReport << [(id): state."paramCache${it.id}"]
         }
 
         logger('updateSyncPending: All Configuration Values Reported.', 'info')
-        updateDataValue('configuredParameters', configurationReport.sort().collect { it }.join(','))
+        //noinspection GroovyUntypedAccess
+        String report = configurationReport.sort().collect { it }.join(',')
+        updateDataValue('configuredParameters', report)
     }
     syncPending
 }
@@ -794,8 +798,8 @@ private updateSyncPending() {
  * @return
  */
 private listening() {
-    getZwaveInfo()?.zw?.startsWith('L')
-    // getZwaveInfo()?.zw?.startsWith('S') // used for testing
+    zwaveInfo()?.zw?.startsWith('L')
+    // zwaveInfo()?.zw?.startsWith('S') // used for testing
 }
 
 /**
@@ -803,6 +807,7 @@ private listening() {
  * @param byteArray
  * @return signed integer
  */
+@SuppressWarnings(["GroovyAssignabilityCheck", "GroovyUntypedAccess"])
 private static byteArrayToUInt(byteArray) {
     def i = 0; byteArray.reverse().eachWithIndex { b, ix -> i += b * (0x100 ** ix) }; i
 }
@@ -834,7 +839,7 @@ void deviceUseStates() {
  * @param level
  * @return
  */
-private logger(msg, level = 'debug') { // TODO - Check whether want all the events sent
+private logger(String msg, String level = 'debug') { // TODO - Check whether want all the events sent
     switch(level) {
         case 'error':
             if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: ${msg}", displayed: false, isStateChange: true); break
@@ -865,7 +870,7 @@ private logger(msg, level = 'debug') { // TODO - Check whether want all the even
  * @return
  */
 def ping() {
-    if (listening()) sendCommandSequence(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01))
+    if (listening()) sendCommandSequence([zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01)])
 }
 
 /**
@@ -976,11 +981,11 @@ private batteryGet() {
     }
 }
 
-private configurationGet(id) {
+private configurationGet(Integer id) {
     zwave.configurationV1.configurationGet(parameterNumber: id)
 }
 
-private configurationSet(id, size, target) {
+private configurationSet(Integer id, Integer size, Integer target) {
     zwave.configurationV1.configurationSet(parameterNumber: id, size: size, scaledConfigurationValue: target)
 }
 
@@ -1028,6 +1033,7 @@ private wakeUpIntervalGet() {
  * @param nodeid - id of node to send Device Woke Up Notification to (i.e. hub node id)
  * @return wakeUpIntervalSet setter
  */
+@SuppressWarnings("GroovyUntypedAccess")
 private wakeUpIntervalSet(seconds, nodeid) {
     zwave.wakeUpV1.wakeUpIntervalSet(seconds: seconds, nodeid: nodeid)
 }
@@ -1044,18 +1050,22 @@ private wakeUpNoMoreInformation() {
 /***********************************************************************************************************************
  * Send Zwave Commands to Device
  **********************************************************************************************************************/
+@SuppressWarnings("GroovyUntypedAccess")
 private sendCommandSequence(cmds, delay = 1200) {
-    def cmdsSeq = cmds
+    List cmdsList = cmds
     if (!listening()) {
-        cmdsSeq += wakeUpNoMoreInformation()
+        cmdsList += wakeUpNoMoreInformation()
     }
-    delayBetween(cmdsSeq.collect { selectEncapsulation(it) }, delay)
+    def cmdsSeq = cmdsList.collect { //noinspection GroovyAssignabilityCheck
+        selectEncapsulation(it) }
+    delayBetween(cmdsSeq, delay)
 }
 /**
  * selectEncapsulation - depends on device capabilites
  * @param cmd
  * @return cmd with or without appropriate encapsulation
  */
+@SuppressWarnings(["GroovyAssignabilityCheck", "GroovyUntypedAccess"])
 private selectEncapsulation(physicalgraph.zwave.Command cmd) {
     if (zwaveInfo?.zw?.endsWith('s') && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())) {
         secureEncapsulate(cmd)
@@ -1074,6 +1084,7 @@ private selectEncapsulation(physicalgraph.zwave.Command cmd) {
  * @param cmd
  * @return cmd securely encapsulated
  */
+@SuppressWarnings("GroovyUntypedAccess")
 private secureEncapsulate(physicalgraph.zwave.Command cmd) {
     logger("secureEncapsulation: Sending: '$cmd'", 'trace')
     zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
@@ -1084,6 +1095,7 @@ private secureEncapsulate(physicalgraph.zwave.Command cmd) {
  * @param cmd
  * @return cmd crc16 encapsulated
  */
+@SuppressWarnings("GroovyUntypedAccess")
 private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
     logger("crc16Encapsulation: Sending: '$cmd'", 'trace')
     zwave.crc16EncapV1.crc16Encap().encapsulate(cmd).format()
@@ -1095,6 +1107,7 @@ private crc16Encapsulate(physicalgraph.zwave.Command cmd) {
  *  @param description - raw Zwave command
  *  @return list of resultant events and/or commands
  **********************************************************************************************************************/
+@SuppressWarnings("GroovyUntypedAccess")
 def parse(String description) {
     logger("parse: raw zwave message: '$description'", 'trace')
 
@@ -1115,6 +1128,7 @@ def parse(String description) {
     else if (description != 'updated') {
         def cmd = zwave.parse(description, commandClassesVersions())
         if (cmd) {
+            //noinspection GroovyAssignabilityCheck
             result += zwaveEvent(cmd)
             /**
              * unsolicited command class message acts as a trigger for listening devices to sync if any parameters remain unsynced
@@ -1141,6 +1155,7 @@ def parse(String description) {
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
     logger("BasicSet: Ignoring '$cmd'", 'info')
     // motionEvent(cmd.value)
@@ -1151,6 +1166,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) {
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cmd) {
     logger("SensorBinaryReport: Ignoring '$cmd'", 'info')
     // motionEvent(cmd.sensorValue)
@@ -1161,6 +1177,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv2.SensorBinaryReport cm
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cmd) {
     logger("NotificationReport: '$cmd'", 'debug')
     def result = []
@@ -1203,6 +1220,7 @@ def zwaveEvent(physicalgraph.zwave.commands.notificationv3.NotificationReport cm
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) {
     logger("SensorMultilevelReport: $cmd", 'debug')
     def map = [displayed: true, isStateChange: true]
@@ -1212,7 +1230,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
             map.name = 'temperature'
             def cmdScale = (cmd.scale == 1) ? 'F' : 'C'
             map.value = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmdScale, cmd.precision)
-            map.unit = getTemperatureScale()
+            map.unit = temperatureScale()
             map.descriptionText = "$device.displayName temperature is $map.value $map.unit"
             break
 
@@ -1249,6 +1267,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelR
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
     logger("configurationReport: '$cmd'", 'trace')
     def signed = parametersMetadata()?.find { it.id == cmd.parameterNumber }?.isSigned
@@ -1257,7 +1276,9 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
     logger("configurationReport: Parameter $cmd.parameterNumber has been set to value (${(signed) ? 'signed' : 'unsigned'}) $paramValue", 'debug')
     state."paramCache${cmd.parameterNumber}" = paramValue
 
-    if (cmd.parameterNumber == powerSourceParameter()) powerSourceReport(cmd)
+    if (cmd.parameterNumber == powerSourceParameter()) { //noinspection GroovyAssignabilityCheck
+        powerSourceReport(cmd)
+    }
 
     if (parametersMetadata().find { !it.readonly } ) updateSyncPending()
 }
@@ -1270,6 +1291,7 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
     def map = [name: 'battery', unit: '%']
     if (cmd.batteryLevel == 0xFF) {
@@ -1290,6 +1312,7 @@ def zwaveEvent(physicalgraph.zwave.commands.batteryv1.BatteryReport cmd) {
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecificReport cmd) {
     logger('DeviceSpecificReport: Serial number report received.', 'info')
     logger("DeviceSpecificReport: Serial number raw report: $cmd", 'debug')
@@ -1304,6 +1327,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.DeviceSpecifi
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerSpecificReport cmd) {
     log.info "Executing zwaveEvent 72 (ManufacturerSpecificV2) : 05 (ManufacturerSpecificReport) with cmd: $cmd"
     log.debug "manufacturerId:   ${cmd.manufacturerId}"
@@ -1319,6 +1343,7 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
  * @param cmd
  * @return
  */
+@SuppressWarnings(["GroovyAssignabilityCheck", "GroovyUntypedAccess"])
 def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport cmd) {
     def ccValue = Integer.toHexString(cmd.requestedCommandClass).toUpperCase()
     def ccVersion = cmd.commandClassVersion
@@ -1336,12 +1361,13 @@ def zwaveEvent(physicalgraph.zwave.commands.versionv1.VersionCommandClassReport 
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
     logger("wakeUpIntervalReport: '$cmd'", 'debug')
     def wakeUpInterval = cmd.seconds
     state.wakeUpIntervalCache = wakeUpInterval
     updateDataValue('wakeUpInterval', "$wakeUpInterval")
-    def interval = wakeUpInterval.toDouble().multiply(2.2).trunc()
+    def interval = wakeUpInterval.toDouble() * (2.2).trunc()
     createEvent(name: 'checkInterval', value: interval, displayed: false, data: [protocol: 'zwave', hubHardwareId: device.hub.hardwareID], descriptionText: 'Configured checkInterval')
     updateSyncPending()
 }
@@ -1352,7 +1378,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpIntervalReport cmd) {
  * @return
  */
 def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
-    logger('WakeUpNotification: Device woke up.', 'info')
+    logger("WakeUpNotification: Device woke up: ($cmd)", 'info')
     def cmds = []
 
     if (state.queued) {
@@ -1393,6 +1419,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
     logger("PowerlevelReport: '$cmd'", 'debug')
     def powerLevel = -1 * cmd.powerLevel //	def timeout = cmd.timeout (1-255 s) - omit
@@ -1409,11 +1436,13 @@ def zwaveEvent(physicalgraph.zwave.commands.powerlevelv1.PowerlevelReport cmd) {
  * @param cmd
  * @return
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
     logger("security: raw zwave message: '$cmd'", 'trace')
     def encapsulatedCommand = cmd.encapsulatedCommand(commandClassesVersions())
     logger("security: encapsulated zwave message: '$encapsulatedCommand'", 'trace')
     if (encapsulatedCommand) {
+        //noinspection GroovyAssignabilityCheck
         zwaveEvent(encapsulatedCommand)
     }
     else {
@@ -1429,7 +1458,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
  * @return
  */
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) {
-    logger('networkKey: Device is securely included.', 'info')
+    logger("networkKey: Device is securely included: ($cmd)", 'info')
     def result = [createEvent(name: 'secureInclusion', value: 'success', descriptionText: 'Secure inclusion was successful', isStateChange: true)]
     result
 }
@@ -1440,12 +1469,14 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.NetworkKeyVerify cmd) {
  * @return
  */
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd) {
+    //noinspection GroovyUntypedAccess
     logger("securityCommands: report '$cmd'", 'info')
 }
 
 /**
  * Zwave General Event Handler (catch all)
  */
+@SuppressWarnings("GroovyUntypedAccess")
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
     logger("General zwaveEvent cmd: ${cmd}", 'warn')
     createEvent(descriptionText: cmd.toString(), isStateChange: false)
@@ -1460,16 +1491,18 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
  * @param value
  * @return
  */
-private motionEvent(value) {
+private motionEvent(Integer value) {
     logger('motionEvent: Creating motion event', 'debug')
     def map = [name: 'motion', displayed: true, isStateChange: true]
-    if (value) {
-        map.value = 'active'
-        map.descriptionText = "$device.displayName detected motion"
-    }
-    else {
-        map.value = 'inactive'
-        map.descriptionText = "$device.displayName motion has stopped"
+    switch (value) {
+        case 1:
+            map.value = 'active'
+            map.descriptionText = "$device.displayName detected motion"
+            break
+        default:
+            map.value = 'inactive'
+            map.descriptionText = "$device.displayName motion has stopped"
+            break
     }
     createEvent(map)
 }
@@ -1481,19 +1514,25 @@ private motionEvent(value) {
  */
 private sensorValueEvent(Short value) {
     def eventValue = null
-    if (value == 0x00) {eventValue = 'dry'}
-    if (value == 0xFF) {eventValue = 'wet'}
-    def result = createEvent(name: 'water', value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
-    result
+    if (value == 0x00) { eventValue = 'dry' }
+    if (value == 0xFF) { eventValue = 'wet' }
+    createEvent(name: 'water', value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
 }
 
+@SuppressWarnings("GroovyUntypedAccess")
 private powerSourceReport(cmd) {
     def result = []
-    if (cmd.configurationValue[0] == 0) {
-        result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
-    }
-    else if (cmd.configurationValue[0] == 1) {
-        result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
+    //noinspection GroovyAssignabilityCheck
+    switch (cmd.configurationValue[0]) {
+        case 0:
+            result += createEvent(name: 'powerSource', value: 'dc', displayed: false)
+            break
+        case 1:
+            result += createEvent(name: 'powerSource', value: 'battery', displayed: false)
+            break
+        default:
+            result += createEvent(name: 'powerSource', value: 'unknown', displayed: false)
+            break
     }
     result
 }
@@ -1539,7 +1578,7 @@ private static commandClassesVersions() { [
     0x84: 1, // Wake Up - changed to v1
     0x85: 2, // Association
     0x86: 1, // Version - changed to v1
-    0x98: 1 // Security
+    0x98: 1, // Security
 ] }
 
 /* Currently Unused
@@ -1599,14 +1638,14 @@ private static configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 
 private static powerSourceParameter() { 9 }
 
 /**
- * getPowerSourceDefault
- * @return name of default power source for device
+ * getPowerSourceName
+ * @return name of power source for device
  */
-private getPowerSourceDefault() {
-    // battery // for battery powered devices
-    // dc // for usb powered devices
-    // mains // for mains powered devices
-    unknown // for devices with more than one power source
+private static getPowerSourceName() {
+    // 'battery' // for battery powered devices
+    // 'dc' // for usb powered devices
+    // 'mains' // for mains powered devices
+    'unknown' // for devices with more than one power source
 }
 
 /**
@@ -1629,7 +1668,7 @@ private static parametersSpecifiedValues() { [
     [id:101,size:4,default:241,specified:240,flags:[[id:'a',flag:1,default:1,specified:0],[id:'b',flag:16,default:16,specified:16],[id:'c',flag:32,default:32,specified:32],[id:'d',flag:64,default:64,specified:64],[id:'e',flag:128,default:128,specified:128]]],
     [id:102,size:4,default:0,specified:0,flags:[[id:'a',flag:1,default:0,specified:0],[id:'b',flag:16,default:0,specified:0],[id:'c',flag:32,default:0,specified:0],[id:'d',flag:64,default:0,specified:0],[id:'e',flag:128,default:0,specified:0]]],
     [id:103,size:4,default:0,specified:0,flags:[[id:'a',flag:1,default:0,specified:0],[id:'b',flag:16,default:0,specified:0],[id:'c',flag:32,default:0,specified:0],[id:'d',flag:64,default:0,specified:0],[id:'e',flag:128,default:0,specified:0]]],
-    [id:111,size:4,default:3600,specified:3600]
+    [id:111,size:4,default:3600,specified:3600],
 ] }
 
 /**
@@ -1650,5 +1689,5 @@ private static parametersMetadata() { [
     [id:103,size:4,type:'flags',default:0,required:false,readonly:false,isSigned:false,name:'Group 3 Report',description:'Which report needs to be sent in Report group 3',flags:[[id:'a',description:'enable battery',flag:1,default:0],[id:'b',description:'enable ultraviolet',flag:16,default:0],[id:'c',description:'enable temperature',flag:32,default:0],[id:'d',description:'enable humidity',flag:64,default:0],[id:'e',description:'enable luminance',flag:128,default:0]]],
     [id:111,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 1 report',description:'The interval time of sending reports in group 1'],
     [id:112,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 2 report',description:'The interval time of sending reports in group 2'],
-    [id:113,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3']
+    [id:113,size:4,type:'number',range: '300..12000',default:3600,required:false,readonly:false,isSigned:false,name: 'Time interval of group 3 report',description:'The interval time of sending reports in group 3'],
 ] }

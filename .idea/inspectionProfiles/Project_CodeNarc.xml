@@ -500,13 +500,9 @@
     </inspection_tool>
     <inspection_tool class="DuplicateExpressions" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="DuplicateImport" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="DuplicateListLiteral" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="DuplicateMapKey" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="DuplicateMapLiteral" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="DuplicateMnemonic" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="DuplicateNumberLiteral" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="DuplicateSetValue" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="DuplicateStringLiteral" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="DuplicateThrows" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="DuplicatedDataProviderNames" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="EditorConfigCharClassLetterRedundancy" enabled="false" level="WARNING" enabled_by_default="false" />
@@ -539,11 +535,9 @@
     <inspection_tool class="ElseBlockBraces" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyCatchBlock" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyElseBlock" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="EmptyFinallyBlock" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyForStatement" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyIfStatement" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyInstanceInitializer" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="EmptyMethod" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyMethodInAbstractClass" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyRange" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyStatementBody" enabled="false" level="WARNING" enabled_by_default="false">
@@ -551,7 +545,6 @@
     </inspection_tool>
     <inspection_tool class="EmptyStaticInitializer" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptySwitchStatement" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="EmptyTryBlock" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyWhileStatement" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EndlessStream" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EnumCustomSerializationIgnored" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1190,7 +1183,6 @@
       <option name="myAdditionalRequiredHtmlAttributes" value="" />
     </inspection_tool>
     <inspection_tool class="ResultIsResult" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
-    <inspection_tool class="ReturnFromFinallyBlock" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="ReturnNullFromCatchBlock" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ReturnSeparatedFromComputation" enabled="false" level="INFORMATION" enabled_by_default="false" />
     <inspection_tool class="ReturnsNullInsteadOfEmptyArray" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1411,7 +1403,6 @@
     <inspection_tool class="UnnecessaryReturnKeyword" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnnecessarySafeNavigationOperator" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnnecessarySelfAssignment" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="UnnecessarySemicolon" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="UnnecessaryStringInstantiation" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnnecessarySubstring" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnnecessaryTemporaryOnConversionFromString" enabled="false" level="WARNING" enabled_by_default="false" />

@@ -506,14 +506,11 @@
     <inspection_tool class="EditorConfigValueCorrectness" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="EditorConfigValueUniqueness" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="EditorConfigWildcardRedundancy" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="EmptyFinallyBlock" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="EmptyMethod" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyMethodInAbstractClass" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="EmptyRange" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EmptyStatementBody" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="m_reportEmptyBlocks" value="true" />
     </inspection_tool>
-    <inspection_tool class="EmptyTryBlock" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EndlessStream" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="EnumEntryName" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="EnumSwitchStatementWhichMissesCases" enabled="false" level="INFORMATION" enabled_by_default="false">
@@ -947,6 +944,7 @@
     <inspection_tool class="NoExplicitFinalizeCalls" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NoLabelFor" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NoScrollPane" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="NoTabCharacter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NoWildcardImports" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NonAsciiCharacters" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NonAtomicOperationOnVolatileField" enabled="false" level="WARNING" enabled_by_default="false" />
@@ -1185,7 +1183,6 @@
       <option name="myAdditionalRequiredHtmlAttributes" value="" />
     </inspection_tool>
     <inspection_tool class="ResultIsResult" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
-    <inspection_tool class="ReturnFromFinallyBlock" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="ReturnNullFromCatchBlock" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ReturnSeparatedFromComputation" enabled="false" level="INFORMATION" enabled_by_default="false" />
     <inspection_tool class="ReturnsNullInsteadOfEmptyArray" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1347,7 +1344,6 @@
       <option name="ignoreParenthesesOnLambdaParameter" value="false" />
     </inspection_tool>
     <inspection_tool class="UnnecessaryReturn" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="UnnecessarySemicolon" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="UnnecessaryTemporaryOnConversionFromString" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="UnnecessaryTemporaryOnConversionToString" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="UnnecessaryUnboxing" enabled="false" level="WARNING" enabled_by_default="false" />

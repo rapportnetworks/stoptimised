@@ -1,4 +1,4 @@
-/*
+/**
  *  Copyright 2018 Alasdair Thin
  *
  *  Licensed under the Apache License, Version 2.0 (the 'License'); you may not use this file except
@@ -331,7 +331,7 @@ private generateParametersPreferences() {
 
             def prefDefault = (specific) ? specific.specified : it.default
 
-            switch(it.type) {
+            switch (it.type) {
                 case 'number':
                     input(
                             name: "configParam${id}",
@@ -395,10 +395,12 @@ private generateParametersPreferences() {
     }
 }
 
+
 /**
  * getTimeOptionValueMap
  * @return
  */
+/*
 private static getTimeOptionValueMap() { [ // TODO - create a generalised lookup list - not currently used!
     '10 seconds': 10,
     '20 seconds': 20,
@@ -417,6 +419,7 @@ private static getTimeOptionValueMap() { [ // TODO - create a generalised lookup
     '18 hours': 18 * 60 * 60,
     '24 hours': 24 * 60 * 60,
 ] }
+*/
 
 /***********************************************************************************************************************
  * Main System Methods (installed, configure, updated)
@@ -486,7 +489,7 @@ def configure() {
         device.updateSetting('configAutoResetTamperDelay', autoResetTamperDelayDefault)
         logger("configure: Resetting autoResetTamperDelay preference to ${autoResetTamperDelayDefault}.", 'trace')
     }
-    catch(e) {
+    catch (e) {
         logger("configure: Unable to reset autoResetTamperDelay preference to ${autoResetTamperDelayDefault}. Error ${e}.", 'error')
     }
 
@@ -496,7 +499,7 @@ def configure() {
         device.updateSetting('configLogLevelIDE', logLevelIDEDefault)
         logger("configure: Resetting configLogLevelIDE preference to ${logLevelIDEDefault}.", 'trace')
     }
-    catch(e) {
+    catch (e) {
         logger("configure: Unable to reset configLogLevelIDE preference to ${logLevelIDEDefault}. Error ${e}.", 'error')
     }
 
@@ -507,7 +510,7 @@ def configure() {
             device.updateSetting('configWakeUpInterval', wakeUpIntervalDefault)
             logger("configure: Resetting configWakeUpInterval preference to ${wakeUpIntervalDefault}.", 'trace')
         }
-        catch(e) {
+        catch (e) {
             logger("configure: Unable to reset configWakeUpInterval preference to ${wakeUpIntervalDefault}. Error ${e}.", 'error')
         }
     }
@@ -522,13 +525,13 @@ def configure() {
 
         def id = it.id.toString().padLeft(3, '0')
 
-        switch(it.type) {
+        switch (it.type) {
             case 'number':
                 try {
                     device.updateSetting("configParam$id", defaultValue)
                     logger("configure: Parameter $id, resetting number preference to ($resetType): $defaultValue.", 'debug')
                 }
-                catch(e) {
+                catch (e) {
                     logger("configure: Parameter $id, unable to reset number preference to ($resetType): $defaultValue. Error ${e}.", 'error')
                 }
                 break
@@ -538,7 +541,7 @@ def configure() {
                     device.updateSetting("configParam$id", defaultValue)
                     logger("configure: Parameter $id, resetting enum preference to ($resetType): $defaultValue.", 'debug')
                 }
-                catch(e) {
+                catch (e) {
                     logger("configure: Parameter $id, unable to reset enum preference to ($resetType): $defaultValue. Error ${e}.", 'error')
                 }
                 break
@@ -549,7 +552,7 @@ def configure() {
                     device.updateSetting("configParam$id", resetBool)
                     logger("configure: Parameter: $id, resetting bool preference to ($resetType): $resetBool.", 'debug')
                 }
-                catch(e) {
+                catch (e) {
                     logger("configure: Parameter: $id, unable to reset bool preference to ($resetType): $resetBool. Error ${e}.", 'error')
                 }
                 break
@@ -563,7 +566,7 @@ def configure() {
                         device.updateSetting("configParam$id${flag.id}", resetBool)
                         logger("configure: Parameter: $id${flag.id}, resetting flag preference to ($resetType): $resetBool.", 'debug')
                     }
-                    catch(e) {
+                    catch (e) {
                         logger("configure: Parameter: $id${flag.id}, unable to reset flag preference to ($resetType): $resetBool. Error ${e}.", 'error')
                     }
                 }
@@ -840,7 +843,7 @@ void deviceUseStates() {
  * @return
  */
 private logger(String msg, String level = 'debug') { // TODO - Check whether want all the events sent
-    switch(level) {
+    switch (level) {
         case 'error':
             if (state.logLevelIDE >= 1) log.error(msg); sendEvent(descriptionText: "Error: ${msg}", displayed: false, isStateChange: true); break
 
@@ -1061,7 +1064,8 @@ private sendCommandSequence(cmds, delay = 1200) {
     delayBetween(cmdsSeq, delay)
 }
 /**
- * selectEncapsulation - depends on device capabilites
+ * selectEncapsulation - method selected depends on device capabilites
+ * checks to see if command class is in secure set or if device uses crc16 encapsulation
  * @param cmd
  * @return cmd with or without appropriate encapsulation
  */
@@ -1394,7 +1398,7 @@ def zwaveEvent(physicalgraph.zwave.commands.wakeupv1.WakeUpNotification cmd) {
     }
 
     if (!listening()) {
-        if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + intervalsSpecifiedValues().batteryRefreshInterval) {
+        if (!state?.timeLastBatteryReport || now() > state.timeLastBatteryReport + batteryRefreshInterval() ) {
             logger('WakeUpNotification: Requesting Battery report.', 'trace')
             cmds += batteryGet()
             cmds += powerlevelGet()
@@ -1508,16 +1512,18 @@ private motionEvent(Integer value) {
 }
 
 /**
- * sensorValueEvent()
+ * sensorValueEvent - TODO - Not currently used.
  * @param value
  * @return
  */
+/*
 private sensorValueEvent(Short value) {
     def eventValue = null
     if (value == 0x00) { eventValue = 'dry' }
     if (value == 0xFF) { eventValue = 'wet' }
     createEvent(name: 'water', value: eventValue, displayed: true, isStateChange: true, descriptionText: "$device.displayName is $eventValue")
 }
+*/
 
 @SuppressWarnings("GroovyUntypedAccess")
 private powerSourceReport(cmd) {
@@ -1547,10 +1553,12 @@ private powerSourceReport(cmd) {
 private static commandClassesQuery() { [0x20, 0x22, 0x25, 0x26, 0x27, 0x2B, 0x30, 0x31, 0x32, 0x33, 0x56, 0x59, 0x5A, 0x5E, 0x60, 0x70, 0x71, 0x72, 0x73, 0x75, 0x7A, 0x80, 0x84, 0x85, 0x86, 0x8E, 0x98, 0x9C] }
 
 /**
- * commandClassesSecure() -  TODO - is this needed?
+ * commandClassesSecure() -  TODO - is this needed? - (currently checks if command class is in zwave.info.sec)
  * @return
  */
+/*
 private static commandClassesSecure() { [0x20, 0x2B, 0x30, 0x5A, 0x70, 0x71, 0x84, 0x85, 0x8E, 0x9C] }
+*/
 
 /**
  * commandClassesUnsolicited() - list of command classes of sensor reports (i.e. unsolicited) - can be used to trigger sync if device on battery
@@ -1638,10 +1646,10 @@ private static configParametersUser() { [2, 3, 4, 5, 8, 81, 101, 102, 103, 111, 
 private static powerSourceParameter() { 9 }
 
 /**
- * getPowerSourceName
+ * powerSourceName
  * @return name of power source for device
  */
-private static getPowerSourceName() {
+private static powerSourceName() {
     // 'battery' // for battery powered devices
     // 'dc' // for usb powered devices
     // 'mains' // for mains powered devices

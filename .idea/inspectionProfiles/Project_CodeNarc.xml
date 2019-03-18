@@ -714,7 +714,6 @@
       <option name="suggestIntSwitches" value="false" />
       <option name="suggestEnumSwitches" value="false" />
     </inspection_tool>
-    <inspection_tool class="IfStatementBraces" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="IfStatementCouldBeTernary" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="IfThenToElvis" enabled="false" level="INFO" enabled_by_default="false" />
     <inspection_tool class="IfThenToSafeAccess" enabled="false" level="INFO" enabled_by_default="false" />
@@ -929,7 +928,6 @@
     <inspection_tool class="NewObjectEquality" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NewStringBufferWithCharArgument" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NoButtonGroup" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="NoDef" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NoExplicitFinalizeCalls" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NoLabelFor" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="NoScrollPane" enabled="false" level="WARNING" enabled_by_default="false" />
@@ -1231,7 +1229,6 @@
     <inspection_tool class="SpaceAfterSwitch" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SpaceAfterWhile" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SpaceAroundClosureArrow" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="SpaceAroundMapEntryColon" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SpaceAroundOperator" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SpaceBeforeClosingBrace" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SpaceBeforeOpeningBrace" enabled="true" level="WARNING" enabled_by_default="true" />

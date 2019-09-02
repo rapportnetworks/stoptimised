@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/codeSnippets/codeSnippets.iml" filepath="$PROJECT_DIR$/codeSnippets/codeSnippets.iml" />
       <module fileurl="file://$PROJECT_DIR$/devicetypes/rapportnetworks/deviceHandlers.iml" filepath="$PROJECT_DIR$/devicetypes/rapportnetworks/deviceHandlers.iml" />
       <module fileurl="file://$PROJECT_DIR$/smartapps/rapportnetworks/smartApps.iml" filepath="$PROJECT_DIR$/smartapps/rapportnetworks/smartApps.iml" />
     </modules>

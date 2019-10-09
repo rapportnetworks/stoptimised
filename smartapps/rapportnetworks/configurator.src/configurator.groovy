@@ -45,6 +45,20 @@ def mainPage() {
         section {
             input(name: 'configurationPref', type: 'capability.configuration', title: 'Select Devices with Configuration capability:', multiple: true, required: false, submitOnChange: true)
         }
+
+        section {
+            settings?.configurationPref?.each { device ->
+                input(
+                        name: "device-${device}", // TODO see about pulling metadata in from device to be able to distinguish between devices with the same name
+                        type: 'enum',
+                        title: "Select Configuration for Device: ${device}",
+                        options: device?.supportedCommands?.findAll { command -> command.name.startsWith('o') }.collectEntries { configureCommand -> [(configureCommand.name): configureCommand.name] },
+                        required: false,
+                        submitOnChange: true
+                )
+            }
+        }
+
         section {
             paragraph(title: 'Details of Selected Devices:', "${createSummary(selectedDeviceNames)}")
         }
@@ -57,7 +71,8 @@ def mainPage() {
 private getSelectedDeviceNames() {
     settings?.configurationPref?.collect {
         def items = (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) ? it.currentState('syncPending')?.value : '?'
-        "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$items]"
+        // "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$items]"
+        "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$items] ${it?.supportedCommands.findAll { command -> command.name.startsWith('o') } }"
     }
 }
 
@@ -75,6 +90,9 @@ private createSummary(items) {
  *****************************************************************************************************************/
 def installed() {
     logger("installed: ${app.label} installed with settings: ${settings}.", 'trace')
+    state.selectedDevices = selectedDeviceIds
+    subscribe(app, handleAppTouch)
+    state.sendCounter = 3
 }
 
 def updated() {

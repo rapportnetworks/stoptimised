@@ -55,43 +55,36 @@ def mainPage() {
     ) {
         section('Logging settings') {
             input(
-                    name               : 'logLevelIDE',
-                    title              : 'IDE Logging Level',
-                    type               : 'enum',
-                    options            : [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
-                    defaultValue       : 3,
-                    displayDuringSetup : true,
-                    required           : false,
+                    name: 'logLevelIDE',
+                    title: 'IDE Logging Level',
+                    type: 'enum',
+                    options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
+                    defaultValue: 3,
+                    displayDuringSetup: true,
+                    required: false,
             )
 
             input(
-                    name               : 'logIdent',
-                    title              : 'Database Log Identifiable Data',
-                    type               : 'bool',
-                    defaultValue       : false,
-                    required           : false,
-                    displayDuringSetup : true,
+                    name: 'logIdent',
+                    title: 'Log Data Identifiers',
+                    type: 'bool',
+                    defaultValue: true,
+                    required: false,
+                    displayDuringSetup: true,
             )
 
             input(
-                    name               : 'logLevelDB',
-                    title              : 'Database Logging Level',
-                    type               : 'enum',
-                    options            : [1: 'Minimal', 2: 'Intermediate', 3: 'All'],
-                    defaultValue       : 1,
-                    displayDuringSetup : true,
-                    required           : false,
+                    name: 'logLevelDB',
+                    title: 'Database Logging Level',
+                    type: 'enum',
+                    options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'],
+                    defaultValue: 1,
+                    displayDuringSetup: true,
+                    required: false,
             )
+        }
 
-            input(
-                    name        : 'paraLogging',
-                    title       : 'Measurements to Log',
-                    type        : 'paragraph',
-                    description : '',
-                    element     : 'paragraph',
-                    required    : false,
-            )
-
+        section('Measurements to Log') {
             input(
                     name         : 'logEvents',
                     title        : 'Events',
@@ -215,7 +208,7 @@ def mainPage() {
         }
 
         if (state.devicesConfigured) {
-            section('Selected Devices') {
+            section('User Selected Devices') {
                 getPageLink(
                         'devicesPageLink',
                         'Tap to change',
@@ -230,7 +223,7 @@ def mainPage() {
         }
 
         if (state.attributesConfigured) {
-            section('Selected Events') {
+            section('User Selected Events') {
                 getPageLink(
                         'attributesPageLink',
                         'Tap to change',
@@ -351,7 +344,7 @@ def updated() { // runs when app settings are changed
     /**
      * sets logging of identifiable data (true, false)
      */
-    state.logIdent = settings?.logIdent
+    state.logIdent = settings?.logIdent ?: true
 
     /**
      * sets level of tags and fields logged to database (1: 'Minimal', 2: 'Intermediate', 3: 'All')
@@ -843,7 +836,7 @@ def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
  *****************************************************************************************************************/
 def getHubName() { return { -> hub().name } }
 
-def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub - leave for now
+def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
 
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
@@ -953,6 +946,8 @@ def getZwaveListening() { return {
             return 'sleepy'; break
         case 'B':
             return 'beamable'; break
+        default:
+            return 'unknown'; break
     }
 } }
 

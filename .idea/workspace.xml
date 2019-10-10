@@ -8,13 +8,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="Version 3 Initial Commit">
-      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -117,13 +113,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
-    </task>
-    <task id="LOCAL-00094" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550255141581</created>
-      <option name="number" value="00094" />
-      <option name="presentableId" value="LOCAL-00094" />
-      <option name="project" value="LOCAL" />
-      <updated>1550255141581</updated>
     </task>
     <task id="LOCAL-00095" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1550260042437</created>
@@ -461,7 +450,14 @@
       <option name="project" value="LOCAL" />
       <updated>1570640382602</updated>
     </task>
-    <option name="localTasksCounter" value="143" />
+    <task id="LOCAL-00143" summary="Updates">
+      <created>1570640704598</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1570640704599</updated>
+    </task>
+    <option name="localTasksCounter" value="144" />
     <servers />
   </component>
   <component name="TodoView">
@@ -515,13 +511,13 @@
     <option name="CHECK_NEW_TODO" value="false" />
     <MESSAGE value="Changes due to analysis" />
     <MESSAGE value="Initial Commit" />
-    <MESSAGE value="Updates" />
     <MESSAGE value="Tidying up code" />
     <MESSAGE value="Refactoring" />
     <MESSAGE value="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy" />
     <MESSAGE value="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored" />
     <MESSAGE value="Synchronised" />
     <MESSAGE value="Version 3 Initial Commit" />
-    <option name="LAST_COMMIT_MESSAGE" value="Version 3 Initial Commit" />
+    <MESSAGE value="Updates" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updates" />
   </component>
 </project>

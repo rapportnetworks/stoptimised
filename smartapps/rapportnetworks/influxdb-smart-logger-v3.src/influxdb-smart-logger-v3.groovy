@@ -254,8 +254,8 @@ private getDevicesPageContent() {
         capabilities.each {
             try {
                 input(
-                        name           : "${it.cap}Pref",
-                        type           : "capability.${it.cap}",
+                                         "${it.cap}Pref", // ?not name
+                                         "capability.${it.cap}", // ?not type
                         title          : "${it.title}",
                         multiple       : true,
                         hideWhenEmpty  : true,
@@ -507,7 +507,7 @@ def pollStatusHubs() {
     logger('pollStatusHubs: running now', 'trace')
     if (state.logStatuses) {
         def measurementType = 'statHub'
-        def measurementName = 'hubS'
+        def measurementName = 'pollHubs'
         def bucket = 'statuses'
         def items = ['placeholder']
         influxLineProtocol(items, measurementName, measurementType, bucket)
@@ -518,7 +518,7 @@ def pollStatusDevices() {
     logger('pollStatusDevices: running now', 'trace')
     if (state.logStatuses) {
         def measurementType = 'statDev'
-        def measurementName = 'deviceS'
+        def measurementName = 'pollDevices'
         def bucket = 'statuses'
         def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, measurementName, measurementType, bucket)
@@ -533,7 +533,7 @@ def pollLocations() {
     logger('pollLocations: running now', 'trace')
     if (state.logMetadata) {
         def measurementType = 'local'
-        def measurementName = 'locations'
+        def measurementName = 'areas'
         def retentionPolicy = 'metadata'
         def bucket = 'metadata'
         def items = ['placeholder'] // (only 1 location where Smart App is installed) so placeholder is needed)
@@ -953,7 +953,7 @@ def getZwaveListening() { return {
 
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
-def getPowerSource() { return { it?.latestValue('powerSource') ?: 'unknown' } }
+def getPowerSource() { return { it?.latestValue('powerSource').toLowerCase() ?: 'unknown' } }
 
 def getTempScale() { return { -> location?.temperatureScale } }
 

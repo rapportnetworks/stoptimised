@@ -211,7 +211,7 @@ def mainPage() {
                         'Tap to change',
                         'attributesPage',
                         null,
-                        buildSummary(settings?.allowedAttributes?.sort()),
+                        buildSummary(settings?.loggedAttributes?.sort()),
                         null,
                 )
             }
@@ -259,19 +259,19 @@ def attributesPage() {
 }
 
 private getAttributesPageContent() {
-    def supportedAttr = supportedAttributes?.sort()
-    if (supportedAttr) {
+    def listAttributesSupported = attributesSupported
+    if (listAttributesSupported) {
         section('Choose Events') {
             paragraph(
-                    'Select all the events that should get logged, depending on devices supporting them.'
+                    'Select all the events that should get logged, depending on the devices supporting them.'
             )
 
             input(
-                    name           : 'allowedAttributes',
+                    name           : 'loggedAttributes',
                     title          : 'Events to log',
                     description    : '',
                     type           : 'enum',
-                    options        : supportedAttr,
+                    options        : listAttributesSupported,
                     multiple       : true,
                     hideWhenEmpty  : false,
                     submitOnChange : true,
@@ -311,19 +311,31 @@ private buildSummary(items) {
 }
 
 /*****************************************************************************************************************
- *  SmartThings System Commands:
+ *  SmartThings System Commands (installed, uninstalled, updated)
  *****************************************************************************************************************/
-def installed() { // runs when the app is first installed
+/**
+ * installed - runs when the smart app is first installed
+ * @return
+ */
+def installed() {
     state.logLevelIDE = 5
-    logger("installed: ${app.label} installed with settings: ${settings}", 'trace')
+    logger("installed: ${app.label} installed with settings: ${settings}.", 'trace')
 }
 
-def uninstalled() { // runs when the app is uninstalled
-    logger("uninstalled:", 'trace')
+/**
+ * uninstalled - runs when the app is uninstalled
+ * @return
+ */
+def uninstalled() {
+    logger("uninstalled: ${app.label} has be removed.", 'trace')
 }
 
-def updated() { // runs when app settings are changed
-    logger('updated: Setting IDE logging level', 'trace')
+/**
+ * updated - runs whenever app settings are changed
+ * @return
+ */
+def updated() {
+    logger('updated: Setting IDE logging level.', 'trace')
     state.logLevelIDE = (settings?.logLevelIDE) ? settings.logLevelIDE.toInteger() : 3
 
     /**
@@ -369,38 +381,41 @@ def updated() { // runs when app settings are changed
      */
     state.dbLocation = (settings?.dbRemote) ? 'Remote' : 'Local'
 
-    logger('updated: Creating map of group Ids and group names', 'debug')
-    state.dwellingType = 'House'
-    state.groupNames = [:]
-    if (settings?.bridgePref) {
-        def groupId
-        def groupName
-        settings.bridgePref.each {
-            if (it.name?.take(1) == '~') {
-                groupId = it.device?.groupId
-                groupName = it.name?.drop(1)
-                if (groupId) state.groupNames << [(groupId): groupName]
-            }
-        }
-    }
-
+    /**
+     * check if devices and events selected by user
+     */
     if (getSelectedDevices()) {
-        logger('updated: Configured - Devices Selected', 'trace')
+        logger('updated: Configured - Devices Selected.', 'trace')
         state.devicesConfigured = true
-    } else {
-        logger('updated: Unconfigured - Choose Devices', 'debug')
+    }
+    else {
+        logger('updated: Unconfigured - Choose Devices.', 'debug')
+        state.devicesConfigured = false
     }
 
-    if (settings?.allowedAttributes) {
-        logger('updated: Configured - Events Selected', 'trace')
+    if (settings?.loggedAttributes) {
+        logger('updated: Configured - Events Selected.', 'trace')
         state.attributesConfigured = true
-    } else {
-        logger('updated: Unconfigured - Choose Events', 'debug')
+    }
+    else {
+        logger('updated: Unconfigured - Choose Events.', 'debug')
+        state.attributesConfigured = false
     }
 
+    /**
+     * Subscribe event handler methods to listen for events
+     */
     manageSubscriptions()
 
+    /**
+     * Scheduling status and metadata polling methods
+     */
     manageSchedules()
+
+    /**
+     * create a map of room (group) names
+     */
+    generateGroupNamesMap()
 
     logger('updated: Scheduling first run of poll methods', 'trace')
     def runInTime = 30
@@ -409,11 +424,34 @@ def updated() { // runs when app settings are changed
         runIn(runInTime, it.key)
         runInTime += runInInterval
     }
-
 }
 
 /*****************************************************************************************************************
- *  Event Handlers:
+ *  Updated Helper Method (generateGroupNamesMap)
+ *****************************************************************************************************************/
+/**
+ * generateGroupNamesMap
+ * @return
+ */
+private generateGroupNamesMap() {
+    logger('generateGroupNamesMap: Creating map of group Ids and group names.', 'debug')
+    state.dwellingType = 'House'
+    state.groupNames = [:]
+    if (settings?.bridgePref) {
+        def groupId
+        def groupName
+        settings.bridgePref.each {
+            if (it.name?.take(1) == '~') {
+                groupId   = it.device?.groupId
+                groupName = it.name?.drop(1)
+                if (groupId) state.groupNames << [(groupId): groupName]
+            }
+        }
+    }
+}
+
+/*****************************************************************************************************************
+ *  Event Handler Methods (handleEnumEvent, handleNumberEvent, handleVector3Event, handleStringEvent, handleColorMapEvent, handleJsonObjectEvent, handleDaylight, handleHubStatus)
  *****************************************************************************************************************/
 /*
 def handleAppTouch(evt) { // Touch event on Smart App
@@ -421,6 +459,11 @@ def handleAppTouch(evt) { // Touch event on Smart App
 }
 */
 
+/**
+ * handleEnumEvent
+ * @param evt
+ * @return
+ */
 def handleEnumEvent(evt) {
     if (state.logEvents) {
         def measurementType = 'enum'
@@ -429,6 +472,11 @@ def handleEnumEvent(evt) {
     }
 }
 
+/**
+ * handleNumberEvent
+ * @param evt
+ * @return
+ */
 def handleNumberEvent(evt) {
     if (state.logEvents) {
         def measurementType = 'number'
@@ -437,6 +485,11 @@ def handleNumberEvent(evt) {
     }
 }
 
+/**
+ * handleVector3Event
+ * @param evt
+ * @return
+ */
 def handleVector3Event(evt) {
     if (state.logEvents) {
         def measurementType = 'vector3'
@@ -445,6 +498,11 @@ def handleVector3Event(evt) {
     }
 }
 
+/**
+ * handleStringEvent
+ * @param evt
+ * @return
+ */
 def handleStringEvent(evt) {
     if (state.logEvents) {
         def measurementType = 'string'
@@ -453,6 +511,11 @@ def handleStringEvent(evt) {
     }
 }
 
+/**
+ * handleColorMapEvent
+ * @param evt
+ * @return
+ */
 def handleColorMapEvent(evt) {
     if (state.logEvents) {
         def measurementType = 'colorMap'
@@ -461,10 +524,19 @@ def handleColorMapEvent(evt) {
     }
 }
 
+/**
+ * handleJsonObjectEvent
+ * @param evt
+ */
 def handleJsonObjectEvent(evt) {
     // TODO - write handler if needed
 }
 
+/**
+ * handleDaylight
+ * @param evt
+ * @return
+ */
 def handleDaylight(evt) {
     if (state.logEvents) {
         def measurementType = 'day'
@@ -473,6 +545,11 @@ def handleDaylight(evt) {
     }
 }
 
+/**
+ * handleHubStatus
+ * @param evt
+ * @return
+ */
 def handleHubStatus(evt) {
     if (state.logEvents) {
         def measurementType = 'hub'
@@ -482,15 +559,23 @@ def handleHubStatus(evt) {
 }
 
 /*****************************************************************************************************************
- *  Poll Status:
+ *  Polling Status Methods (pollStatus, pollStatusHubs, pollStatusDevices)
  *****************************************************************************************************************/
+/**
+ * pollStatus
+ * @return
+ */
 def pollStatus() {
     pollStatusHubs()
     pollStatusDevices()
 }
 
+/**
+ * pollStatusHubs
+ * @return
+ */
 def pollStatusHubs() {
-    logger('pollStatusHubs: running now', 'trace')
+    logger('pollStatusHubs: running now.', 'trace')
     if (state.logStatuses) {
         def measurementType = 'statHub'
         def measurementName = 'pollHubs'
@@ -500,62 +585,79 @@ def pollStatusHubs() {
     }
 }
 
+/**
+ * pollStatusDevices
+ * @return
+ */
 def pollStatusDevices() {
-    logger('pollStatusDevices: running now', 'trace')
+    logger('pollStatusDevices: running now.', 'trace')
     if (state.logStatuses) {
         def measurementType = 'statDev'
         def measurementName = 'pollDevices'
         def bucket = 'statuses'
-        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, measurementName, measurementType, bucket)
-        // if (items) items.each { influxLineProtocol(it, measurementName, measurementType, bucket) }
     }
 }
 
 /*****************************************************************************************************************
- *  Poll Metadata:
+ *  Polling Metadata Methods (pollLocations, pollDevices, pollAttributes, pollZwavesCCs, pollZwaves)
  *****************************************************************************************************************/
+/**
+ * pollLocations
+ * @return
+ */
 def pollLocations() {
-    logger('pollLocations: running now', 'trace')
+    logger('pollLocations: running now.', 'trace')
     if (state.logMetadata) {
         def measurementType = 'local'
         def measurementName = 'areas'
         def retentionPolicy = 'metadata'
         def bucket = 'metadata'
-        def items = ['placeholder'] // (only 1 location where Smart App is installed) so placeholder is needed)
+        def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
         influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
     }
 }
 
+/**
+ * pollDevices
+ * @return
+ */
 def pollDevices() {
-    logger('pollDevices: running now', 'trace')
+    logger('pollDevices: running now.', 'trace')
     if (state.logMetadata) {
         def measurementType = 'device'
         def measurementName = 'devices'
         def retentionPolicy = 'metadata'
         def bucket          = 'metadata'
-        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
-        influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
-        // items.each { influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy) }
+        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
     }
 }
 
+/**
+ * pollAttributes
+ * @return
+ */
 def pollAttributes() {
-    logger('pollAttributes: running now', 'trace')
+    logger('pollAttributes: running now.', 'trace')
     if (state.logMetadata) {
         def measurementType = 'attribute'
         def measurementName = 'attributes'
         def retentionPolicy = 'metadata'
         def bucket          = 'metadata'
-        getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
+        selectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
             def parentItem = dev
-            def items = getDeviceAllowedAttrs(dev) as List
+            def items = getDeviceAttributesSelected(dev)
             if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy, parentItem)
-            // if (items) { items.each { influxLineProtocol(["${it}"], measurementName, measurementType, bucket, retentionPolicy, parentItem) } }
         }
     }
 }
 
+/**
+ * pollZwavesCCs
+ * @return
+ */
 def pollZwavesCCs() {
     logger('pollZwavesCCs: running now', 'trace')
     if (state.logConfigs) {
@@ -563,12 +665,15 @@ def pollZwavesCCs() {
         def measurementName = 'zwaveCCs'
         def retentionPolicy = 'metadata'
         def bucket          = 'configs'
-        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
         if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
-        // if (items) items.each { influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy) }
     }
 }
 
+/**
+ * pollZwaves
+ * @return
+ */
 def pollZwaves() {
     logger('pollZwaves: running now', 'trace')
     if (state.logConfigs) {
@@ -576,9 +681,8 @@ def pollZwaves() {
         def measurementName = 'zwave'
         def retentionPolicy = 'metadata'
         def bucket = 'configs'
-        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
         if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
-        // if (items) items.each { influxLineProtocol(it, measurementName, measurementType, bucket, retentionPolicy) }
     }
 }
 
@@ -1270,8 +1374,12 @@ private postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
  * @return
  */
 private handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
-    if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Code: ${hubResponse.status}", 'trace')
-    if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Code: ${hubResponse.status} Message: ${hubResponse.json.error}", 'error')
+    if (hubResponse.status == 204) {
+        logger("postToInfluxDBLocal: Success! Code: ${hubResponse.status}", 'trace')
+    }
+    if (hubResponse.status >= 400) {
+        logger("postToInfluxDBLocal: Something went wrong! Code: ${hubResponse.status} Message: ${hubResponse.json.error}", 'error')
+    }
 }
 
 /**
@@ -1325,8 +1433,12 @@ private postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
  * @return
  */
 private handleInfluxDBResponseRemote(response, passData) {
-    if (response.status == 204) logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
-    if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Code: ${response.status} Error: ${response.errorJson.error} (id: ${passData.eventId})", 'error')
+    if (response.status == 204) {
+        logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
+    }
+    if (response.status >= 400) {
+        logger("postToInfluxDBRemote: Something went wrong! Code: ${response.status} Error: ${response.errorJson.error} (id: ${passData.eventId})", 'error')
+    }
 }
 
 /*****************************************************************************************************************
@@ -1341,7 +1453,7 @@ private manageSubscriptions() {
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
-            getDeviceAllowedAttrs(dev)?.each { attr ->
+            getDeviceAttributesSelected(dev)?.each { attr ->
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 switch(type) {
                     case 'enum':
@@ -1491,100 +1603,115 @@ private logger(String msg, String level = 'debug') {
     }
 }
 
-
-
 /*****************************************************************************************************************
- *  Device and Attribute Selection Methods (logger)
+ *  Device and Attribute Selection Methods (getSelectedDeviceNames, getSelectedDevices, getAttributesSupported, getAttributesAll, getDeviceAttributesSelected)
  *****************************************************************************************************************/
 /**
- * creates a list of allowed attributes by for a given device by filtering list of user selected attributes
- * @param device
- * @return
- */
-private getDeviceAllowedAttrs(device) {
-    def deviceAllowedAttrs = []
-    try {
-        settings?.allowedAttributes?.each { attr ->
-            try { if (device.hasAttribute(attr)) deviceAllowedAttrs << attr }
-            catch (e) { logger("deviceAllowedAttrs: Error while getting device allowed attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn') }
-        }
-    }
-    catch (e) { logger("deviceAllowedAttrs: Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn') }
-    deviceAllowedAttrs.sort()
-}
-
-/**
- * iterates through list of all potential attributes to find those belonging to selected devices
- * @return
- */
-private getSupportedAttributes() {
-    def supportedAttributes = []
-    def devices = getSelectedDevices()
-    if (devices) {
-        getAllAttributes()?.each { attr ->
-            try { if (devices?.find { dev -> dev?.hasAttribute(attr) }) supportedAttributes << attr }
-            catch (e) { logger("supportedAttributes: Error while finding supported devices for ${attr}: ${e.message}", 'warn') }
-        }
-    }
-    supportedAttributes?.unique()?.sort()
-}
-
-/**
- * iterates through Capabilites map and creates a list of all the potential attributes (so no custom attributes - could look at pulling them from device.supportedAttributes)
- * @return
- */
-private getAllAttributes() {
-    def attributes = []
-    getCapabilities().each { cap ->
-        try {
-            if (cap?.attr) {
-                if (cap.attr instanceof Collection) {
-                    cap.attr.each {
-                        attributes << it
-                    }
-                } else {
-                    attributes << cap.attr
-                }
-            }
-        }
-        catch (e) {
-            logger("allAttributes: Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
-        }
-    }
-    attributes?.unique()?.sort()
-}
-
-/**
- * creates list of device Names from list of device Objects selected by user
+ * getSelectedDeviceNames - creates list of device names from list of device objects selected by user
  * @return
  */
 private getSelectedDeviceNames() {
+    def listSelectedDeviceNames = []
     try {
-        getSelectedDevices()?.collect { it?.displayName }?.sort() // TODO ? Could this be groupName . displayName to be more helpful?
+        listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort() // TODO ? Could this be groupName . displayName to be more helpful?
     }
     catch (e) {
-        logger("selectedDeviceNames: Error while getting selected device names: ${e.message}", 'warn')
-        []
+        logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')
     }
+    listSelectedDeviceNames
 }
 
 /**
- * creates list of device Objects from devices selected by user
+ * getSelectedDevices - creates list of device objects from devices selected by user
  * @return
  */
 private getSelectedDevices() {
-    def devices = []
+    def listSelectedDevices = []
     getCapabilities()?.each {
         try {
             if (settings?."${it.cap}Pref") {
-                devices << settings?."${it.cap}Pref"
+                listSelectedDevices << settings?."${it.cap}Pref"
             }
         }
         catch (e) {
             logger("Error while getting selected devices for capability ${it}: ${e.message}", 'warn')
         }
     }
-    devices?.flatten()?.unique { it.id }
+    listSelectedDevices?.flatten()?.unique { it.id }
+}
+
+/**
+ * getAttributesSupported - iterates through list of all attributes to find those belonging to devices selected by the user
+ * @return
+ */
+private getAttributesSupported() {
+    def listAttributesSupported = []
+    def devices = getSelectedDevices()
+    if (devices) {
+        attributesAll()?.each { attr ->
+            try {
+                if (devices?.find { dev -> dev?.hasAttribute(attr) } ) {
+                    listAttributesSupported << attr
+                }
+            }
+            catch (e) {
+                logger("AttributesSupported: Error while finding supported devices for ${attr}: ${e.message}", 'warn')
+            }
+        }
+    }
+    listAttributesSupported?.unique()?.sort()
+}
+
+/**
+ * getAttributesAll - iterates through capabilites map and creates a list of all standard attributes
+ * no custom attributes - could get them from device.supportedAttributes
+ * @return
+ */
+private getAttributesAll() {
+    def listAttributesAll = []
+    getCapabilities().each { cap ->
+        try {
+            if (cap?.attr) {
+                if (cap.attr instanceof Collection) {
+                    cap.attr.each {
+                        listAttributesAll << it
+                    }
+                }
+                else {
+                    listAttributesAll << cap.attr
+                }
+            }
+        }
+        catch (e) {
+            logger("getAttributesAll: Error while getting attributes for capability ${cap}: ${e.message}", 'warn')
+        }
+    }
+    listAttributesAll?.unique()?.sort()
+}
+
+/**
+ * getDeviceAttributesSelected - creates a list of selected attributes by for a given device by filtering list of all user selected attributes
+ * @param device
+ * @return
+ */
+private getDeviceAttributesSelected(device) {
+    def listSelectedAttributes = []
+    try {
+        settings?.loggedAttributes?.each { attr ->
+            try {
+                if (device.hasAttribute(attr)) {
+                    listSelectedAttributes << attr
+                }
+            }
+            catch (e) {
+                logger("getDeviceAttributesSelected: Error while getting selected attributes for ${device?.displayName} and attribute ${it}: ${e.message}", 'warn')
+            }
+        }
+    }
+    catch (e) {
+        logger("getDeviceAttributesSelected: Error while getting device allowed attributes for ${device?.displayName}: ${e.message}", 'warn')
+    }
+    listSelectedAttributes.sort()
 }
 
 /*****************************************************************************************************************

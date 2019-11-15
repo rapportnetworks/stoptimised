@@ -413,6 +413,11 @@ def updated() {
     manageSchedules()
 
     /**
+     * Sets a name for whole of dwelling events (eg energy)
+     */
+    state.dwellingType = 'House'
+
+    /**
      * create a map of room (group) names
      */
     generateGroupNamesMap()
@@ -435,7 +440,6 @@ def updated() {
  */
 private generateGroupNamesMap() {
     logger('generateGroupNamesMap: Creating map of group Ids and group names.', 'debug')
-    state.dwellingType = 'House'
     state.groupNames = [:]
     if (settings?.bridgePref) {
         def groupId
@@ -693,7 +697,14 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
     def influxLP = new StringBuilder()
     def eventId = 'notEvent'
     items.each { item ->
+        /**
+         * Appends measurement name to the line protocol.
+         */
         influxLP.append(measurementName)
+
+        /**
+         * Appends each tag according to measurement item type and schema to the line protocol.
+         */
         tags().each { tag ->
             if (tag.level <= state.logLevelDB && (state.logIdent || !tag.ident) && ('all' in tag.type || measurementType in tag.type)) {
                 switch (tag.args) {
@@ -705,11 +716,13 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                             logger("influxLP: Error with tag closure 0 (${measurementType}): ${tag.clos}", 'error')
                         }
                         break
+
                     case 1:
                         try {
                             if (parentItem && tag.parent) {
                                 tag.Value = "$tag.clos"(parentItem)
-                            } else {
+                            }
+                            else {
                                 tag.Value = "$tag.clos"(item)
                             }
                         }
@@ -717,6 +730,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                             logger("influxLP: Error with tag closure 1 (${measurementType}): ${tag.clos}", 'error')
                         }
                         break
+
                     case 2:
                         try {
                             tag.Value = "$tag.clos"(parentItem, item)
@@ -726,17 +740,27 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                         }
                         break
                 }
+
                 if (tag.Value) {
-                    influxLP.append(",${tag.name}=") // TODO - need to allow for "nameOld"
+                    influxLP.append(",${tag.name}=") // TODO - need to allow for "nameOld"? - changed name of tag?
                     if (tag?.esc) {
                         influxLP.append("${tag.Value.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
-                    } else {
+                    }
+                    else {
                         influxLP.append(tag.Value)
                     }
                 }
             }
         }
+
+        /**
+         * Append space between tags and fields to the line protocol.
+         */
         influxLP.append(' ')
+
+        /**
+         * Append each field according to measurement item type and schema to the line protocol.
+         */
         def fieldCount = 0
         fields().each { field ->
             if (field.level <= state.logLevelDB && (state.logIdent || !field.ident) && ('all' in field.type || measurementType in field.type)) {
@@ -749,11 +773,13 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                             logger("influxLP: Error with field closure 0 (${measurementType}): ${field.clos}", 'error')
                         }
                         break
+
                     case 1:
                         try {
                             if (parentItem && field.parent) {
                                 field.Value = "$field.clos"(parentItem)
-                            } else {
+                            }
+                            else {
                                 field.Value = "$field.clos"(item)
                             }
                         }
@@ -761,6 +787,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                             logger("influxLP: Error with field closure 1 (${measurementType}): ${field.clos}", 'error')
                         }
                         break
+
                     case 2:
                         try {
                             field.Value = "$field.clos"(parentItem, item)
@@ -770,6 +797,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                         }
                         break
                 }
+
                 if (field.Value || field.Value == 0) {
 
                     influxLP.append((fieldCount) ? ',' : '')
@@ -778,9 +806,11 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
 
                     if (field.var == 'string') {
                         influxLP.append('\"').append(field.Value).append('\"')
-                    } else {
+                    }
+                    else {
                         influxLP.append(field.Value)
                     }
+
                     if (field.var == 'integer') influxLP.append('i')
 
                     fieldCount++
@@ -789,6 +819,10 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                 }
             }
         }
+
+        /**
+         * Append timestamp for event (single) items, line return for others as multiple items, to the line protocol.
+         */
         if (isEventObject(item)) {
             influxLP.append(' ').append(timestamp(item))
         }
@@ -796,6 +830,12 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
             influxLP.append('\n')
         }
     }
+
+    /**
+     * Check to exclude duplicate events occuring in a short space of time
+     * Doesn't seem to be much of a problem now, so not used
+     * TODO Check for duplicate events in InfluxDB
+     */
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
         // ignores repeated propagation of an event (time interval < 0.5 s)
@@ -804,6 +844,9 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         logger("handleEnumEvent(): Ignoring duplicate event $evt.displayName ($evt.name) $evt.value", 'warn')
     }
 */
+    /**
+     * Allows for line protocol to be displayed in IDE rather than being logged to database.
+     */
     if (state.logToDB) {
         "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket, eventId)
     }
@@ -915,26 +958,58 @@ def fields() { [
 /*****************************************************************************************************************
  *  Tags Location Details:
  *****************************************************************************************************************/
+/**
+ * getLocationName
+ * @return
+ */
 def getLocationName() { return { -> location.name } }
 
+/**
+ * getLocationId
+ * @return
+ */
 def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
 
+/**
+ * getIsEventObject - helper
+ * @return
+ */
 def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
 
 /*****************************************************************************************************************
  *  Tags Hub Details:
  *****************************************************************************************************************/
+/**
+ * getHubName
+ * @return
+ */
 def getHubName() { return { -> hub().name } }
 
+/**
+ * getHub - helper
+ * @return
+ */
 def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
 
+/**
+ * getHubId
+ * @return
+ */
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
 /*****************************************************************************************************************
  *  Tags Group Details:
  *****************************************************************************************************************/
+/**
+ * getGroupName
+ * @return
+ */
 def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } } // gets group name from created state.groupNames map
 
+/**
+ * getGroupId
+ * @return
+ */
 def getGroupId() { return {
     if (isEventObject(it)) {
         it?.device?.device?.groupId ?: 'unassigned' // for event objects
@@ -947,6 +1022,10 @@ def getGroupId() { return {
 /*****************************************************************************************************************
  *  Tags Device Details:
  *****************************************************************************************************************/
+/**
+ * getDeviceCode
+ * @return
+ */
 def getDeviceCode() { return {
     if (isEventObject(it)) {
         it?.device?.device?.name ?: 'unassigned'
@@ -956,10 +1035,22 @@ def getDeviceCode() { return {
     }
 } }
 
+/**
+ * getDeviceHandlerName
+ * @return
+ */
 def getDeviceHandlerName() { return { it?.typeName } }
 
+/**
+ * getDeviceId
+ * @return
+ */
 def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
+/**
+ * getDeviceLabel
+ * @return
+ */
 def getDeviceLabel() { return {
     if (isEventObject(it)) {
         if (eventName(it) == 'daylight') {
@@ -974,6 +1065,10 @@ def getDeviceLabel() { return {
     }
 } }
 
+/**
+ * getDeviceType
+ * @return
+ */
 def getDeviceType() { return {
     if (zwInfo(it)) {
         'zwave'
@@ -987,6 +1082,10 @@ def getDeviceType() { return {
 /*****************************************************************************************************************
  *  Tags Event Details:
  *****************************************************************************************************************/
+/**
+ * getEventName
+ * @return
+ */
 def getEventName() { return {
     if (isEventObject(it)) {
         (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name // puts sunrise and sunset events into common 'daylight' event
@@ -995,22 +1094,58 @@ def getEventName() { return {
     }
 } }
 
+/**
+ * getEventType
+ * @return
+ */
 def getEventType() { return { eventDetails(it).type } }
 
+/**
+ * getEventDetails - helper
+ * @return
+ */
 def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
+/**
+ * getIdentifierGlobalEvent
+ * @return
+ */
 def getIdentifierGlobalEvent() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it).capitalize()}" } } // added capitalize()
 
+/**
+ * getIdentifierLocal
+ * @return
+ */
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 
+/**
+ * getIsChange - TODO Check unused?
+ * @return
+ */
 def getIsChange() { return { it?.isStateChange } }
 
+/**
+ * getIsDigital - unused
+ * @return
+ */
 def getIsDigital() { return { it?.isDigital } }
 
+/**
+ * getIsPhysical - unused
+ * @return
+ */
 def getIsPhysical() { return { it?.isPhysical } }
 
+/**
+ * getSource
+ * @return
+ */
 def getSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
 
+/**
+ * getUnit
+ * @return
+ */
 def getUnit() { return {
     def unit = it?.unit ?: eventDetails(it).unit
     if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
@@ -1020,14 +1155,34 @@ def getUnit() { return {
 /*****************************************************************************************************************
  *  Tags Metadata:
  *****************************************************************************************************************/
+/**
+ * getHubType
+ * @return
+ */
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
+/**
+ * getIdentifierGlobalHub
+ * @return
+ */
 def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
 
+/**
+ * getIdentifierGlobalDevice
+ * @return
+ */
 def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
+/**
+ * getIdentifierGlobalAttribute
+ * @return
+ */
 def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
 
+/**
+ * getZwaveListening
+ * @return
+ */
 def getZwaveListening() { return {
     switch(zwInfo(it)?.zw.take(1)) {
         case 'L':
@@ -1041,40 +1196,100 @@ def getZwaveListening() { return {
     }
 } }
 
+/**
+ * getZwInfo - helper
+ * @return
+ */
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
+/**
+ * getPowerSource
+ * @return
+ */
 def getPowerSource() { return { it?.latestValue('powerSource').toLowerCase() ?: 'unknown' } }
 
+/**
+ * getTempScale
+ * @return
+ */
 def getTempScale() { return { -> location?.temperatureScale } }
 
+/**
+ * getTimeZoneName
+ * @return
+ */
 def getTimeZoneName() { return { -> location?.timeZone.ID } }
 
 /*****************************************************************************************************************
  *  Tags Statuses:
  *****************************************************************************************************************/
+/**
+ * getStatusDevice
+ * @return
+ */
 def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
 
+/**
+ * getStatusHub
+ * @return
+ */
 def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_', '') } }
 
 /*****************************************************************************************************************
- *  Fields Event Details - Current:
+ *  Fields Event Details - Current Event:
  *****************************************************************************************************************/
+/**
+ * getEventDescription
+ * @return
+ */
 def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } } // remove circle from C unit, tidy up description text by replacing placeholders
 
+/**
+ * getEventId
+ * @return
+ */
 def getEventId() { return { it.id } }
 
+/**
+ * getCurrentStateBinary
+ * @return
+ */
 def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 't' : 'f' } }
 
+/**
+ * getCurrentStateLevel
+ * @return
+ */
 def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentState(it) }.value } }
 
+/**
+ * getAttributeStates - helper
+ * @return
+ */
 def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
 
+/**
+ * getCurrentState
+ * @return
+ */
 def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
+/**
+ * getCurrentStateDescription
+ * @return
+ */
 def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
 
+/**
+ * getCurrentValueDescription
+ * @return
+ */
 def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueRounded(it)} ${unit(it)} in the ${groupName(it)}." } }
 
+/**
+ * getCurrentValue
+ * @return
+ */
 def getCurrentValue() { return { // done this way in case value is 0
     try {
         it.numberValue.toBigDecimal()
@@ -1083,6 +1298,10 @@ def getCurrentValue() { return { // done this way in case value is 0
     }
 } }
 
+/**
+ * removeUnit - helper
+ * @return
+ */
 def removeUnit() { return { // remove any units appending to end of event value property by device handler
     def length = it.value.length()
     def value
@@ -1099,30 +1318,83 @@ def removeUnit() { return { // remove any units appending to end of event value 
     }
 } }
 
+/**
+ * getCurrentValueRounded
+ * @return
+ */
 def getCurrentValueRounded() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
+/**
+ * getDecimalPlaces - helper
+ * @return
+ */
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
+/**
+ * getCurrentHue
+ * @return
+ */
 def getCurrentHue() { return { currentColorMap(it).hue } }
+
+/**
+ * getCurrentSat
+ * @return
+ */
 def getCurrentSat() { return { currentColorMap(it).saturation } }
+
+/**
+ * getCurrentColorMap - helper
+ * @return
+ */
 def getCurrentColorMap() { return { parseJson(it) } }
 
+/**
+ * getCurrentX
+ * @return
+ */
 def getCurrentX() { return { it.xyzValue.x / gravityFactor() } }
+
+/**
+ * getCurrentY
+ * @return
+ */
 def getCurrentY() { return { it.xyzValue.y / gravityFactor() } }
+
+/**
+ * getCurrentZ
+ * @return
+ */
 def getCurrentZ() { return { it.xyzValue.z / gravityFactor() } }
+
+/**
+ * getGravityFactor - helper
+ * @return
+ */
 def getGravityFactor() { return { -> (1024) } }
 
 /*****************************************************************************************************************
- *  Fields Event Details - Previous:
+ *  Fields Event Details - Previous Event:
  *****************************************************************************************************************/
+/**
+ * getPreviousStateBinary
+ * @return
+ */
 def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 't' : 'f' } }
 
+/**
+ * getPreviousStateLevel
+ * @return
+ */
 def getPreviousStateLevel() { return { attributeStates(it)?.find { level -> level.key == previousState(it) }?.value } }
 
+/**
+ * getPreviousState
+ * @return
+ */
 def getPreviousState() { return { previousEvent(it)?.value } }
 
 /**
- * get previous event
+ * getPreviousEvent - helper
  * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
  */
 def getPreviousEvent() { return {
@@ -1139,13 +1411,25 @@ def getPreviousEvent() { return {
     previousEvent
 } }
 
+/**
+ * getPreviousStateDescription
+ * @return
+ */
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
+/**
+ * getPreviousValueDescription
+ * @return
+ */
 def getPreviousValueDescription() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
+/**
+ * getPreviousValue
+ * @return
+ */
 def getPreviousValue() { return {
     try {
         previousEvent(it)?.numberValue.toBigDecimal()
@@ -1157,13 +1441,25 @@ def getPreviousValue() { return {
 /*****************************************************************************************************************
  *  Fields Event Details - Value Difference:
  *****************************************************************************************************************/
+/**
+ * getDifferenceText
+ * @return
+ */
 def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
 
+/**
+ * getDifference
+ * @return
+ */
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Time Difference:
  *****************************************************************************************************************/
+/**
+ * getTimeElapsedText
+ * @return
+ */
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
     def phrase
@@ -1186,33 +1482,73 @@ def getTimeElapsedText() { return {
     phrase
 } }
 
+/**
+ * getTimeElapsed
+ * @return
+ */
 def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
 
+/**
+ * getTimestamp
+ * @return
+ */
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
+/**
+ * getCurrentTimeOffset
+ * @return
+ */
 def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
+/**
+ * getTimeOffsetAmount - helper
+ * @return
+ */
 def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
+/**
+ * getPreviousTimeOffset - helper
+ * @return
+ */
 def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Time Values:
  *****************************************************************************************************************/
+/**
+ * getTimeOfDay
+ * @return
+ */
 def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculates elapsed time of day in milliseconds
 
+/**
+ * getTimeWrite
+ * @return
+ */
 def getTimeWrite() { return { -> new Date().time } } // time of processing the event by Smart App
 
 /*****************************************************************************************************************
  *  Fields Event Details - Weighted Values:
  *****************************************************************************************************************/
+/**
+ * getTimeWeightedLevel
+ * @return
+ */
 def getTimeWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
+/**
+ * getTimeWeightedValue
+ * @return
+ */
 def getTimeWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
 /*****************************************************************************************************************
  *  Fields Metadata:
  *****************************************************************************************************************/
+/**
+ * getConfiguredParametersList
+ * @return
+ */
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
@@ -1222,6 +1558,10 @@ def getConfiguredParametersList() { return {
     }
 } }
 
+/**
+ * getBattery
+ * @return
+ */
 def getBattery() { return {
     if (it?.hasAttribute('battery')) {
         it?.latestValue('battery') ?: 100 // in case battery is still 100 and no battery report has been sent
@@ -1230,44 +1570,130 @@ def getBattery() { return {
     }
 }}
 
+/**
+ * getCheckInterval
+ * @return
+ */
 def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
 
+/**
+ * getDeviceConfigurationType
+ * @return
+ */
 def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
 
+/**
+ * getConfigure
+ * @return
+ */
 def getConfigure() { return { it?.latestValue('configure') ?: '' } }
 
+/**
+ * getDeviceUse
+ * @return
+ */
 def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
 
+/**
+ * getFirmwareVersion
+ * @return
+ */
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
+/**
+ * getLatitude
+ * @return
+ */
 def getLatitude() { return { -> location.latitude } }
 
+/**
+ * getLongitude
+ * @return
+ */
 def getLongitude() { return { -> location.longitude } }
 
+/**
+ * getMessages
+ * @return
+ */
 def getMessages() { return { it?.device?.getDataValue('messages') ?: '' } }
 
+/**
+ * getNetworkSecurityLevel
+ * @return
+ */
 def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
 
+/**
+ * getZwaveSecure
+ * @return
+ */
 def getZwaveSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 't' : 'f' } }
 
+/**
+ * getSunrise
+ * @return
+ */
 def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
+
+/**
+ * getSunset
+ * @return
+ */
 def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
+
+/**
+ * getDaylight - helper
+ * @return
+ */
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
+/**
+ * getHubTCPport
+ * @return
+ */
 def getHubTCPport() { return { -> hub().localSrvPortTCP } }
 
+/**
+ * getTimeLastActivity
+ * @return
+ */
 def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 
+/**
+ * getTimeLastEvent
+ * @return
+ */
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.time ?: 0 } }
 
+/**
+ * getValueLastEvent
+ * @return
+ */
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
 
+/**
+ * getWakeUpInterval
+ * @return
+ */
 def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
 
+/**
+ * getZigbeePowerLevel
+ * @return
+ */
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
+/**
+ * getZwavePowerLevel
+ * @return
+ */
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
+/**
+ * getCommandClassesList
+ * @return
+ */
 def getCommandClassesList() { return {
     def info = zwInfo(it).clone()
     def cc = info.cc
@@ -1288,8 +1714,16 @@ def getCommandClassesList() { return {
 /*****************************************************************************************************************
  *  Fields Statuses:
  *****************************************************************************************************************/
+/**
+ * getHubIPaddress
+ * @return
+ */
 def getHubIPaddress() { return { -> hub().localIP } }
 
+/**
+ * getOnBattery
+ * @return
+ */
 def getOnBattery() { return { ->
     def battery = hub()?.hub?.getDataValue('batteryInUse')
     if (battery) {
@@ -1300,14 +1734,34 @@ def getOnBattery() { return { ->
     }
 } }
 
+/**
+ * getStatusDeviceBinary
+ * @return
+ */
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
+/**
+ * getStatusHubBinary
+ * @return
+ */
 def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 
+/**
+ * getStatusDeviceLevel
+ * @return
+ */
 def getStatusDeviceLevel() { return { (statusDevice(it) in ['active', 'online']) ? 1 : -1 } }
 
+/**
+ * getStatusHubLevel
+ * @return
+ */
 def getStatusHubLevel() { return { (statusHub() == 'active') ? 1 : -1 } }
 
+/**
+ * getBatteryChangeDate
+ * @return
+ */
 def getBatteryChangeDate() { return {
     if (it?.hasAttribute('batteryChange')) {
         it?.latestState('batteryChange')?.date?.time ?: 0
@@ -1351,7 +1805,6 @@ private postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
                 p  : settings?.dbPassword,
                 rp : retentionPolicy
             ]
-
             params << [path : '/write']
             break
 
@@ -1409,7 +1862,6 @@ private postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
                     p  : settings?.dbPassword,
                     rp : retentionPolicy
             ]
-
             params << [path : '/write']
             break
 
@@ -1549,40 +2001,24 @@ private logger(String msg, String level = 'debug') {
         case 'error':
             if (!state?.logLevelIDE || state?.logLevelIDE >= 1) {
                 log.error(msg)
-                sendEvent(
-                        descriptionText : "Error: ${msg}",
-                        isStateChange   : true,
-                        displayed       : false,
-                )
             }
             break
 
         case 'warn':
             if (!state?.logLevelIDE || state?.logLevelIDE >= 2) {
                 log.warn(msg)
-                sendEvent(
-                        descriptionText : "Warning: ${msg}",
-                        isStateChange   : true,
-                        displayed       : false,
-                )
             }
             break
 
         case 'info':
             if (!state?.logLevelIDE || state?.logLevelIDE >= 3) {
                 log.info(msg)
-                sendEvent(
-                        descriptionText : "Info: ${msg}",
-                        isStateChange   : true,
-                        displayed       : false,
-                )
             }
             break
 
         case 'debug':
             if (!state?.logLevelIDE || state?.logLevelIDE >= 4) {
                 log.debug(msg)
-                // sendEvent(descriptionText : "Debug: ${msg}", isStateChange : true, displayed : false,)
             }
             break
 
@@ -1594,11 +2030,6 @@ private logger(String msg, String level = 'debug') {
 
         default:
             log.error(msg)
-            sendEvent(
-                    descriptionText : "Error: $msg",
-                    isStateChange   : true,
-                    displayed       : false,
-            )
             break
     }
 }

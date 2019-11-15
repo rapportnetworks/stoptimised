@@ -959,20 +959,21 @@ def fields() { [
  *  Tags Location Details:
  *****************************************************************************************************************/
 /**
- * getLocationName
- * @return
+ * getLocationName - SmartThings account set location
+ * @return name of location
  */
 def getLocationName() { return { -> location.name } }
 
 /**
- * getLocationId
- * @return
+ * getLocationId - SmartThings account location id
+ * Contained within an event object, otherwise get via location object.
+ * @return location id
  */
 def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
 
 /**
- * getIsEventObject - helper
- * @return
+ * getIsEventObject - helper - checks to see if object is an event
+ * @return true if event object
  */
 def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
 
@@ -980,20 +981,21 @@ def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
  *  Tags Hub Details:
  *****************************************************************************************************************/
 /**
- * getHubName
- * @return
+ * getHubName - Name assigned to SmartThings hub
+ * @return name of hub
  */
 def getHubName() { return { -> hub().name } }
 
 /**
- * getHub - helper
- * @return
+ * getHub - helper - potentially more than one hub at a given location, but currently restricted to one.
+ * @return hub object
  */
 def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
 
 /**
- * getHubId
- * @return
+ * getHubId - Id of hub.
+ * Contained within an event object, otherwise get via hub object.
+ * @return hub id
  */
 def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
 
@@ -1001,21 +1003,23 @@ def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
  *  Tags Group Details:
  *****************************************************************************************************************/
 /**
- * getGroupName
- * @return
+ * getGroupName - gets name of group (room) device is allocated to via map lookup
+ * If not assigned to a group, returns value of state.dwellingType
+ * @return name of group (room)
  */
-def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } } // gets group name from created state.groupNames map
+def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } }
 
 /**
- * getGroupId
+ * getGroupId - gets group id of device
+ * Contained within an event object, otherwise get via device object.
  * @return
  */
 def getGroupId() { return {
     if (isEventObject(it)) {
-        it?.device?.device?.groupId ?: 'unassigned' // for event objects
+        it?.device?.device?.groupId ?: 'unassigned'
     }
     else {
-        it?.device?.groupId ?: 'unassigned' // for everything else
+        it?.device?.groupId ?: 'unassigned'
     }
 } }
 
@@ -1023,8 +1027,10 @@ def getGroupId() { return {
  *  Tags Device Details:
  *****************************************************************************************************************/
 /**
- * getDeviceCode
- * @return
+ * getDeviceCode - code allocated to device in IDE
+ * Initially set to join name assigned in device handler.
+ * Accessed via an event object, otherwise get via device object.
+ * @return device code (name)
  */
 def getDeviceCode() { return {
     if (isEventObject(it)) {
@@ -1036,28 +1042,32 @@ def getDeviceCode() { return {
 } }
 
 /**
- * getDeviceHandlerName
- * @return
+ * getDeviceHandlerName - name of device handler given in handler metadata
+ * @return name of device handler
  */
 def getDeviceHandlerName() { return { it?.typeName } }
 
 /**
- * getDeviceId
- * @return
+ * getDeviceId - id of device
+ * Contained within an event object, otherwise get via device object.
+ * @return device id
  */
 def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 
 /**
- * getDeviceLabel
- * @return
+ * getDeviceLabel - label of device (used in mobile app)
+ * Contained within an event object (except for daylight and hubStatus events), otherwise get via device object.
+ * @return device label
  */
 def getDeviceLabel() { return {
     if (isEventObject(it)) {
         if (eventName(it) == 'daylight') {
             'Day'
-        } else if (eventName(it) == 'hubStatus') {
+        }
+        else if (eventName(it) == 'hubStatus') {
             'Hub'
-        } else {
+        }
+        else {
             it?.device?.device?.label ?: 'unassigned'
         }
     } else {
@@ -1066,15 +1076,17 @@ def getDeviceLabel() { return {
 } }
 
 /**
- * getDeviceType
- * @return
+ * getDeviceType - type of device according to communication protocol
+ * @return device type
  */
 def getDeviceType() { return {
     if (zwInfo(it)) {
         'zwave'
-    } else if (it?.device?.zigbeeId) {
+    }
+    else if (it?.device?.zigbeeId) {
         'zigbee'
-    } else {
+    }
+    else {
         'lan'
     }
 } }
@@ -1083,37 +1095,40 @@ def getDeviceType() { return {
  *  Tags Event Details:
  *****************************************************************************************************************/
 /**
- * getEventName
- * @return
+ * getEventName - name of event
+ * Puts sunrise and sunset events into common 'daylight' event.
+ * If not an event object, returns it (attribute metadata).
+ * @return event name
  */
 def getEventName() { return {
     if (isEventObject(it)) {
-        (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name // puts sunrise and sunset events into common 'daylight' event
-    } else {
+        (it.name in ['sunrise', 'sunset']) ? 'daylight' : it.name
+    }
+    else {
         it
     }
 } }
 
 /**
- * getEventType
- * @return
+ * getEventType - gets type of event (eg number, string etc)
+ * @return event type
  */
 def getEventType() { return { eventDetails(it).type } }
 
 /**
- * getEventDetails - helper
- * @return
+ * getEventDetails - helper - looks up details of attribute from map
+ * @return attribute details
  */
 def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
 
 /**
- * getIdentifierGlobalEvent
+ * getIdentifierGlobalEvent TODO
  * @return
  */
 def getIdentifierGlobalEvent() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it).capitalize()}" } } // added capitalize()
 
 /**
- * getIdentifierLocal
+ * getIdentifierLocal TODO
  * @return
  */
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
@@ -1125,30 +1140,32 @@ def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
 def getIsChange() { return { it?.isStateChange } }
 
 /**
- * getIsDigital - unused
- * @return
+ * getIsDigital - used to distinguish between virtual and physical events
+ * Unused. TODO Unused
+ * @return true if event is not physical
  */
 def getIsDigital() { return { it?.isDigital } }
 
 /**
- * getIsPhysical - unused
- * @return
+ * getIsPhysical - used to distinguish between virtual and physical events
+ * Unused. TODO Unused
+ * @return true if event is physical
  */
 def getIsPhysical() { return { it?.isPhysical } }
 
 /**
- * getSource
- * @return
+ * getSource - indicates where event orignates from
+ * @return even source
  */
 def getSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
 
 /**
- * getUnit
- * @return
+ * getUnit - unit for events that have them
+ * @return name of unit
  */
 def getUnit() { return {
     def unit = it?.unit ?: eventDetails(it).unit
-    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit
+    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit - causes formatting problems
     unit
 } }
 
@@ -1156,32 +1173,32 @@ def getUnit() { return {
  *  Tags Metadata:
  *****************************************************************************************************************/
 /**
- * getHubType
- * @return
+ * getHubType - distinguishes between physical and virtual hubs
+ * @return hub type
  */
 def getHubType() { return { -> "${hub().type}".toLowerCase() } }
 
 /**
- * getIdentifierGlobalHub
+ * getIdentifierGlobalHub TODO
  * @return
  */
 def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
 
 /**
- * getIdentifierGlobalDevice
+ * getIdentifierGlobalDevice TODO
  * @return
  */
 def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
 /**
- * getIdentifierGlobalAttribute
+ * getIdentifierGlobalAttribute TODO
  * @return
  */
 def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
 
 /**
- * getZwaveListening
- * @return
+ * getZwaveListening - gets type of Zwave device
+ * @return zwave device type
  */
 def getZwaveListening() { return {
     switch(zwInfo(it)?.zw.take(1)) {
@@ -1197,26 +1214,26 @@ def getZwaveListening() { return {
 } }
 
 /**
- * getZwInfo - helper
- * @return
+ * getZwInfo - helper to get Zwave information about the device
+ * @return zwave information object
  */
 def getZwInfo() { return { it?.getZwaveInfo() } }
 
 /**
- * getPowerSource
- * @return
+ * getPowerSource - gets latest value of powerSource attribute for device
+ * @return powerSource attribute
  */
 def getPowerSource() { return { it?.latestValue('powerSource').toLowerCase() ?: 'unknown' } }
 
 /**
- * getTempScale
- * @return
+ * getTempScale - gets temperature scale set in mobile app
+ * @return temperature scale
  */
 def getTempScale() { return { -> location?.temperatureScale } }
 
 /**
- * getTimeZoneName
- * @return
+ * getTimeZoneName - gets timezone according to hub location set in mobile app
+ * @return name of timezone
  */
 def getTimeZoneName() { return { -> location?.timeZone.ID } }
 
@@ -1224,14 +1241,14 @@ def getTimeZoneName() { return { -> location?.timeZone.ID } }
  *  Tags Statuses:
  *****************************************************************************************************************/
 /**
- * getStatusDevice
- * @return
+ * getStatusDevice - gets status of device
+ * @return device status
  */
 def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
 
 /**
- * getStatusHub
- * @return
+ * getStatusHub - gets status of hub
+ * @return hub status
  */
 def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_', '') } }
 
@@ -1239,10 +1256,10 @@ def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_'
  *  Fields Event Details - Current Event:
  *****************************************************************************************************************/
 /**
- * getEventDescription
- * @return
+ * getEventDescription - tidies up event description generated by SmartThings system where there is metadata missing
+ * @return event description text
  */
-def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } } // remove circle from C unit, tidy up description text by replacing placeholders
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } }
 
 /**
  * getEventId

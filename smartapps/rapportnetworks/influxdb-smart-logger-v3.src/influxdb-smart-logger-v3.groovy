@@ -3,29 +3,14 @@
  *
  *  Name: InfluxDB Smart Logger
  *
- *  Date: 2019-10-09
+ *  Date: 2019-11-15
  *
- *  Version: 3.0
- *
- *  Source:
+ *  Version: 3.1
  *
  *  Author: Alasdair Thin
  *
  *  Description: A SmartApp to log SmartThings device states to an InfluxDB database.
  *
- *  Acknowledgements: Includes code originally developed by David Lomas (codersaur) and Kevin LaFramboise (krlaframboise).
- *
- *  Original Source: https://github.com/codersaur/SmartThings/tree/master/smartapps/influxdb-logger
- *
- *  License:
- *   Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *   in compliance with the License. You may obtain a copy of the License at:
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *   Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *   for the specific language governing permissions and limitations under the License.
  *****************************************************************************************************************/
 
 definition(
@@ -42,9 +27,9 @@ definition(
 include 'asynchttp_v1'
 
 preferences {
-    page(name: 'mainPage')
-    page(name: 'devicesPage')
-    page(name: 'attributesPage')
+    page(name : 'mainPage')
+    page(name : 'devicesPage')
+    page(name : 'attributesPage')
 }
 
 def mainPage() {
@@ -53,34 +38,34 @@ def mainPage() {
             uninstall : true,
             install   : true,
     ) {
-        section('Logging settings') {
+        section('Logger settings') {
             input(
-                    name: 'logLevelIDE',
-                    title: 'IDE Logging Level',
-                    type: 'enum',
-                    options: [0: 'None', 1: 'Error', 2: 'Warning', 3: 'Info', 4: 'Debug', 5: 'Trace'],
-                    defaultValue: 3,
-                    displayDuringSetup: true,
-                    required: false,
+                    name               : 'logLevelIDE',
+                    title              : 'IDE Logging Level',
+                    description        : '',
+                    type               : 'enum',
+                    options            : [0 : 'None', 1 : 'Error', 2 : 'Warning', 3 : 'Info', 4 : 'Debug', 5 : 'Trace'],
+                    defaultValue       : 3,
+                    displayDuringSetup : true,
             )
 
             input(
-                    name: 'logIdent',
-                    title: 'Log Data Identifiers',
-                    type: 'bool',
-                    defaultValue: true,
-                    required: false,
-                    displayDuringSetup: true,
+                    name               : 'logIdent',
+                    title              : 'Log Data Identifiers',
+                    description        : '',
+                    type               : 'bool',
+                    defaultValue       : true,
+                    displayDuringSetup : true,
             )
 
             input(
-                    name: 'logLevelDB',
-                    title: 'Database Logging Level',
-                    type: 'enum',
-                    options: [1: 'Minimal', 2: 'Intermediate', 3: 'All'],
-                    defaultValue: 1,
-                    displayDuringSetup: true,
-                    required: false,
+                    name               : 'logLevelDB',
+                    title              : 'Database Logging Level',
+                    description        : '',
+                    type               : 'enum',
+                    options            : [1 : 'Minimal', 2 : 'Intermediate', 3 : 'All'],
+                    defaultValue       : 1,
+                    displayDuringSetup : true,
             )
         }
 
@@ -91,7 +76,6 @@ def mainPage() {
                     description  : '',
                     type         : 'bool',
                     defaultValue : false,
-                    required     : false,
             )
 
             input(
@@ -100,7 +84,6 @@ def mainPage() {
                     description  : '',
                     type         : 'bool',
                     defaultValue : false,
-                    required     : false,
             )
 
             input(
@@ -109,7 +92,6 @@ def mainPage() {
                     description  : '',
                     type         : 'bool',
                     defaultValue : false,
-                    required     : false,
             )
 
             input(
@@ -118,92 +100,92 @@ def mainPage() {
                     description  : '',
                     type         : 'bool',
                     defaultValue : false,
-                    required     : false,
             )
         }
 
         section('Influx Database settings') {
             input(
                     name         : 'dbVersion',
-                    type         : 'number',
                     title        : 'Database version',
+                    description  : '',
+                    type         : 'number',
                     range        : '1..2',
                     defaultValue : 2,
-                    required     : false,
             )
 
             input(
                     name         : 'dbRemote',
-                    type         : 'bool',
                     title        : 'Remote Database',
+                    description  : '',
+                    type         : 'bool',
                     defaultValue : true,
-                    required     : false,
             )
 
             input(
                     name         : 'dbSSL',
-                    type         : 'bool',
                     title        : 'Encrypted Connection',
+                    description  : '',
+                    type         : 'bool',
                     defaultValue : true,
-                    required     : false,
             )
 
             input(
                     name           : 'dbHost',
-                    type           : 'text',
                     title          : 'Host',
+                    description    : '',
+                    type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
-                    required       : true,
             )
 
             input(
                     name         : 'dbPort',
-                    type         : 'number',
                     title        : 'Port',
+                    description  : '',
+                    type         : 'number',
                     defaultValue : '443',
-                    required     : false,
             )
 
             input(
                     name           : 'dbName',
-                    type           : 'text',
                     title          : 'Database (v1)',
+                    description    : '',
+                    type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
-                    required       : false,
             )
 
             input(
                     name           : 'dbUsername',
-                    type           : 'text',
                     title          : 'Username (v1)',
+                    description    : '',
+                    type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
-                    required       : false,
             )
 
             input(
-                    name     : 'dbPassword',
-                    type     : 'password',
-                    title    : 'Password (v1)',
-                    required : false,
+                    name        : 'dbPassword',
+                    title       : 'Password (v1)',
+                    description : '',
+                    type        : 'password',
+                    required    : false,
             )
 
             input(
                     name           : 'dbOrganization',
-                    type           : 'text',
                     title          : 'Organization (v2)',
+                    description    : '',
+                    type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
-                    required       : false,
             )
 
             input(
-                    name     : 'dbToken',
-                    type     : 'password',
-                    title    : 'Authorisation Token (v2)',
-                    required : false,
+                    name        : 'dbToken',
+                    title       : 'Authorisation Token (v2)',
+                    description : '',
+                    type        : 'password',
             )
         }
 
@@ -258,9 +240,9 @@ private getDevicesPageContent() {
                                          "capability.${it.cap}", // ?not type
                         title          : "${it.title}",
                         multiple       : true,
-                        hideWhenEmpty  : true,
-                        required       : false,
+                        hideWhenEmpty  : false,
                         submitOnChange : true,
+                        required       : true,
                 )
             }
             catch (e) {
@@ -286,12 +268,15 @@ private getAttributesPageContent() {
 
             input(
                     name           : 'allowedAttributes',
-                    type           : 'enum',
                     title          : 'Events to log',
-                    required       : true,
-                    multiple       : true,
-                    submitOnChange : true,
+                    description    : '',
+                    type           : 'enum',
                     options        : supportedAttr,
+                    multiple       : true,
+                    hideWhenEmpty  : false,
+                    submitOnChange : true,
+                    required       : true,
+
             )
         }
     } else {
@@ -414,6 +399,7 @@ def updated() { // runs when app settings are changed
     }
 
     manageSubscriptions()
+
     manageSchedules()
 
     logger('updated: Scheduling first run of poll methods', 'trace')

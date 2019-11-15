@@ -8,8 +8,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/STOptimised.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/archive_v3-0.groovy" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" afterDir="false" />
     </list>
@@ -114,20 +112,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
-    </task>
-    <task id="LOCAL-00098" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550263201953</created>
-      <option name="number" value="00098" />
-      <option name="presentableId" value="LOCAL-00098" />
-      <option name="project" value="LOCAL" />
-      <updated>1550263201954</updated>
-    </task>
-    <task id="LOCAL-00099" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550322916457</created>
-      <option name="number" value="00099" />
-      <option name="presentableId" value="LOCAL-00099" />
-      <option name="project" value="LOCAL" />
-      <updated>1550322916459</updated>
     </task>
     <task id="LOCAL-00100" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1550344825218</created>
@@ -458,7 +442,21 @@
       <option name="project" value="LOCAL" />
       <updated>1572455652034</updated>
     </task>
-    <option name="localTasksCounter" value="147" />
+    <task id="LOCAL-00147" summary="Updates">
+      <created>1573818679906</created>
+      <option name="number" value="00147" />
+      <option name="presentableId" value="LOCAL-00147" />
+      <option name="project" value="LOCAL" />
+      <updated>1573818679907</updated>
+    </task>
+    <task id="LOCAL-00148" summary="Updates">
+      <created>1573818720143</created>
+      <option name="number" value="00148" />
+      <option name="presentableId" value="LOCAL-00148" />
+      <option name="project" value="LOCAL" />
+      <updated>1573818720143</updated>
+    </task>
+    <option name="localTasksCounter" value="149" />
     <servers />
   </component>
   <component name="TodoView">

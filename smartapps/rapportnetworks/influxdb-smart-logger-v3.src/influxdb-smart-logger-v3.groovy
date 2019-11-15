@@ -1213,9 +1213,17 @@ def getBatteryChangeDate() { return {
 }}
 
 /*****************************************************************************************************************
- *  Main Commands:
+ *  Post Data to InfluxDB (postToInfluxDBLocal, handleInfluxDBResponseLocal, postToInfluxDBRemote, handleInfluxDBResponseRemote)
  *****************************************************************************************************************/
-def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
+/**
+ * postToInfluxDBLocal - posts data to InfluxDB server on local network using HubAction method
+ * @param data
+ * @param retentionPolicy
+ * @param bucket
+ * @param eventId
+ * @return
+ */
+private postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
     def headers = [
         HOST           : state.uri,
         'Content-Type' : 'application/octet-stream',
@@ -1252,17 +1260,29 @@ def postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
 
     def options = [callback : handleInfluxDBResponseLocal]
 
-    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'info')
-    // logger("postToInfluxDBhubAction: Posting data to InfluxDB: Headers: ${headers}, Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
+    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'debug')
     sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
 }
 
-def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+/**
+ * handleInfluxDBResponseLocal - handles response from InfluxDB server on local network
+ * @param hubResponse
+ * @return
+ */
+private handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status == 204) logger("postToInfluxDBLocal: Success! Code: ${hubResponse.status}", 'trace')
     if (hubResponse.status >= 400) logger("postToInfluxDBLocal: Something went wrong! Code: ${hubResponse.status} Message: ${hubResponse.json.error}", 'error')
 }
 
-def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
+/**
+ * postToInfluxDBRemote - posts data to InfluxDB server on remote network using asynchronous http method
+ * @param data
+ * @param retentionPolicy
+ * @param bucket
+ * @param eventId
+ * @return
+ */
+private postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
     def query = [precision : 'ms']
 
     def params = [
@@ -1294,43 +1314,30 @@ def postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
 
     def passData = [eventId : eventId]
 
-    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'info')
-    // logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path}, Query: ${query}, Data: ${data}", 'info')
+    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'debug')
     asynchttp_v1.post(handleInfluxDBResponseRemote, params, passData)
 }
 
-def handleInfluxDBResponseRemote(response, passData) {
+/**
+ * handleInfluxDBResponseRemote - handles response from InfluxDB server on remote network
+ * @param response
+ * @param passData
+ * @return
+ */
+private handleInfluxDBResponseRemote(response, passData) {
     if (response.status == 204) logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
     if (response.status >= 400) logger("postToInfluxDBRemote: Something went wrong! Code: ${response.status} Error: ${response.errorJson.error} (id: ${passData.eventId})", 'error')
 }
 
 /*****************************************************************************************************************
- *  Private Helper Functions:
+ *  Subscription and Scheduling Methods (manageSubscriptions, manageSchedules, pollingMethods)
  *****************************************************************************************************************/
-private manageSchedules() {
-    logger('manageSchedules: Schedulling polling methods', 'trace')
-    pollingMethods().each {
-        try {
-            unschedule(it.key)
-        }
-        catch (e) {
-            logger("manageSchedules: Unschedule ${it.key} failed!", 'error')
-        }
-        "${it.value}"(it.key)
-    }
-}
-
-def pollingMethods() { [
-    pollStatus     : 'runEvery1Hour',
-    pollLocations  : 'runEvery3Hours',
-    pollDevices    : 'runEvery3Hours',
-    pollAttributes : 'runEvery3Hours',
-    pollZwavesCCs  : 'runEvery3Hours',
-    pollZwaves     : 'runEvery3Hours'
-] }
-
+/**
+ * manageSubscriptions - subscribes event handlers to listen for events
+ * @return
+ */
 private manageSubscriptions() {
-    logger('manageSubscriptions: Subscribing listeners to events', 'trace')
+    logger('manageSubscriptions: Subscribing listeners to events.', 'debug')
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
@@ -1338,53 +1345,157 @@ private manageSubscriptions() {
                 def type = getAttributeDetail().find { it.key == attr }.value.type
                 switch(type) {
                     case 'enum':
-                        logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleEnumEvent); break
+                        logger("manageSubscriptions: Subscribing 'handleEnumEvent' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleEnumEvent)
+                        break
+
                     case 'number':
-                        logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleNumberEvent); break
+                        logger("manageSubscriptions: Subscribing 'handleNumberEvent' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleNumberEvent)
+                        break
+
                     case 'vector3':
-                        logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleVector3Event); break
+                        logger("manageSubscriptions: Subscribing 'handleVector3Event' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleVector3Event)
+                        break
+
                     case 'string':
-                        logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleStringEvent); break
+                        logger("manageSubscriptions: Subscribing 'handleStringEvent' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleStringEvent)
+                        break
+
                     case 'colorMap':
-                        logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleColorMapEvent); break
+                        logger("manageSubscriptions: Subscribing 'handleColorMapEvent' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleColorMapEvent)
+                        break
+
                     case 'json_object':
-                        logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}", 'info')
-                        subscribe(dev, attr, handleJsonObjectEvent); break
+                        logger("manageSubscriptions: Subscribing 'handleJson_objectEvent' listener to attribute: ${attr}, for device: ${dev}.", 'trace')
+                        subscribe(dev, attr, handleJsonObjectEvent)
+                        break
+
+                    default:
+                        logger("manageSubscriptions: Unhandled attribute: ${attr}, for device: ${dev}.", 'error')
+                        break
                 }
             }
         }
     }
 
-    logger("manageSubscriptions: Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events", 'info')
+    logger("manageSubscriptions: Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events.", 'trace')
     subscribe(location, 'sunrise', handleDaylight)
     subscribe(location, 'sunset', handleDaylight)
 
-    logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events", 'info')
+    logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events.", 'trace')
     subscribe(location.hubs[0], 'hubStatus', handleHubStatus)
 }
 
-private logger(msg, level = 'debug') { // Wrapper method for all logging
-    switch (level) {
-        case 'error':
-            if (state.logLevelIDE >= 1) log.error(msg); break
-        case 'warn':
-            if (state.logLevelIDE >= 2) log.warn(msg); break
-        case 'info':
-            if (state.logLevelIDE >= 3) log.info(msg); break
-        case 'debug':
-            if (state.logLevelIDE >= 4) log.debug(msg); break
-        case 'trace':
-            if (state.logLevelIDE >= 5) log.trace(msg); break
-        default:
-            log.debug(msg); break
+/**
+ * manageSchedules - manages scheduling of each polling method
+ * @return
+ */
+private manageSchedules() {
+    logger('manageSchedules: Schedulling polling methods.', 'trace')
+    pollingMethods().each {
+        try {
+            unschedule(it.key)
+        }
+        catch (e) {
+            logger("manageSchedules: Unschedule ${it.key} failed!", 'error')
+        }
+        logger("manageSchedules: Scheduling ${it.key} to ${it.value}.", 'debug')
+        "${it.value}"(it.key)
     }
 }
 
+/**
+ * pollingMethods - map of polling methods to schedule with the given frequency
+ * @return
+ */
+private pollingMethods() {
+    [
+        pollStatus     : 'runEvery1Hour',
+        pollLocations  : 'runEvery3Hours',
+        pollDevices    : 'runEvery3Hours',
+        pollAttributes : 'runEvery3Hours',
+        pollZwavesCCs  : 'runEvery3Hours',
+        pollZwaves     : 'runEvery3Hours'
+    ]
+}
+
+/*****************************************************************************************************************
+ *  General Helper Method (logger)
+ *****************************************************************************************************************/
+/**
+ * logger - logs messages to IDE and creates events
+ * @param msg
+ * @param level
+ * @return
+ */
+private logger(String msg, String level = 'debug') {
+    switch (level) {
+        case 'error':
+            if (!state?.logLevelIDE || state?.logLevelIDE >= 1) {
+                log.error(msg)
+                sendEvent(
+                        descriptionText : "Error: ${msg}",
+                        isStateChange   : true,
+                        displayed       : false,
+                )
+            }
+            break
+
+        case 'warn':
+            if (!state?.logLevelIDE || state?.logLevelIDE >= 2) {
+                log.warn(msg)
+                sendEvent(
+                        descriptionText : "Warning: ${msg}",
+                        isStateChange   : true,
+                        displayed       : false,
+                )
+            }
+            break
+
+        case 'info':
+            if (!state?.logLevelIDE || state?.logLevelIDE >= 3) {
+                log.info(msg)
+                sendEvent(
+                        descriptionText : "Info: ${msg}",
+                        isStateChange   : true,
+                        displayed       : false,
+                )
+            }
+            break
+
+        case 'debug':
+            if (!state?.logLevelIDE || state?.logLevelIDE >= 4) {
+                log.debug(msg)
+                // sendEvent(descriptionText : "Debug: ${msg}", isStateChange : true, displayed : false,)
+            }
+            break
+
+        case 'trace':
+            if (!state?.logLevelIDE || state?.logLevelIDE >= 5) {
+                log.trace(msg)
+            }
+            break
+
+        default:
+            log.error(msg)
+            sendEvent(
+                    descriptionText : "Error: $msg",
+                    isStateChange   : true,
+                    displayed       : false,
+            )
+            break
+    }
+}
+
+
+
+/*****************************************************************************************************************
+ *  Device and Attribute Selection Methods (logger)
+ *****************************************************************************************************************/
 /**
  * creates a list of allowed attributes by for a given device by filtering list of user selected attributes
  * @param device
@@ -1476,6 +1587,13 @@ private getSelectedDevices() {
     devices?.flatten()?.unique { it.id }
 }
 
+/*****************************************************************************************************************
+ *  Metadata (getCapabilities, getAttributeDetail)
+ *****************************************************************************************************************/
+/**
+ * getCapabilities
+ * @return
+ */
 private getCapabilities() { [
     [title: 'Actuators', cap: 'actuator'],
     [title: 'Bridges', cap: 'bridge'],
@@ -1528,6 +1646,10 @@ private getCapabilities() { [
     [title: 'Window Shades', cap: 'windowShade', attr: 'windowShade']
 ] }
 
+/**
+ * getAttributeDetail
+ * @return
+ */
 private getAttributeDetail() { [
     acceleration            : [type: 'enum', levels: [inactive: -1, active: 1]],
     alarm                   : [type: 'enum', levels: [off: -1, siren: 1, strobe: 2, both: 3]],

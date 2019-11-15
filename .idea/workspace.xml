@@ -7,8 +7,9 @@
     <option name="CUSTOM_SCOPE_NAME" value="Open Files" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="Version 3 Initial Commit">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+    <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/STOptimised.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/archive_v3-0.groovy" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" afterDir="false" />
     </list>
@@ -113,27 +114,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
-    </task>
-    <task id="LOCAL-00095" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550260042437</created>
-      <option name="number" value="00095" />
-      <option name="presentableId" value="LOCAL-00095" />
-      <option name="project" value="LOCAL" />
-      <updated>1550260042438</updated>
-    </task>
-    <task id="LOCAL-00096" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550260430202</created>
-      <option name="number" value="00096" />
-      <option name="presentableId" value="LOCAL-00096" />
-      <option name="project" value="LOCAL" />
-      <updated>1550260430204</updated>
-    </task>
-    <task id="LOCAL-00097" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550261265003</created>
-      <option name="number" value="00097" />
-      <option name="presentableId" value="LOCAL-00097" />
-      <option name="project" value="LOCAL" />
-      <updated>1550261265003</updated>
     </task>
     <task id="LOCAL-00098" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1550263201953</created>
@@ -457,7 +437,28 @@
       <option name="project" value="LOCAL" />
       <updated>1570640704599</updated>
     </task>
-    <option name="localTasksCounter" value="144" />
+    <task id="LOCAL-00144" summary="Version 3 Initial Commit">
+      <created>1570710470975</created>
+      <option name="number" value="00144" />
+      <option name="presentableId" value="LOCAL-00144" />
+      <option name="project" value="LOCAL" />
+      <updated>1570710470977</updated>
+    </task>
+    <task id="LOCAL-00145" summary="Version 3 Initial Commit">
+      <created>1572455632405</created>
+      <option name="number" value="00145" />
+      <option name="presentableId" value="LOCAL-00145" />
+      <option name="project" value="LOCAL" />
+      <updated>1572455632406</updated>
+    </task>
+    <task id="LOCAL-00146" summary="Updates">
+      <created>1572455652034</created>
+      <option name="number" value="00146" />
+      <option name="presentableId" value="LOCAL-00146" />
+      <option name="project" value="LOCAL" />
+      <updated>1572455652034</updated>
+    </task>
+    <option name="localTasksCounter" value="147" />
     <servers />
   </component>
   <component name="TodoView">

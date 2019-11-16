@@ -869,7 +869,7 @@ def tags() { [
     [name: 'deviceHand',  level: 1, clos: 'deviceHandlerName',         args: 1, type: ['attribute', 'device', 'zwave', 'zwCCs'], parent: true, esc: true,],
     [name: 'deviceId',    level: 2, clos: 'deviceId',                  args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true,],
     [name: 'deviceLabel', level: 1, clos: 'deviceLabel',               args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true,],
-    [name: 'deviceType',  level: 1, clos: 'deviceType',                args: 1, type: ['device','statDev'],],
+    [name: 'deviceType',  level: 1, clos: 'deviceType',                args: 1, type: ['device', 'statDev'],],
     [name: 'event',       level: 1, clos: 'eventName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],],
     [name: 'eventType',   level: 1, clos: 'eventType',                 args: 1, type: ['attribute'],],
     [name: 'hubType',     level: 1, clos: 'hubType',                   args: 0, type: ['local', 'statHub'],],
@@ -879,6 +879,13 @@ def tags() { [
     [name: 'identGlobal', level: 1, clos: 'identifierGlobalAttribute', args: 2, type: ['attribute'], esc: true, ident: true,],
     [name: 'identLocal',  level: 1, clos: 'identifierLocal',           args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], parent: true, esc: true,  ident: true,],
     [name: 'listening',   level: 1, clos: 'zwaveListening',            args: 1, type: ['zwave', 'zwCCs'],],
+    [name: 'mdDeviceNumber',  level: 2, clos: 'metadataDeviceNumber',  args: 1, ],
+    [name: 'mdDeviceType',    level: 2, clos: 'metadataDeviceType',    args: 1, ],
+    [name: 'mdInventoryCode', level: 2, clos: 'metadataInventoryCode', args: 1, ],
+    [name: 'mdLocation',      level: 2, clos: 'metadataLocation',      args: 1, ],
+    [name: 'mdRoom',          level: 2, clos: 'metadataRoom',          args: 1, ],
+    [name: 'mdRoomNumber',    level: 2, clos: 'metadataRoomNumber',    args: 1, ],
+    [name: 'mdSubLocation',   level: 2, clos: 'metadataSubLocation',   args: 1, ],
     [name: 'power',       level: 1, clos: 'powerSource',               args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs'],],
     [name: 'source',      level: 2, clos: 'source',                    args: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3'],],
     [name: 'status',      level: 1, clos: 'statusDevice',              args: 1, type: ['attribute', 'device', 'statDev', 'zwave', 'zwCCs'], parent: true,],
@@ -889,6 +896,19 @@ def tags() { [
     // [name: 'isDigital',   level: 0, clos: 'isDigital',                 args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],], // unused?
     // [name: 'isPhysical',  level: 2, clos: 'isPhysical',                args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],], // unused?
 ] }
+
+/*
+getMetadataDeviceNumber
+getMetadataDeviceType
+getMetadataInventoryCode
+getMetadataLocation
+getMetadataRoom
+getMetadataRoomNumber
+getMetadataSubLocation
+
+[name: 'mdNotes', level: 2, clos: 'getMetadataNotes',],
+getMetadataNotes
+*/
 
 /*****************************************************************************************************************
  *  Fields Map:
@@ -906,6 +926,7 @@ def fields() { [
     [name: 'iP',         level: 1, clos: 'hubIPaddress',             var: 'string',   args: 0, type: ['local', 'statHub'],],
     [name: 'latitude',   level: 1, clos: 'latitude',                 var: 'float',    args: 0, type: ['local'], ident: true,],
     [name: 'longitude',  level: 1, clos: 'longitude',                var: 'float',    args: 0, type: ['local'], ident: true,],
+    // [name: 'mdNotes', ],
     [name: 'messages',   level: 1, clos: 'messages',                 var: 'integer',  args: 1, type: ['statDev'],],
     [name: 'nBin',       level: 2, clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub'],],
     [name: 'nHue',       level: 1, clos: 'currentHue',               var: 'integer',  args: 1, type: ['colorMap'],],
@@ -1671,50 +1692,52 @@ def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZon
 def getDaylight() { return { -> getSunriseAndSunset() } }
 
 /**
- * getHubTCPport
- * @return
+ * getHubTCPport - gets tcp port of hub on local network
+ * @return tcp port
  */
 def getHubTCPport() { return { -> hub().localSrvPortTCP } }
 
 /**
- * getTimeLastActivity
- * @return
+ * getTimeLastActivity - gets timestamp of last activity reported by a device
+ * @return timestamp
  */
 def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 
 /**
- * getTimeLastEvent
- * @return
+ * getTimeLastEvent - gets timestamp of latest value for each attribute reported by a device
+ * TODO Should this be 'null' or '' rather than zero?
+ * @return timestamp
  */
 def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.time ?: 0 } }
 
 /**
- * getValueLastEvent
- * @return
+ * getValueLastEvent - gets latest value for each attribute reported by a device TODO What about 3axis events etc?
+ * TODO Should it be '' rather than 'null'? - ?'null' gets logged to InfluxDB, whereas '' doesn't?
+ * @return value
  */
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
 
 /**
- * getWakeUpInterval
- * @return
+ * getWakeUpInterval - wake up interval of the device
+ * @return duration (seconds)
  */
 def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
 
 /**
- * getZigbeePowerLevel
- * @return
+ * getZigbeePowerLevel - power level for Zigbee devices
+ * @return power level
  */
 def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel') } }
 
 /**
- * getZwavePowerLevel
- * @return
+ * getZwavePowerLevel - power level for Zwave devices
+ * @return power level
  */
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
 /**
- * getCommandClassesList
- * @return
+ * getCommandClassesList - for Zwave devices, gets report of Command Classes from zwInfo
+ * @return zwave report
  */
 def getCommandClassesList() { return {
     def info = zwInfo(it).clone()
@@ -1737,14 +1760,15 @@ def getCommandClassesList() { return {
  *  Fields Statuses:
  *****************************************************************************************************************/
 /**
- * getHubIPaddress
- * @return
+ * getHubIPaddress - gets IP address of hub on local network
+ * @return ip address
  */
 def getHubIPaddress() { return { -> hub().localIP } }
 
 /**
- * getOnBattery
- * @return
+ * getOnBattery - gets whether or not hub is running on batteries (v2 hub)
+ * TODO drop this as no longer much use?
+ * @return true/false
  */
 def getOnBattery() { return { ->
     def battery = hub()?.hub?.getDataValue('batteryInUse')
@@ -1757,32 +1781,33 @@ def getOnBattery() { return { ->
 } }
 
 /**
- * getStatusDeviceBinary
- * @return
+ * getStatusDeviceBinary - reports if device is active/online as a binary flag
+ * @return true/false
  */
 def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
 /**
- * getStatusHubBinary
- * @return
+ * getStatusHubBinary - reports if hub is active as a binary flag
+ * @return true/false
  */
 def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 
 /**
- * getStatusDeviceLevel
+ * getStatusDeviceLevel - reports if device is active/online as a level
  * @return
  */
 def getStatusDeviceLevel() { return { (statusDevice(it) in ['active', 'online']) ? 1 : -1 } }
 
 /**
- * getStatusHubLevel
+ * getStatusHubLevel - reports if hub is active as a level
  * @return
  */
 def getStatusHubLevel() { return { (statusHub() == 'active') ? 1 : -1 } }
 
 /**
- * getBatteryChangeDate
- * @return
+ * getBatteryChangeDate - gets value of 'batteryChange' attribute used to log a battery change in the modile app
+ * TODO Should it be '' or 'null' (as per above)?
+ * @return timestamp
  */
 def getBatteryChangeDate() { return {
     if (it?.hasAttribute('batteryChange')) {

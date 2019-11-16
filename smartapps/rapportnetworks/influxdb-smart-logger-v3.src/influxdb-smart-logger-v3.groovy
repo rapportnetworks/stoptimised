@@ -1262,64 +1262,65 @@ def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_'
 def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } }
 
 /**
- * getEventId
- * @return
+ * getEventId - gets unique id of event object
+ * @return event id
  */
 def getEventId() { return { it.id } }
 
 /**
- * getCurrentStateBinary
- * @return
+ * getCurrentStateBinary - converts attribute level to a binary flag based on level value
+ * @return attribute true/false
  */
 def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 't' : 'f' } }
 
 /**
- * getCurrentStateLevel
- * @return
+ * getCurrentStateLevel - gets level corresponding to current state of attribute
+ * @return attribute level
  */
 def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentState(it) }.value } }
 
 /**
- * getAttributeStates - helper
- * @return
+ * getAttributeStates - helper - gets attribute levels from getEventDetails helper
+ * @return map of attribute states and levels
  */
-def getAttributeStates() { return { eventDetails(it).levels } } // Lookup array for event state levels
+def getAttributeStates() { return { eventDetails(it).levels } }
 
 /**
- * getCurrentState
- * @return
+ * getCurrentState - current state of attribute with adjustment for sunrise and sunset events
+ * @return attribute state
  */
 def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
 /**
- * getCurrentStateDescription
- * @return
+ * getCurrentStateDescription - compiles a textual description for state events
+ * @return textual description for state events
  */
 def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
 
 /**
- * getCurrentValueDescription
- * @return
+ * getCurrentValueDescription - compiles a textual description for value events
+ * @return textual description for value events
  */
 def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueRounded(it)} ${unit(it)} in the ${groupName(it)}." } }
 
 /**
- * getCurrentValue
- * @return
+ * getCurrentValue - some device handlers append unit to number, so any units will be removed
+ * @return event value as a number
  */
-def getCurrentValue() { return { // done this way in case value is 0
+def getCurrentValue() { return {
     try {
         it.numberValue.toBigDecimal()
-    } catch(e) {
+    }
+    catch(e) {
         removeUnit(it)
     }
 } }
 
 /**
- * removeUnit - helper
- * @return
+ * removeUnit - helper - removes any units appending to end of event value by a device handler
+ * @return number
  */
-def removeUnit() { return { // remove any units appending to end of event value property by device handler
+def removeUnit() { return {
     def length = it.value.length()
     def value
     def i = 2
@@ -1330,62 +1331,63 @@ def removeUnit() { return { // remove any units appending to end of event value 
     }
     if (i == length) {
         0
-    } else {
+    }
+    else {
         value.toBigDecimal()
     }
 } }
 
 /**
- * getCurrentValueRounded
- * @return
+ * getCurrentValueRounded - helper - rounds current event value
+ * @return rounder number
  */
 def getCurrentValueRounded() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 /**
- * getDecimalPlaces - helper
- * @return
+ * getDecimalPlaces - helper - gets decimal places to round to from getEventDetails
+ * @return decimal places to round to
  */
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
 /**
- * getCurrentHue
- * @return
+ * getCurrentHue - gets hue value from color map event value
+ * @return hue value
  */
 def getCurrentHue() { return { currentColorMap(it).hue } }
 
 /**
- * getCurrentSat
- * @return
+ * getCurrentSat - gets saturation value from color map event value
+ * @return saturation value
  */
 def getCurrentSat() { return { currentColorMap(it).saturation } }
 
 /**
- * getCurrentColorMap - helper
- * @return
+ * getCurrentColorMap - helper - parses json color map event value
+ * @return parsed color map
  */
 def getCurrentColorMap() { return { parseJson(it) } }
 
 /**
- * getCurrentX
- * @return
+ * getCurrentX - gets x value for 3-axis events, converted to g unit
+ * @return x value
  */
 def getCurrentX() { return { it.xyzValue.x / gravityFactor() } }
 
 /**
- * getCurrentY
- * @return
+ * getCurrentY - gets y value for 3-axis events, converted to g unit
+ * @return y value
  */
 def getCurrentY() { return { it.xyzValue.y / gravityFactor() } }
 
 /**
- * getCurrentZ
- * @return
+ * getCurrentZ - gets z value for 3-axis events, converted to g unit
+ * @return z value
  */
 def getCurrentZ() { return { it.xyzValue.z / gravityFactor() } }
 
 /**
- * getGravityFactor - helper
- * @return
+ * getGravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
+ * @return g unit conversion factor value
  */
 def getGravityFactor() { return { -> (1024) } }
 
@@ -1393,25 +1395,25 @@ def getGravityFactor() { return { -> (1024) } }
  *  Fields Event Details - Previous Event:
  *****************************************************************************************************************/
 /**
- * getPreviousStateBinary
- * @return
+ * getPreviousStateBinary - converts attribute level to a binary flag based on level value
+ * @return previous event attribute true/false
  */
 def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 't' : 'f' } }
 
 /**
- * getPreviousStateLevel
- * @return
+ * getPreviousStateLevel - gets level corresponding to current state of attribute
+ * @return previous event attribute level
  */
 def getPreviousStateLevel() { return { attributeStates(it)?.find { level -> level.key == previousState(it) }?.value } }
 
 /**
- * getPreviousState
- * @return
+ * getPreviousState - previous state of attribute TODO Check sunrise/sunset conversion needed? - Don't think so.
+ * @return previous event attribute state
  */
 def getPreviousState() { return { previousEvent(it)?.value } }
 
 /**
- * getPreviousEvent - helper
+ * getPreviousEvent - helper TODO
  * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
  */
 def getPreviousEvent() { return {
@@ -1429,14 +1431,14 @@ def getPreviousEvent() { return {
 } }
 
 /**
- * getPreviousStateDescription
- * @return
+ * getPreviousStateDescription - compiles a textual description of change from previous to current event
+ * @return textual description of change for state events
  */
 def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
 /**
- * getPreviousValueDescription
- * @return
+ * getPreviousValueDescription - compiles a textual description of change from previous to current event
+ * @return textual description of change for value events
  */
 def getPreviousValueDescription() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
@@ -1444,13 +1446,14 @@ def getPreviousValueDescription() { return {
 } }
 
 /**
- * getPreviousValue
- * @return
+ * getPreviousValue - some device handlers append unit to number, so any units will be removed
+ * @return previous event value as a number
  */
 def getPreviousValue() { return {
     try {
         previousEvent(it)?.numberValue.toBigDecimal()
-    } catch(e) {
+    }
+    catch(e) {
         removeUnit(previousEvent(it))
     }
 } }
@@ -1459,14 +1462,15 @@ def getPreviousValue() { return {
  *  Fields Event Details - Value Difference:
  *****************************************************************************************************************/
 /**
- * getDifferenceText
- * @return
+ * getDifferenceText - gets text term for change in value from previous to current event value
+ * @return text term for change in value
  */
 def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
 
 /**
- * getDifference
- * @return
+ * getDifference - calculates the difference between current and previous event values.
+ * Used in text description, so rounded values are used for consistency.
+ * @return change in value
  */
 def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
@@ -1474,8 +1478,8 @@ def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), Big
  *  Fields Event Details - Time Difference:
  *****************************************************************************************************************/
 /**
- * getTimeElapsedText
- * @return
+ * getTimeElapsedText - converts the elapsed time between current and previous events to an appropriate text description
+ * @return text description of elapsed time
  */
 def getTimeElapsedText() { return {
     def time = timeElapsed(it) / 1000
@@ -1500,31 +1504,32 @@ def getTimeElapsedText() { return {
 } }
 
 /**
- * getTimeElapsed
- * @return
+ * getTimeElapsed - gets the elapsed time (in milliseconds) between current and previous events
+ * @return time difference in milliseconds
  */
 def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
 
 /**
- * getTimestamp
+ * getTimestamp - gets timestamp (in milliseconds) of event TODO Check the logic/reasoning for this.
+ * The timestamps of motion events are adjusted by an offset amount to account for the response time of the sensor.
  * @return
  */
 def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
 
 /**
- * getCurrentTimeOffset
- * @return
+ * getCurrentTimeOffset - helper - calculates any time offset for current event
+ * @return time offset for current event
  */
 def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 /**
- * getTimeOffsetAmount - helper
- * @return
+ * getTimeOffsetAmount - helper - returns motion sensor timestamp offset period
+ * @return time period
  */
 def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
 /**
- * getPreviousTimeOffset - helper
+ * getPreviousTimeOffset - helper - calculates any time offset for previous event
  * @return
  */
 def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
@@ -1533,29 +1538,30 @@ def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousSta
  *  Fields Event Details - Time Values:
  *****************************************************************************************************************/
 /**
- * getTimeOfDay
- * @return
+ * getTimeOfDay - calculates elapsed time of day in milliseconds
+ * Used in time-weighted-average calculations.
+ * @return time of day in milliseconds
  */
-def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } } // calculates elapsed time of day in milliseconds
+def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } }
 
 /**
- * getTimeWrite
- * @return
+ * getTimeWrite - gets timestamp of when an event is processed by logger app
+ * @return processing timestamp
  */
-def getTimeWrite() { return { -> new Date().time } } // time of processing the event by Smart App
+def getTimeWrite() { return { -> new Date().time } }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Weighted Values:
  *****************************************************************************************************************/
 /**
- * getTimeWeightedLevel
- * @return
+ * getTimeWeightedLevel - calculates time-weighted value for state events using state level
+ * @return time-weighted state level
  */
 def getTimeWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
 
 /**
- * getTimeWeightedValue
- * @return
+ * getTimeWeightedValue - calculates time-weighted value for value events
+ * @return time-weighted value
  */
 def getTimeWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
 
@@ -1563,105 +1569,104 @@ def getTimeWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
  *  Fields Metadata:
  *****************************************************************************************************************/
 /**
- * getConfiguredParametersList
- * @return
+ * getConfiguredParametersList - gets the data value 'configuredParameters' reported by the device handler for the device
+ * Series of configuration parameter numbers and their values reported for the device.
+ * @return comma-separated series of configuration values
  */
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
         params.replaceAll(',', 'i,') + 'i'
-    } else {
+    }
+    else {
         ''
     }
 } }
 
 /**
- * getBattery
- * @return
+ * getBattery - gets latest value of 'battery' attribute for the device
+ * TODO Could include check of latestValue('powerSource') to establish if device is on battery (if has more than one power source).
+ * @return value of 'battery' attribute
  */
-def getBattery() { return {
-    if (it?.hasAttribute('battery')) {
-        it?.latestValue('battery') ?: 100 // in case battery is still 100 and no battery report has been sent
-    } else {
-        ''
-    }
-}}
+def getBattery() { return { it?.latestValue('battery') ?: '' } }
 
 /**
- * getCheckInterval
- * @return
+ * getCheckInterval - gets latest value of 'checkInterval' attribute for the device
+ * This is set at twice the device Wake Up Interval and is used to establish whether or not a device is online.
+ * @return value of 'checkInterval'
  */
 def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
 
 /**
- * getDeviceConfigurationType
- * @return
+ * getDeviceConfigurationType - gets the data value 'configurationType' reported by the device handler for the device
+ * Device handler may configure the device with a particular configuration profile.
+ * @return name of configuration profile
  */
 def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
 
 /**
- * getConfigure
- * @return
+ * getConfigure - gets latest value of 'configure' attribute to report configuration state of device
+ * @return configuration state of the device
  */
 def getConfigure() { return { it?.latestValue('configure') ?: '' } }
 
 /**
- * getDeviceUse
- * @return
+ * getDeviceUse - gets data value 'deviceUse' which indicates what device is being used for TODO Drop this as no longer used?
+ * @return device use name
  */
 def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
 
 /**
- * getFirmwareVersion
- * @return
+ * getFirmwareVersion - gets firmware of device as reported by the device handler
+ * @return device firmware version
  */
 def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
 
 /**
- * getLatitude
- * @return
+ * getLatitude - gets latitude for hub according to location set in mobile app
+ * @return latitude
  */
 def getLatitude() { return { -> location.latitude } }
 
 /**
- * getLongitude
- * @return
+ * getLongitude - gets longitude for hub according to location set in mobile app
+ * @return longitude
  */
 def getLongitude() { return { -> location.longitude } }
 
 /**
- * getMessages
+ * getMessages TODO - sort this to sent and received messages
  * @return
  */
 def getMessages() { return { it?.device?.getDataValue('messages') ?: '' } }
 
 /**
- * getNetworkSecurityLevel
- * @return
+ * getNetworkSecurityLevel - gets network security level for the device as reported by SmartThings system
+ * @return network security level description
  */
 def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
 
 /**
- * getZwaveSecure
- * @return
+ * getZwaveSecure - gets whether device is securely included or not
+ * @return true/false
  */
 def getZwaveSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 't' : 'f' } }
 
 /**
- * getSunrise
- * @return
+ * getSunrise - gets time of sunrise depending on hub location set in mobile app
+ * @return time of sunrise
  */
 def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
 
 /**
- * getSunset
- * @return
+ * getSunset - gets time of sunset depending on hub location set in mobile app
+ * @return time of sunset
  */
 def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
 
 /**
- * getDaylight - helper
- * @return
+ * getDaylight - helper gets Sunrise and Sunset time object from SmartThings system
+ * @return sunrise and sunset object
  */
 def getDaylight() { return { -> getSunriseAndSunset() } }
 

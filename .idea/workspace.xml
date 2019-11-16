@@ -113,13 +113,6 @@
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
     </task>
-    <task id="LOCAL-00103" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1550582700389</created>
-      <option name="number" value="00103" />
-      <option name="presentableId" value="LOCAL-00103" />
-      <option name="project" value="LOCAL" />
-      <updated>1550582700390</updated>
-    </task>
     <task id="LOCAL-00104" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1550600865325</created>
       <option name="number" value="00104" />
@@ -456,7 +449,14 @@
       <option name="project" value="LOCAL" />
       <updated>1573838018387</updated>
     </task>
-    <option name="localTasksCounter" value="152" />
+    <task id="LOCAL-00152" summary="Updates">
+      <created>1573840744478</created>
+      <option name="number" value="00152" />
+      <option name="presentableId" value="LOCAL-00152" />
+      <option name="project" value="LOCAL" />
+      <updated>1573840744478</updated>
+    </task>
+    <option name="localTasksCounter" value="153" />
     <servers />
   </component>
   <component name="TodoView">

@@ -335,6 +335,8 @@ def uninstalled() {
  * @return
  */
 def updated() {
+    logger("updated: ${app.label} has been updated.", 'trace')
+
     logger('updated: Setting IDE logging level.', 'trace')
     state.logLevelIDE = (settings?.logLevelIDE) ? settings.logLevelIDE.toInteger() : 3
 
@@ -422,8 +424,8 @@ def updated() {
      */
     generateGroupNamesMap()
 
-    logger('updated: Scheduling first run of poll methods', 'trace')
-    def runInTime = 30
+    logger('updated: Scheduling first run of poll methods.', 'trace')
+    def runInTime     = 30
     def runInInterval = 30
     pollingMethods().each {
         runIn(runInTime, it.key)
@@ -469,11 +471,7 @@ def handleAppTouch(evt) { // Touch event on Smart App
  * @return
  */
 def handleEnumEvent(evt) {
-    if (state.logEvents) {
-        def measurementType = 'enum'
-        def measurementName = 'states'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'states', 'enum')
 }
 
 /**
@@ -482,11 +480,7 @@ def handleEnumEvent(evt) {
  * @return
  */
 def handleNumberEvent(evt) {
-    if (state.logEvents) {
-        def measurementType = 'number'
-        def measurementName = 'values'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'values', 'number')
 }
 
 /**
@@ -495,11 +489,7 @@ def handleNumberEvent(evt) {
  * @return
  */
 def handleVector3Event(evt) {
-    if (state.logEvents) {
-        def measurementType = 'vector3'
-        def measurementName = 'threeaxes'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'threeaxes', 'vector3')
 }
 
 /**
@@ -508,11 +498,7 @@ def handleVector3Event(evt) {
  * @return
  */
 def handleStringEvent(evt) {
-    if (state.logEvents) {
-        def measurementType = 'string'
-        def measurementName = 'statuses'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'statuses', 'string')
 }
 
 /**
@@ -521,11 +507,7 @@ def handleStringEvent(evt) {
  * @return
  */
 def handleColorMapEvent(evt) {
-    if (state.logEvents) {
-        def measurementType = 'colorMap'
-        def measurementName = 'values'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'values', 'colorMap')
 }
 
 /**
@@ -533,7 +515,7 @@ def handleColorMapEvent(evt) {
  * @param evt
  */
 def handleJsonObjectEvent(evt) {
-    // TODO - write handler if needed
+    // TODO - Write handler for json object events if needed.
 }
 
 /**
@@ -542,11 +524,7 @@ def handleJsonObjectEvent(evt) {
  * @return
  */
 def handleDaylight(evt) {
-    if (state.logEvents) {
-        def measurementType = 'day'
-        def measurementName = 'daylight'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'daylight', 'day')
 }
 
 /**
@@ -555,11 +533,7 @@ def handleDaylight(evt) {
  * @return
  */
 def handleHubStatus(evt) {
-    if (state.logEvents) {
-        def measurementType = 'hub'
-        def measurementName = 'hub'
-        influxLineProtocol(evt, measurementName, measurementType)
-    }
+    if (state?.logEvents) influxLineProtocol(evt, 'hub', 'hub')
 }
 
 /*****************************************************************************************************************
@@ -580,12 +554,9 @@ def pollStatus() {
  */
 def pollStatusHubs() {
     logger('pollStatusHubs: running now.', 'trace')
-    if (state.logStatuses) {
-        def measurementType = 'statHub'
-        def measurementName = 'pollHubs'
-        def bucket = 'statuses'
-        def items = ['placeholder']
-        influxLineProtocol(items, measurementName, measurementType, bucket)
+    if (state?.logStatuses) {
+        def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
+        influxLineProtocol(items, 'pollHubs', 'statHub', 'statuses')
     }
 }
 
@@ -595,12 +566,9 @@ def pollStatusHubs() {
  */
 def pollStatusDevices() {
     logger('pollStatusDevices: running now.', 'trace')
-    if (state.logStatuses) {
-        def measurementType = 'statDev'
-        def measurementName = 'pollDevices'
-        def bucket = 'statuses'
+    if (state?.logStatuses) {
         def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
-        if (items) influxLineProtocol(items, measurementName, measurementType, bucket)
+        if (items) influxLineProtocol(items, 'pollDevices', 'statDev', 'statuses')
     }
 }
 
@@ -613,13 +581,9 @@ def pollStatusDevices() {
  */
 def pollLocations() {
     logger('pollLocations: running now.', 'trace')
-    if (state.logMetadata) {
-        def measurementType = 'local'
-        def measurementName = 'areas'
-        def retentionPolicy = 'metadata'
-        def bucket = 'metadata'
+    if (state?.logMetadata) {
         def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
-        influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        influxLineProtocol(items, 'areas', 'local', 'metadata', 'metadata')
     }
 }
 
@@ -629,13 +593,9 @@ def pollLocations() {
  */
 def pollDevices() {
     logger('pollDevices: running now.', 'trace')
-    if (state.logMetadata) {
-        def measurementType = 'device'
-        def measurementName = 'devices'
-        def retentionPolicy = 'metadata'
-        def bucket          = 'metadata'
+    if (state?.logMetadata) {
         def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
-        if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        if (items) influxLineProtocol(items, 'devices', 'device', 'metadata', 'metadata')
     }
 }
 
@@ -645,15 +605,11 @@ def pollDevices() {
  */
 def pollAttributes() {
     logger('pollAttributes: running now.', 'trace')
-    if (state.logMetadata) {
-        def measurementType = 'attribute'
-        def measurementName = 'attributes'
-        def retentionPolicy = 'metadata'
-        def bucket          = 'metadata'
+    if (state?.logMetadata) {
         selectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
             def parentItem = dev
             def items = getDeviceAttributesSelected(dev)
-            if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy, parentItem)
+            if (items) influxLineProtocol(items, 'attributes', 'attribute', 'metadata', 'metadata', parentItem)
         }
     }
 }
@@ -664,13 +620,9 @@ def pollAttributes() {
  */
 def pollZwavesCCs() {
     logger('pollZwavesCCs: running now', 'trace')
-    if (state.logConfigs) {
-        def measurementType = 'zwCCs'
-        def measurementName = 'zwaveCCs'
-        def retentionPolicy = 'metadata'
-        def bucket          = 'configs'
+    if (state?.logConfigs) {
         def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-        if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        if (items) influxLineProtocol(items, 'zwaveCCs', 'zwCCs', 'configs', 'metadata')
     }
 }
 
@@ -680,13 +632,9 @@ def pollZwavesCCs() {
  */
 def pollZwaves() {
     logger('pollZwaves: running now', 'trace')
-    if (state.logConfigs) {
-        def measurementType = 'zwave'
-        def measurementName = 'zwave'
-        def retentionPolicy = 'metadata'
-        def bucket          = 'configs'
+    if (state?.logConfigs) {
         def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
-        if (items) influxLineProtocol(items, measurementName, measurementType, bucket, retentionPolicy)
+        if (items) influxLineProtocol(items, 'zwave', 'zwave', 'configs', 'metadata')
     }
 }
 
@@ -744,7 +692,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                 }
 
                 if (tag.Value) {
-                    influxLP.append(",${tag.name}=") // TODO - need to allow for "nameOld"? - changed name of tag?
+                    influxLP.append(",${tag.name}=")
                     if (tag?.esc) {
                         influxLP.append("${tag.Value.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
                     }
@@ -804,7 +752,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
 
                     influxLP.append((fieldCount) ? ',' : '')
 
-                    if (field.var != 'multiple') influxLP.append("${field.name}=") // TODO - need to allow for "nameOld"
+                    if (field.var != 'multiple') influxLP.append("${field.name}=")
 
                     if (field.var == 'string') {
                         influxLP.append('\"').append(field.Value).append('\"')
@@ -836,7 +784,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
     /**
      * Check to exclude duplicate events occuring in a short space of time
      * Doesn't seem to be much of a problem now, so not used
-     * TODO Check for duplicate events in InfluxDB
+     * TODO - Check for duplicate events in InfluxDB.
      */
 /*
     if (!(timeElapsed < 500 && evt.value == pEvent.value)) {
@@ -883,12 +831,12 @@ def tags() { [
     [name: 'areaId',        level: 2, clos: 'locationId',            args: 1, type: ['a'], parent: true],
     [name: 'building',      level: 1, clos: 'hubName',               args: 0, type: ['a'], esc: true, ident: true],
     [name: 'buildingId',    level: 2, clos: 'hubId',                 args: 1, type: ['a'], parent: true],
-    [name: 'chamber',       level: 1, clos: 'groupName',             args: 1, type: ['b','c','d','e','f','h','n','q','s','v','y','z'], parent: true, esc: true],
+    [name: 'chamber',       level: 1, clos: 'groupName',             args: 1, type: ['b','c','d','e','f','h','n','q','s','v','y','z'], esc: true, parent: true],
     [name: 'chamberId',     level: 2, clos: 'groupId',               args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true],
-    [name: 'deviceCode',    level: 2, clos: 'deviceCode',            args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true, esc: true, ident: true],
-    [name: 'deviceHand',    level: 1, clos: 'deviceHandlerName',     args: 1, type: ['b','f','y','z'], parent: true, esc: true],
+    [name: 'deviceCode',    level: 2, clos: 'deviceCode',            args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], esc: true, ident: true, parent: true],
+    [name: 'deviceHand',    level: 1, clos: 'deviceHandlerName',     args: 1, type: ['b','f','y','z'], esc: true, parent: true],
     [name: 'deviceId',      level: 2, clos: 'deviceId',              args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true],
-    [name: 'deviceLabel',   level: 1, clos: 'deviceLabel',           args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true, esc: true],
+    [name: 'deviceLabel',   level: 1, clos: 'deviceLabel',           args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], esc: true, parent: true],
     [name: 'deviceType',    level: 1, clos: 'deviceType',            args: 1, type: ['f','q']],
     [name: 'event',         level: 1, clos: 'eventName',             args: 1, type: ['b','c','d','e','h','n','s','v']],
     [name: 'eventType',     level: 1, clos: 'eventType',             args: 1, type: ['b']],
@@ -897,7 +845,7 @@ def tags() { [
     [name: 'identGlobal',   level: 1, clos: 'identGlobalHub',        args: 1, type: ['l','p'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalDevice',     args: 1, type: ['f','q','y','z'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalAttribute',  args: 2, type: ['b'], esc: true, ident: true],
-    [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], parent: true, esc: true,  ident: true],
+    [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], esc: true,  ident: true, parent: true],
  // [name: 'isDigital',     level: 0, clos: 'isDigital',             args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
  // [name: 'isPhysical',    level: 2, clos: 'isPhysical',            args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
     [name: 'listening',     level: 1, clos: 'listeningZwave',        args: 1, type: ['y','z']],
@@ -1007,7 +955,7 @@ def getBatteryChangeDate() { return { it?.latestState('batteryChange')?.date?.ti
 
 /**
  * getBatteryPower - gets whether or not hub is running on batteries (v2 hub)
- * TODO drop this as no longer much use?
+ * TODO - Drop this as no longer much use?
  * @return true/false
  */
 def getBatteryPower() { return { ->
@@ -1161,7 +1109,7 @@ def getDeviceType() { return {
 
 /**
  * getDeviceUse - gets data value 'deviceUse' which indicates what device is being used for
- * TODO Drop this as no longer used?
+ * TODO - Drop this as no longer used in new device handlers?
  * @return device use name
  */
 def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
@@ -1198,10 +1146,10 @@ def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key ==
 def getEventId() { return { it.id } }
 
 /**
- * getEventName - name of event
+ * getEventName - name of event or attribute
  * Puts sunrise and sunset events into common 'daylight' event.
  * If not an event object, returns it (attribute metadata).
- * @return event name
+ * @return event or attribute name
  */
 def getEventName() { return {
     if (isEventObject(it)) {
@@ -1214,14 +1162,14 @@ def getEventName() { return {
 
 /**
  * getEventPrevious - helper
- * TODO - Check that date is the correct field
+ * TODO - Check that date is the correct field?
  * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
  */
 def getEventPrevious() { return {
     def eventPrevious
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
-        eventPrevious = [value: eventData?.previous?.value, date: it?.data?.previous?.date] // Check that date is the correct field
+        eventPrevious = [value: eventData?.previous?.value, date: it?.data?.previous?.date] // Is date the correct field?
     } else {
         def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
         if (history) {
@@ -1522,9 +1470,10 @@ def getStateCurrent() { return { it?.name in ['sunrise', 'sunset'] ? it.name : i
 
 /**
  * getStateDescriptionCurrent - compiles a textual description for state events
+ * TODO - Leave for now: 'sun has risen' / 'sun has set' for 'daylight' events.
  * @return textual description for state events
  */
-def getStateDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${stateCurrent(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
+def getStateDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${stateCurrent(it)} in the ${groupName(it)}." } }
 
 /**
  * getStateDescriptionPrevious - compiles a textual description of change from previous to current event
@@ -1749,7 +1698,7 @@ def getValueDescriptionPrevious() { return {
 /**
  * getValueLastEvent - gets latest value for each attribute reported by a device
  * TODO What about 3axis events etc?
- * TODO Should it be '' rather than 'null'? - ?'null' gets logged to InfluxDB, whereas '' doesn't?
+ * TODO Should it be '' rather than 'null'? - ?'null' gets logged to InfluxDB, whereas '' doesn't? - but indicates not reported
  * @return value
  */
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
@@ -2111,12 +2060,13 @@ private logger(String msg, String level = 'debug') {
  *****************************************************************************************************************/
 /**
  * getSelectedDeviceNames - creates list of device names from list of device objects selected by user
+ * TODO Could this be groupName . displayName to be more helpful?
  * @return
  */
 private getSelectedDeviceNames() {
     def listSelectedDeviceNames = []
     try {
-        listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort() // TODO ? Could this be groupName . displayName to be more helpful?
+        listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort()
     }
     catch (e) {
         logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')

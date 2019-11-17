@@ -421,6 +421,7 @@ def updated() {
 
     /**
      * create a map of room (group) names
+     * TODO Run this as a scheduled method so as to capture any changes outside updated()
      */
     generateGroupNamesMap()
 

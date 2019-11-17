@@ -856,7 +856,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
 }
 
 /*****************************************************************************************************************
- *  Tags Map:
+ *  Tags Map for Line Protocol:
  *****************************************************************************************************************/
 def tags() { [
     [name: 'area',          level: 1, clos: 'locationName',              args: 0, type: ['all'], esc: true, ident: true,],
@@ -897,57 +897,8 @@ def tags() { [
     [name: 'unit',          level: 1, clos: 'unit',                      args: 1, type: ['number', 'vector3'], esc: true,],
 ] }
 
-/**
- * getMetadataDeviceNumber - gets Device Number (if more than one in a room) entered via mobile app
- * @return device number
- */
-def getMetadataDeviceNumber() { return { it?.device?.getDataValue('metadataDeviceNumber') ?: '' } }
-
-/**
- * getMetadataDeviceType - gets Device Type entered via mobile app
- * @return device type
- */
-def getMetadataDeviceType() { return { it?.device?.getDataValue('metadataDeviceType') ?: '' } }
-
-/**
- * getMetadataInventoryCode - gets device Inventory Code entered via mobile app
- * @return inventory code
- */
-def getMetadataInventoryCode() { return { it?.device?.getDataValue('metadataInventoryCode') ?: '' } }
-
-/**
- * getMetadataLocation - gets device location within room entered via mobile app
- * @return device location
- */
-def getMetadataLocation() { return { it?.device?.getDataValue('metadataLocation') ?: '' } }
-
-/**
- * getMetadataRoom - gets name of room device is installed in entered via mobile app
- * @return room name
- */
-def getMetadataRoom() { return { it?.device?.getDataValue('metadataRoom') ?: '' } }
-
-/**
- * getMetadataRoomNumber - gets number of room (if more than one of same type) device is installed in entered via mobile app
- * @return room number
- */
-def getMetadataRoomNumber() { return { it?.device?.getDataValue('metadataRoomNumber') ?: '' } }
-
-/**
- * getMetadataSubLocation - gets device sublocation within room entered via mobile app
- * @return device sublocation
- */
-def getMetadataSubLocation() { return { it?.device?.getDataValue('metadataSubLocation') ?: '' } }
-
-/**
- * getMetadataNotes - gets any metadata notes regarding device installation entered via mobile app
- * @return notes
- */
-def getMetadataNotes() { return { it?.device?.getDataValue('metadataNotes') ?: '' } }
-
-
 /*****************************************************************************************************************
- *  Fields Map:
+ *  Fields Map for Line Protocol:
  *****************************************************************************************************************/
 def fields() { [
     [name: '',           level: 2, clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['zwave'],],
@@ -971,15 +922,15 @@ def fields() { [
     [name: 'nState',     level: 1, clos: 'stateCurrent',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string'],],
     [name: 'nText',      level: 3, clos: 'stateDescriptionCurrent',  var: 'string',   args: 1, type: ['enum'], ident: true,],
     [name: 'nText',      level: 3, clos: 'valueDescriptionCurrent',  var: 'string',   args: 1, type: ['number'], ident: true,],
-    [name: 'nValue',     level: 1, clos: 'currentValue',             var: 'float',    args: 1, type: ['number'],],
+    [name: 'nValue',     level: 1, clos: 'valueCurrent',             var: 'float',    args: 1, type: ['number'],],
     [name: 'nValueRd',   level: 3, clos: 'valueRoundedCurrent',      var: 'string',   args: 1, type: ['number'],],
     [name: 'nX',         level: 1, clos: 'xCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
     [name: 'nY',         level: 1, clos: 'yCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
     [name: 'nZ',         level: 1, clos: 'zCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
-    [name: 'onBattery',  level: 1, clos: 'onBattery',                var: 'boolean',  args: 0, type: ['statHub'],],
+    [name: 'onBattery',  level: 1, clos: 'batteryPower',             var: 'boolean',  args: 0, type: ['statHub'],],
     [name: 'pBin',       level: 2, clos: 'stateBinaryPrevious',      var: 'boolean',  args: 1, type: ['enum'],],
     [name: 'pLevel',     level: 1, clos: 'stateLevelPrevious',       var: 'integer',  args: 1, type: ['enum'],],
-    [name: 'pState',     level: 1, clos: 'previousState',            var: 'string',   args: 1, type: ['enum'],],
+    [name: 'pState',     level: 1, clos: 'statePrevious',            var: 'string',   args: 1, type: ['enum'],],
     [name: 'pText',      level: 3, clos: 'stateDescriptionPrevious', var: 'string',   args: 1, type: ['enum'],],
     [name: 'pText',      level: 3, clos: 'valueDescriptionPrevious', var: 'string',   args: 1, type: ['number'],],
     [name: 'pValue',     level: 1, clos: 'valuePrevious',            var: 'float',    args: 1, type: ['number'],],
@@ -1013,76 +964,117 @@ def fields() { [
 ] }
 
 /*****************************************************************************************************************
- *  Tags Location Details:
+ *  Tag and Field Closures
  *****************************************************************************************************************/
-/**
- * getLocationName - SmartThings account set location
- * @return name of location
- */
-def getLocationName() { return { -> location.name } }
 
 /**
- * getLocationId - SmartThings account location id
- * Contained within an event object, otherwise get via location object.
- * @return location id
+ * getAttributeStates - helper - gets attribute levels from getEventDetails helper
+ * @return map of attribute states and levels
  */
-def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
+def getAttributeStates() { return { eventDetails(it).levels } }
 
 /**
- * getIsEventObject - helper - checks to see if object is an event
- * @return true if event object
+ * getBattery - gets latest value of 'battery' attribute for the device
+ * TODO Could include check of latestValue('powerSource') to establish if device is on battery (if has more than one power source).
+ * @return value of 'battery' attribute
  */
-def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
-
-/*****************************************************************************************************************
- *  Tags Hub Details:
- *****************************************************************************************************************/
-/**
- * getHubName - Name assigned to SmartThings hub
- * @return name of hub
- */
-def getHubName() { return { -> hub().name } }
+def getBattery() { return { it?.latestValue('battery') ?: '' } }
 
 /**
- * getHub - helper - potentially more than one hub at a given location, but currently restricted to one.
- * @return hub object
+ * getBatteryChangeDate - gets value of 'batteryChange' attribute used to log a battery change in the modile app
+ * TODO Should it be '' or 'null' (as per above)?
+ * @return timestamp
  */
-def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
+def getBatteryChangeDate() { return {
+    if (it?.hasAttribute('batteryChange')) {
+        it?.latestState('batteryChange')?.date?.time ?: 0
+    } else {
+        ''
+    }
+}}
 
 /**
- * getHubId - Id of hub.
- * Contained within an event object, otherwise get via hub object.
- * @return hub id
+ * getBatteryPower - gets whether or not hub is running on batteries (v2 hub)
+ * TODO drop this as no longer much use?
+ * @return true/false
  */
-def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
-
-/*****************************************************************************************************************
- *  Tags Group Details:
- *****************************************************************************************************************/
-/**
- * getGroupName - gets name of group (room) device is allocated to via map lookup
- * If not assigned to a group, returns value of state.dwellingType
- * @return name of group (room)
- */
-def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } }
-
-/**
- * getGroupId - gets group id of device
- * Contained within an event object, otherwise get via device object.
- * @return
- */
-def getGroupId() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.groupId ?: 'unassigned'
+def getBatteryPower() { return { ->
+    def battery = hub()?.hub?.getDataValue('batteryInUse')
+    if (battery) {
+        (battery.contains('true')) ? 't' : 'f'
     }
     else {
-        it?.device?.groupId ?: 'unassigned'
+        null
     }
 } }
 
-/*****************************************************************************************************************
- *  Tags Device Details:
- *****************************************************************************************************************/
+/**
+ * getCheckInterval - gets latest value of 'checkInterval' attribute for the device
+ * This is set at twice the device Wake Up Interval and is used to establish whether or not a device is online.
+ * @return value of 'checkInterval'
+ */
+def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
+
+/**
+ * getColorMapCurrent - helper - parses json color map event value
+ * @return parsed color map
+ */
+def getColorMapCurrent() { return { parseJson(it) } }
+
+/**
+ * getCommandClassesList - for Zwave devices, gets report of Command Classes from infoZwave
+ * @return zwave report
+ */
+def getCommandClassesList() { return {
+    def info = infoZwave(it).clone()
+    def cc = info.cc
+    if (info?.ccOut) cc.addAll(info.ccOut)
+    if (info?.sec) cc.addAll(info.sec)
+    def ccList = 'zz' + cc.sort().join('=t,zz') + '=t' // 't' is InfluxLP for 'true'
+    info.remove('zw')
+    info.remove('cc')
+    if (info?.ccOut) info.remove('ccOut')
+    if (info?.sec) info.remove('sec')
+    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
+    info = info.sort()
+    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join ',' }
+    info = toKeyValue(info) + ',' + "${ccList}"
+    info
+} }
+
+/**
+ * getConfigure - gets latest value of 'configure' attribute to report configuration state of device
+ * @return configuration state of the device
+ */
+def getConfigure() { return { it?.latestValue('configure') ?: '' } }
+
+/**
+ * getConfiguredParametersList - gets the data value 'configuredParameters' reported by the device handler for the device
+ * Series of configuration parameter numbers and their values reported for the device.
+ * @return comma-separated series of configuration values
+ */
+def getConfiguredParametersList() { return {
+    def params = it?.device?.getDataValue('configuredParameters')
+    if (params) {
+        params.replaceAll(',', 'i,') + 'i'
+    }
+    else {
+        ''
+    }
+} }
+
+/**
+ * getDaylight - helper gets Sunrise and Sunset time object from SmartThings system
+ * @return sunrise and sunset object
+ */
+def getDaylight() { return { -> getSunriseAndSunset() } }
+
+/**
+ * getDecimalPlaces - helper - gets decimal places to round to from getEventDetails
+ * @return decimal places to round to
+ */
+def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
+
 /**
  * getDeviceCode - code allocated to device in IDE
  * Initially set to join name assigned in device handler.
@@ -1097,6 +1089,13 @@ def getDeviceCode() { return {
         it?.name ?: 'unassigned'
     }
 } }
+
+/**
+ * getDeviceConfigurationType - gets the data value 'configurationType' reported by the device handler for the device
+ * Device handler may configure the device with a particular configuration profile.
+ * @return name of configuration profile
+ */
+def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
 
 /**
  * getDeviceHandlerName - name of device handler given in handler metadata
@@ -1148,9 +1147,43 @@ def getDeviceType() { return {
     }
 } }
 
-/*****************************************************************************************************************
- *  Tags Event Details:
- *****************************************************************************************************************/
+/**
+ * getDeviceUse - gets data value 'deviceUse' which indicates what device is being used for TODO Drop this as no longer used?
+ * @return device use name
+ */
+def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
+
+/**
+ * getDifference - calculates the difference between current and previous event values.
+ * Used in text description, so rounded values are used for consistency.
+ * @return change in value
+ */
+def getDifference() { return { (valueCurrent(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - valuePrevious(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+
+/**
+ * getDifferenceText - gets text term for change in value from previous to current event value
+ * @return text term for change in value
+ */
+def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
+
+/**
+ * getEventDescription - tidies up event description generated by SmartThings system where there is metadata missing
+ * @return event description text
+ */
+def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } }
+
+/**
+ * getEventDetails - helper - looks up details of attribute from map
+ * @return attribute details
+ */
+def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
+
+/**
+ * getEventId - gets unique id of event object
+ * @return event id
+ */
+def getEventId() { return { it.id } }
+
 /**
  * getEventName - name of event
  * Puts sunrise and sunset events into common 'daylight' event.
@@ -1167,16 +1200,116 @@ def getEventName() { return {
 } }
 
 /**
+ * getEventPrevious - helper TODO
+ * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
+ */
+def getEventPrevious() { return {
+    def eventPrevious
+    def eventData = parseJson(it?.data)
+    if (eventData?.previous) {
+        eventPrevious = [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
+    } else {
+        def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
+        if (history) {
+            eventPrevious = history.sort { a, b -> b.date.time <=> a.date.time }.find { previous -> previous.date.time < it.date.time }
+        }
+    }
+    eventPrevious
+} }
+
+/**
+ * getEventSource - indicates where event orignates from
+ * @return even event source
+ */
+def getEventSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
+
+/**
  * getEventType - gets type of event (eg number, string etc)
  * @return event type
  */
 def getEventType() { return { eventDetails(it).type } }
 
 /**
- * getEventDetails - helper - looks up details of attribute from map
- * @return attribute details
+ * getFirmwareVersion - gets firmware of device as reported by the device handler
+ * @return device firmware version
  */
-def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key == eventName(it) }.value } }
+def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
+
+/**
+ * getGroupId - gets group id of device
+ * Contained within an event object, otherwise get via device object.
+ * @return
+ */
+def getGroupId() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.groupId ?: 'unassigned'
+    }
+    else {
+        it?.device?.groupId ?: 'unassigned'
+    }
+} }
+
+/**
+ * getGroupName - gets name of group (room) device is allocated to via map lookup
+ * If not assigned to a group, returns value of state.dwellingType
+ * @return name of group (room)
+ */
+def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } }
+
+/**
+ * getHub - helper - potentially more than one hub at a given location, but currently restricted to one.
+ * @return hub object
+ */
+def getHub() { return { -> location.hubs[0] } } // note: device.hub can get a device's hub
+
+/**
+ * getHubId - Id of hub.
+ * Contained within an event object, otherwise get via hub object.
+ * @return hub id
+ */
+def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
+
+/**
+ * getHubIPaddress - gets IP address of hub on local network
+ * @return ip address
+ */
+def getHubIPaddress() { return { -> hub().localIP } }
+
+/**
+ * getHubName - Name assigned to SmartThings hub
+ * @return name of hub
+ */
+def getHubName() { return { -> hub().name } }
+
+/**
+ * getHubTCPport - gets tcp port of hub on local network
+ * @return tcp port
+ */
+def getHubTCPport() { return { -> hub().localSrvPortTCP } }
+
+/**
+ * getHubType - distinguishes between physical and virtual hubs
+ * @return hub type
+ */
+def getHubType() { return { -> "${hub().type}".toLowerCase() } }
+
+/**
+ * getHueCurrent - gets hue value from color map event value
+ * @return hue value
+ */
+def getHueCurrent() { return { colorMapCurrent(it).hue } }
+
+/**
+ * getIdentifierGlobalAttribute TODO
+ * @return
+ */
+def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
+
+/**
+ * getIdentifierGlobalDevice TODO
+ * @return
+ */
+def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
 
 /**
  * getIdentifierGlobalEvent TODO
@@ -1185,10 +1318,22 @@ def getEventDetails() { return { getAttributeDetail().find { attr -> attr.key ==
 def getIdentifierGlobalEvent() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)} . ${eventName(it).capitalize()}" } } // added capitalize()
 
 /**
+ * getIdentifierGlobalHub TODO
+ * @return
+ */
+def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
+
+/**
  * getIdentifierLocal TODO
  * @return
  */
 def getIdentifierLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
+
+/**
+ * getInfoZwave - helper to get Zwave information about the device
+ * @return zwave information object
+ */
+def getInfoZwave() { return { it?.getZwaveInfo() } }
 
 /**
  * getIsChange - TODO Check unused?
@@ -1204,54 +1349,17 @@ def getIsChange() { return { it?.isStateChange } }
 def getIsDigital() { return { it?.isDigital } }
 
 /**
+ * getIsEventObject - helper - checks to see if object is an event
+ * @return true if event object
+ */
+def getIsEventObject() { return { it?.respondsTo('isStateChange') } }
+
+/**
  * getIsPhysical - used to distinguish between virtual and physical events
  * Unused. TODO Unused
  * @return true if event is physical
  */
 def getIsPhysical() { return { it?.isPhysical } }
-
-/**
- * getEventSource - indicates where event orignates from
- * @return even event source
- */
-def getEventSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
-
-/**
- * getUnit - unit for events that have them
- * @return name of unit
- */
-def getUnit() { return {
-    def unit = it?.unit ?: eventDetails(it).unit
-    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit - causes formatting problems
-    unit
-} }
-
-/*****************************************************************************************************************
- *  Tags Metadata:
- *****************************************************************************************************************/
-/**
- * getHubType - distinguishes between physical and virtual hubs
- * @return hub type
- */
-def getHubType() { return { -> "${hub().type}".toLowerCase() } }
-
-/**
- * getIdentifierGlobalHub TODO
- * @return
- */
-def getIdentifierGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
-
-/**
- * getIdentifierGlobalDevice TODO
- * @return
- */
-def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identifierLocal(it)}" } }
-
-/**
- * getIdentifierGlobalAttribute TODO
- * @return
- */
-def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
 
 /**
  * getListeningZwave - gets type of Zwave device
@@ -1271,10 +1379,90 @@ def getListeningZwave() { return {
 } }
 
 /**
- * getInfoZwave - helper to get Zwave information about the device
- * @return zwave information object
+ * getLatitude - gets latitude for hub according to location set in mobile app
+ * @return latitude
  */
-def getInfoZwave() { return { it?.getZwaveInfo() } }
+def getLatitude() { return { -> location.latitude } }
+
+/**
+ * getLocationId - SmartThings account location id
+ * Contained within an event object, otherwise get via location object.
+ * @return location id
+ */
+def getLocationId() { return { (isEventObject(it)) ? it.locationId : location.id } }
+
+/**
+ * getLocationName - SmartThings account set location
+ * @return name of location
+ */
+def getLocationName() { return { -> location.name } }
+
+/**
+ * getLongitude - gets longitude for hub according to location set in mobile app
+ * @return longitude
+ */
+def getLongitude() { return { -> location.longitude } }
+
+/**
+ * getMessages TODO - sort this to sent and received messages
+ * @return
+ */
+def getMessages() { return { it?.device?.getDataValue('messages') ?: '' } }
+
+
+/**
+ * getMetadataDeviceNumber - gets Device Number (if more than one in a room) entered via mobile app
+ * @return device number
+ */
+def getMetadataDeviceNumber() { return { it?.device?.getDataValue('metadataDeviceNumber') ?: '' } }
+
+/**
+ * getMetadataDeviceType - gets Device Type entered via mobile app
+ * @return device type
+ */
+def getMetadataDeviceType() { return { it?.device?.getDataValue('metadataDeviceType') ?: '' } }
+
+/**
+ * getMetadataInventoryCode - gets device Inventory Code entered via mobile app
+ * @return inventory code
+ */
+def getMetadataInventoryCode() { return { it?.device?.getDataValue('metadataInventoryCode') ?: '' } }
+
+/**
+ * getMetadataLocation - gets device location within room entered via mobile app
+ * @return device location
+ */
+def getMetadataLocation() { return { it?.device?.getDataValue('metadataLocation') ?: '' } }
+
+/**
+ * getMetadataRoom - gets name of room device is installed in entered via mobile app
+ * @return room name
+ */
+def getMetadataRoom() { return { it?.device?.getDataValue('metadataRoom') ?: '' } }
+
+/**
+ * getMetadataRoomNumber - gets number of room (if more than one of same type) device is installed in entered via mobile app
+ * @return room number
+ */
+def getMetadataRoomNumber() { return { it?.device?.getDataValue('metadataRoomNumber') ?: '' } }
+
+/**
+ * getMetadataSubLocation - gets device sublocation within room entered via mobile app
+ * @return device sublocation
+ */
+def getMetadataSubLocation() { return { it?.device?.getDataValue('metadataSubLocation') ?: '' } }
+
+/**
+ * getMetadataNotes - gets any metadata notes regarding device installation entered via mobile app
+ * @return notes
+ */
+def getMetadataNotes() { return { it?.device?.getDataValue('metadataNotes') ?: '' } }
+
+/**
+ * getNetworkSecurityLevel - gets network security level for the device as reported by SmartThings system
+ * @return network security level description
+ */
+def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
 
 /**
  * getPowerSource - gets latest value of powerSource attribute for device
@@ -1283,46 +1471,10 @@ def getInfoZwave() { return { it?.getZwaveInfo() } }
 def getPowerSource() { return { it?.latestValue('powerSource').toLowerCase() ?: 'unknown' } }
 
 /**
- * getTempScale - gets temperature scale set in mobile app
- * @return temperature scale
+ * getSaturationCurrent - gets saturation value from color map event value
+ * @return saturation value
  */
-def getTempScale() { return { -> location?.temperatureScale } }
-
-/**
- * getTimeZoneName - gets timezone according to hub location set in mobile app
- * @return name of timezone
- */
-def getTimeZoneName() { return { -> location?.timeZone.ID } }
-
-/*****************************************************************************************************************
- *  Tags Statuses:
- *****************************************************************************************************************/
-/**
- * getStatusDevice - gets status of device
- * @return device status
- */
-def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
-
-/**
- * getStatusHub - gets status of hub
- * @return hub status
- */
-def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_', '') } }
-
-/*****************************************************************************************************************
- *  Fields Event Details - Current Event:
- *****************************************************************************************************************/
-/**
- * getEventDescription - tidies up event description generated by SmartThings system where there is metadata missing
- * @return event description text
- */
-def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', ' ').replace('{{ locationName }}', "${locationName()}").replace('{{ linkText }}', "${deviceLabel(it)}").replace('{{ value }}', "${it.value}").replace('{{ name }} ', '') } }
-
-/**
- * getEventId - gets unique id of event object
- * @return event id
- */
-def getEventId() { return { it.id } }
+def getSaturationCurrent() { return { colorMapCurrent(it).saturation } }
 
 /**
  * getStateBinaryCurrent - converts attribute level to a binary flag based on level value
@@ -1331,16 +1483,10 @@ def getEventId() { return { it.id } }
 def getStateBinaryCurrent() { return { stateLevelCurrent(it) > 0 ? 't' : 'f' } }
 
 /**
- * getStateLevelCurrent - gets level corresponding to current state of attribute
- * @return attribute level
+ * getStateBinaryPrevious - converts attribute level to a binary flag based on level value
+ * @return previous event attribute true/false
  */
-def getStateLevelCurrent() { return { attributeStates(it).find { level -> level.key == stateCurrent(it) }.value } }
-
-/**
- * getAttributeStates - helper - gets attribute levels from getEventDetails helper
- * @return map of attribute states and levels
- */
-def getAttributeStates() { return { eventDetails(it).levels } }
+def getStateBinaryPrevious() { return { stateLevelPrevious(it) > 0 ? 't' : 'f' } }
 
 /**
  * getStateCurrent - current state of attribute with adjustment for sunrise and sunset events
@@ -1355,185 +1501,89 @@ def getStateCurrent() { return { it?.name in ['sunrise', 'sunset'] ? it.name : i
 def getStateDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${stateCurrent(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
 
 /**
- * getValueDescriptionCurrent - compiles a textual description for value events
- * @return textual description for value events
+ * getStateDescriptionPrevious - compiles a textual description of change from previous to current event
+ * @return textual description of change for state events
  */
-def getValueDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${valueRoundedCurrent(it)} ${unit(it)} in the ${groupName(it)}." } }
+def getStateDescriptionPrevious() { return { "This is a change from ${statePrevious(it)} ${timeElapsedText(it)}." } }
 
 /**
- * getCurrentValue - some device handlers append unit to number, so any units will be removed
- * @return event value as a number
+ * getStateLevelCurrent - gets level corresponding to current state of attribute
+ * @return attribute level
  */
-def getCurrentValue() { return {
-    try {
-        it.numberValue.toBigDecimal()
-    }
-    catch(e) {
-        removeUnit(it)
-    }
-} }
-
-/**
- * removeUnit - helper - removes any units appending to end of event value by a device handler
- * @return number
- */
-def removeUnit() { return {
-    def length = it.value.length()
-    def value
-    def i = 2
-    while (i < (length - 1)) {
-        value = it.value.substring(0, length - i)
-        if (value.isNumber()) break
-        i++
-    }
-    if (i == length) {
-        0
-    }
-    else {
-        value.toBigDecimal()
-    }
-} }
-
-/**
- * getValueRoundedCurrent - helper - rounds current event value
- * @return rounder number
- */
-def getValueRoundedCurrent() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
-
-/**
- * getDecimalPlaces - helper - gets decimal places to round to from getEventDetails
- * @return decimal places to round to
- */
-def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
-
-/**
- * getHueCurrent - gets hue value from color map event value
- * @return hue value
- */
-def getHueCurrent() { return { currentColorMap(it).hue } }
-
-/**
- * getSaturationCurrent - gets saturation value from color map event value
- * @return saturation value
- */
-def getSaturationCurrent() { return { currentColorMap(it).saturation } }
-
-/**
- * getCurrentColorMap - helper - parses json color map event value
- * @return parsed color map
- */
-def getCurrentColorMap() { return { parseJson(it) } }
-
-/**
- * getXCurrent - gets x value for 3-axis events, converted to g unit
- * @return x value
- */
-def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
-
-/**
- * getYCurrent - gets y value for 3-axis events, converted to g unit
- * @return y value
- */
-def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
-
-/**
- * getZCurrent - gets z value for 3-axis events, converted to g unit
- * @return z value
- */
-def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
-
-/**
- * getGravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
- * @return g unit conversion factor value
- */
-def getGravityFactor() { return { -> (1024) } }
-
-/*****************************************************************************************************************
- *  Fields Event Details - Previous Event:
- *****************************************************************************************************************/
-/**
- * getStateBinaryPrevious - converts attribute level to a binary flag based on level value
- * @return previous event attribute true/false
- */
-def getStateBinaryPrevious() { return { stateLevelPrevious(it) > 0 ? 't' : 'f' } }
+def getStateLevelCurrent() { return { attributeStates(it).find { level -> level.key == stateCurrent(it) }.value } }
 
 /**
  * getStateLevelPrevious - gets level corresponding to current state of attribute
  * @return previous event attribute level
  */
-def getStateLevelPrevious() { return { attributeStates(it)?.find { level -> level.key == previousState(it) }?.value } }
+def getStateLevelPrevious() { return { attributeStates(it)?.find { level -> level.key == statePrevious(it) }?.value } }
 
 /**
- * getPreviousState - previous state of attribute TODO Check sunrise/sunset conversion needed? - Don't think so.
+ * getStatePrevious - previous state of attribute TODO Check sunrise/sunset conversion needed? - Don't think so.
  * @return previous event attribute state
  */
-def getPreviousState() { return { previousEvent(it)?.value } }
+def getStatePrevious() { return { eventPrevious(it)?.value } }
 
 /**
- * getPreviousEvent - helper TODO
- * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
+ * getStatusDevice - gets status of device
+ * @return device status
  */
-def getPreviousEvent() { return {
-    def previousEvent
-    def eventData = parseJson(it?.data)
-    if (eventData?.previous) {
-        previousEvent = [value: eventData?.previous?.value, date: it?.data?.previous?.date] // TODO - Check that date is the correct field
-    } else {
-        def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
-        if (history) {
-            previousEvent = history.sort { a, b -> b.date.time <=> a.date.time }.find { previous -> previous.date.time < it.date.time }
-        }
-    }
-    previousEvent
-} }
+def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
 
 /**
- * getStateDescriptionPrevious - compiles a textual description of change from previous to current event
- * @return textual description of change for state events
+ * getStatusDeviceBinary - reports if device is active/online as a binary flag
+ * @return true/false
  */
-def getStateDescriptionPrevious() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
+def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
 
 /**
- * getValueDescriptionPrevious - compiles a textual description of change from previous to current event
- * @return textual description of change for value events
+ * getStatusDeviceLevel - reports if device is active/online as a level
+ * @return
  */
-def getValueDescriptionPrevious() { return {
-    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
-    "This is ${changeAbs} compared to ${timeElapsedText(it)}."
-} }
+def getStatusDeviceLevel() { return { (statusDevice(it) in ['active', 'online']) ? 1 : -1 } }
 
 /**
- * getValuePrevious - some device handlers append unit to number, so any units will be removed
- * @return previous event value as a number
+ * getStatusHub - gets status of hub
+ * @return hub status
  */
-def getValuePrevious() { return {
-    try {
-        previousEvent(it)?.numberValue.toBigDecimal()
-    }
-    catch(e) {
-        removeUnit(previousEvent(it))
-    }
-} }
-
-/*****************************************************************************************************************
- *  Fields Event Details - Value Difference:
- *****************************************************************************************************************/
-/**
- * getDifferenceText - gets text term for change in value from previous to current event value
- * @return text term for change in value
- */
-def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (difference(it) < 0) ? 'decreased' : 'unchanged' } }
+def getStatusHub() { return { -> "${hub()?.status}".toLowerCase().replaceAll('_', '') } }
 
 /**
- * getDifference - calculates the difference between current and previous event values.
- * Used in text description, so rounded values are used for consistency.
- * @return change in value
+ * getStatusHubBinary - reports if hub is active as a binary flag
+ * @return true/false
  */
-def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - valuePrevious(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
 
-/*****************************************************************************************************************
- *  Fields Event Details - Time Difference:
- *****************************************************************************************************************/
+/**
+ * getStatusHubLevel - reports if hub is active as a level
+ * @return
+ */
+def getStatusHubLevel() { return { (statusHub() == 'active') ? 1 : -1 } }
+
+/**
+ * getSunrise - gets time of sunrise depending on hub location set in mobile app
+ * @return time of sunrise
+ */
+def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
+
+/**
+ * getSunset - gets time of sunset depending on hub location set in mobile app
+ * @return time of sunset
+ */
+def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
+
+/**
+ * getTempScale - gets temperature scale set in mobile app
+ * @return temperature scale
+ */
+def getTempScale() { return { -> location?.temperatureScale } }
+
+/**
+ * getTimeElapsed - gets the elapsed time (in milliseconds) between current and previous events
+ * @return time difference in milliseconds
+ */
+def getTimeElapsed() { return { timestamp(it) - eventPrevious(it).date.time - timeOffsetPrevious(it) } }
+
 /**
  * getTimeElapsedText - converts the elapsed time between current and previous events to an appropriate text description
  * @return text description of elapsed time
@@ -1561,17 +1611,24 @@ def getTimeElapsedText() { return {
 } }
 
 /**
- * getTimeElapsed - gets the elapsed time (in milliseconds) between current and previous events
- * @return time difference in milliseconds
+ * getTimeLastActivity - gets timestamp of last activity reported by a device
+ * @return timestamp
  */
-def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - timeOffsetPrevious(it) } }
+def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
 
 /**
- * getTimestamp - gets timestamp (in milliseconds) of event TODO Check the logic/reasoning for this.
- * The timestamps of motion events are adjusted by an offset amount to account for the response time of the sensor.
- * @return
+ * getTimeLastEvent - gets timestamp of latest value for each attribute reported by a device
+ * TODO Should this be 'null' or '' rather than zero?
+ * @return timestamp
  */
-def getTimestamp() { return { it.date.time - timeOffsetCurrent(it) } }
+def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.time ?: 0 } }
+
+/**
+ * getTimeOfDay - calculates elapsed time of day in milliseconds
+ * Used in time-weighted-average calculations.
+ * @return time of day in milliseconds
+ */
+def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } }
 
 /**
  * getTimeOffsetCurrent - helper - calculates any time offset for current event
@@ -1589,17 +1646,14 @@ def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
  * getTimeOffsetPrevious - helper - calculates any time offset for previous event
  * @return
  */
-def getTimeOffsetPrevious() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
+def getTimeOffsetPrevious() { return { (eventName(it) == 'motion' && statePrevious(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
-/*****************************************************************************************************************
- *  Fields Event Details - Time Values:
- *****************************************************************************************************************/
 /**
- * getTimeOfDay - calculates elapsed time of day in milliseconds
- * Used in time-weighted-average calculations.
- * @return time of day in milliseconds
+ * getTimestamp - gets timestamp (in milliseconds) of event TODO Check the logic/reasoning for this.
+ * The timestamps of motion events are adjusted by an offset amount to account for the response time of the sensor.
+ * @return
  */
-def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time } }
+def getTimestamp() { return { it.date.time - timeOffsetCurrent(it) } }
 
 /**
  * getTimeWrite - gets timestamp of when an event is processed by logger app
@@ -1607,9 +1661,6 @@ def getTimeOfDay() { return { timestamp(it) - it.date.clone().clearTime().time }
  */
 def getTimeWrite() { return { -> new Date().time } }
 
-/*****************************************************************************************************************
- *  Fields Event Details - Weighted Values:
- *****************************************************************************************************************/
 /**
  * getTimeWeightedLevel - calculates time-weighted value for state events using state level
  * @return time-weighted state level
@@ -1622,129 +1673,49 @@ def getTimeWeightedLevel() { return {  stateLevelPrevious(it) * timeElapsed(it) 
  */
 def getTimeWeightedValue() { return {  valuePrevious(it) * timeElapsed(it) } }
 
-/*****************************************************************************************************************
- *  Fields Metadata:
- *****************************************************************************************************************/
 /**
- * getConfiguredParametersList - gets the data value 'configuredParameters' reported by the device handler for the device
- * Series of configuration parameter numbers and their values reported for the device.
- * @return comma-separated series of configuration values
+ * getTimeZoneName - gets timezone according to hub location set in mobile app
+ * @return name of timezone
  */
-def getConfiguredParametersList() { return {
-    def params = it?.device?.getDataValue('configuredParameters')
-    if (params) {
-        params.replaceAll(',', 'i,') + 'i'
+def getTimeZoneName() { return { -> location?.timeZone.ID } }
+
+/**
+ * getUnit - unit for events that have them
+ * @return name of unit
+ */
+def getUnit() { return {
+    def unit = it?.unit ?: eventDetails(it).unit
+    if (it.name == 'temperature') unit.replaceAll('\u00B0', '') // remove circle from C unit - causes formatting problems
+    unit
+} }
+
+/**
+ * getValueCurrent - some device handlers append unit to number, so any units will be removed
+ * @return event value as a number
+ */
+def getValueCurrent() { return {
+    try {
+        it.numberValue.toBigDecimal()
     }
-    else {
-        ''
+    catch(e) {
+        removeUnit(it)
     }
 } }
 
 /**
- * getBattery - gets latest value of 'battery' attribute for the device
- * TODO Could include check of latestValue('powerSource') to establish if device is on battery (if has more than one power source).
- * @return value of 'battery' attribute
+ * getValueDescriptionCurrent - compiles a textual description for value events
+ * @return textual description for value events
  */
-def getBattery() { return { it?.latestValue('battery') ?: '' } }
+def getValueDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${valueRoundedCurrent(it)} ${unit(it)} in the ${groupName(it)}." } }
 
 /**
- * getCheckInterval - gets latest value of 'checkInterval' attribute for the device
- * This is set at twice the device Wake Up Interval and is used to establish whether or not a device is online.
- * @return value of 'checkInterval'
+ * getValueDescriptionPrevious - compiles a textual description of change from previous to current event
+ * @return textual description of change for value events
  */
-def getCheckInterval() { return { it?.latestValue('checkInterval') ?: '' } }
-
-/**
- * getDeviceConfigurationType - gets the data value 'configurationType' reported by the device handler for the device
- * Device handler may configure the device with a particular configuration profile.
- * @return name of configuration profile
- */
-def getDeviceConfigurationType() { return { it?.device?.getDataValue('configurationType') ?: '' } }
-
-/**
- * getConfigure - gets latest value of 'configure' attribute to report configuration state of device
- * @return configuration state of the device
- */
-def getConfigure() { return { it?.latestValue('configure') ?: '' } }
-
-/**
- * getDeviceUse - gets data value 'deviceUse' which indicates what device is being used for TODO Drop this as no longer used?
- * @return device use name
- */
-def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }
-
-/**
- * getFirmwareVersion - gets firmware of device as reported by the device handler
- * @return device firmware version
- */
-def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
-
-/**
- * getLatitude - gets latitude for hub according to location set in mobile app
- * @return latitude
- */
-def getLatitude() { return { -> location.latitude } }
-
-/**
- * getLongitude - gets longitude for hub according to location set in mobile app
- * @return longitude
- */
-def getLongitude() { return { -> location.longitude } }
-
-/**
- * getMessages TODO - sort this to sent and received messages
- * @return
- */
-def getMessages() { return { it?.device?.getDataValue('messages') ?: '' } }
-
-/**
- * getNetworkSecurityLevel - gets network security level for the device as reported by SmartThings system
- * @return network security level description
- */
-def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecurityLevel')?.replace('ZWAVE_', '')?.replaceAll('_', ' ') ?: '' } }
-
-/**
- * getZwaveSecure - gets whether device is securely included or not
- * @return true/false
- */
-def getZwaveSecure() { return { (infoZwave(it)?.zw.endsWith('s')) ? 't' : 'f' } }
-
-/**
- * getSunrise - gets time of sunrise depending on hub location set in mobile app
- * @return time of sunrise
- */
-def getSunrise() { return { -> daylight().sunrise.format('HH:mm', location.timeZone) } }
-
-/**
- * getSunset - gets time of sunset depending on hub location set in mobile app
- * @return time of sunset
- */
-def getSunset() { return { -> daylight().sunset.format('HH:mm', location.timeZone) } }
-
-/**
- * getDaylight - helper gets Sunrise and Sunset time object from SmartThings system
- * @return sunrise and sunset object
- */
-def getDaylight() { return { -> getSunriseAndSunset() } }
-
-/**
- * getHubTCPport - gets tcp port of hub on local network
- * @return tcp port
- */
-def getHubTCPport() { return { -> hub().localSrvPortTCP } }
-
-/**
- * getTimeLastActivity - gets timestamp of last activity reported by a device
- * @return timestamp
- */
-def getTimeLastActivity() { return { it?.lastActivity?.time ?: 0 } }
-
-/**
- * getTimeLastEvent - gets timestamp of latest value for each attribute reported by a device
- * TODO Should this be 'null' or '' rather than zero?
- * @return timestamp
- */
-def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.time ?: 0 } }
+def getValueDescriptionPrevious() { return {
+    def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
+    "This is ${changeAbs} compared to ${timeElapsedText(it)}."
+} }
 
 /**
  * getValueLastEvent - gets latest value for each attribute reported by a device TODO What about 3axis events etc?
@@ -1754,10 +1725,47 @@ def getTimeLastEvent() { return { dev, attr -> dev?.latestState(attr)?.date?.tim
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
 
 /**
+ * getValuePrevious - some device handlers append unit to number, so any units will be removed
+ * @return previous event value as a number
+ */
+def getValuePrevious() { return {
+    try {
+        eventPrevious(it)?.numberValue.toBigDecimal()
+    }
+    catch(e) {
+        removeUnit(eventPrevious(it))
+    }
+} }
+
+/**
+ * getValueRoundedCurrent - helper - rounds current event value
+ * @return rounder number
+ */
+def getValueRoundedCurrent() { return { valueCurrent(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+
+/**
  * getWakeUpInterval - wake up interval of the device
  * @return duration (seconds)
  */
 def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?: '' } }
+
+/**
+ * getXCurrent - gets x value for 3-axis events, converted to g unit
+ * @return x value
+ */
+def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
+
+/**
+ * getYCurrent - gets y value for 3-axis events, converted to g unit
+ * @return y value
+ */
+def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
+
+/**
+ * getZCurrent - gets z value for 3-axis events, converted to g unit
+ * @return z value
+ */
+def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
 
 /**
  * getZigbeePowerLevel - power level for Zigbee devices
@@ -1772,86 +1780,37 @@ def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
 /**
- * getCommandClassesList - for Zwave devices, gets report of Command Classes from infoZwave
- * @return zwave report
- */
-def getCommandClassesList() { return {
-    def info = infoZwave(it).clone()
-    def cc = info.cc
-    if (info?.ccOut) cc.addAll(info.ccOut)
-    if (info?.sec) cc.addAll(info.sec)
-    def ccList = 'zz' + cc.sort().join('=t,zz') + '=t' // 't' is InfluxLP for 'true'
-    info.remove('zw')
-    info.remove('cc')
-    if (info?.ccOut) info.remove('ccOut')
-    if (info?.sec) info.remove('sec')
-    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
-    info = info.sort()
-    def toKeyValue = { it.collect { /$it.key="$it.value"/ } join ',' }
-    info = toKeyValue(info) + ',' + "${ccList}"
-    info
-} }
-
-/*****************************************************************************************************************
- *  Fields Statuses:
- *****************************************************************************************************************/
-/**
- * getHubIPaddress - gets IP address of hub on local network
- * @return ip address
- */
-def getHubIPaddress() { return { -> hub().localIP } }
-
-/**
- * getOnBattery - gets whether or not hub is running on batteries (v2 hub)
- * TODO drop this as no longer much use?
+ * getZwaveSecure - gets whether device is securely included or not
  * @return true/false
  */
-def getOnBattery() { return { ->
-    def battery = hub()?.hub?.getDataValue('batteryInUse')
-    if (battery) {
-        (battery.contains('true')) ? 't' : 'f'
+def getZwaveSecure() { return { (infoZwave(it)?.zw.endsWith('s')) ? 't' : 'f' } }
+
+/**
+ * gravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
+ * @return g unit conversion factor value
+ */
+def gravityFactor() { return { -> (1024) } }
+
+/**
+ * removeUnit - helper - removes any units appending to end of event value by a device handler
+ * @return number
+ */
+def removeUnit() { return {
+    def length = it.value.length()
+    def value
+    def i = 2
+    while (i < (length - 1)) {
+        value = it.value.substring(0, length - i)
+        if (value.isNumber()) break
+        i++
+    }
+    if (i == length) {
+        0
     }
     else {
-        null
+        value.toBigDecimal()
     }
 } }
-
-/**
- * getStatusDeviceBinary - reports if device is active/online as a binary flag
- * @return true/false
- */
-def getStatusDeviceBinary() { return { (statusDevice(it) in ['active', 'online']) ? 't' : 'f' } }
-
-/**
- * getStatusHubBinary - reports if hub is active as a binary flag
- * @return true/false
- */
-def getStatusHubBinary() { return { (statusHub() == 'active') ? 't' : 'f' } }
-
-/**
- * getStatusDeviceLevel - reports if device is active/online as a level
- * @return
- */
-def getStatusDeviceLevel() { return { (statusDevice(it) in ['active', 'online']) ? 1 : -1 } }
-
-/**
- * getStatusHubLevel - reports if hub is active as a level
- * @return
- */
-def getStatusHubLevel() { return { (statusHub() == 'active') ? 1 : -1 } }
-
-/**
- * getBatteryChangeDate - gets value of 'batteryChange' attribute used to log a battery change in the modile app
- * TODO Should it be '' or 'null' (as per above)?
- * @return timestamp
- */
-def getBatteryChangeDate() { return {
-    if (it?.hasAttribute('batteryChange')) {
-        it?.latestState('batteryChange')?.date?.time ?: 0
-    } else {
-        ''
-    }
-}}
 
 /*****************************************************************************************************************
  *  Post Data to InfluxDB (postToInfluxDBLocal, handleInfluxDBResponseLocal, postToInfluxDBRemote, handleInfluxDBResponseRemote)

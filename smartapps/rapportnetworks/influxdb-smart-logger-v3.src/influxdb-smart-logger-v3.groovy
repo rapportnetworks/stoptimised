@@ -859,56 +859,92 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
  *  Tags Map:
  *****************************************************************************************************************/
 def tags() { [
-    [name: 'area',        level: 1, clos: 'locationName',              args: 0, type: ['all'], esc: true, ident: true,],
-    [name: 'areaId',      level: 2, clos: 'locationId',                args: 1, type: ['all'], parent: true,],
-    [name: 'building',    level: 1, clos: 'hubName',                   args: 0, type: ['all'], esc: true, ident: true,],
-    [name: 'buildingId',  level: 2, clos: 'hubId',                     args: 1, type: ['all'], parent: true,],
-    [name: 'chamber',     level: 1, clos: 'groupName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true,],
-    [name: 'chamberId',   level: 2, clos: 'groupId',                   args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true,],
-    [name: 'deviceCode',  level: 2, clos: 'deviceCode',                args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true, ident: true,],
-    [name: 'deviceHand',  level: 1, clos: 'deviceHandlerName',         args: 1, type: ['attribute', 'device', 'zwave', 'zwCCs'], parent: true, esc: true,],
-    [name: 'deviceId',    level: 2, clos: 'deviceId',                  args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true,],
-    [name: 'deviceLabel', level: 1, clos: 'deviceLabel',               args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true,],
-    [name: 'deviceType',  level: 1, clos: 'deviceType',                args: 1, type: ['device', 'statDev'],],
-    [name: 'event',       level: 1, clos: 'eventName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],],
-    [name: 'eventType',   level: 1, clos: 'eventType',                 args: 1, type: ['attribute'],],
-    [name: 'hubType',     level: 1, clos: 'hubType',                   args: 0, type: ['local', 'statHub'],],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalEvent',     args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'], esc: true, ident: true,],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalHub',       args: 1, type: ['local', 'statHub'], esc: true, ident: true,],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalDevice',    args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs'], esc: true, ident: true,],
-    [name: 'identGlobal', level: 1, clos: 'identifierGlobalAttribute', args: 2, type: ['attribute'], esc: true, ident: true,],
-    [name: 'identLocal',  level: 1, clos: 'identifierLocal',           args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], parent: true, esc: true,  ident: true,],
-    [name: 'listening',   level: 1, clos: 'zwaveListening',            args: 1, type: ['zwave', 'zwCCs'],],
-    [name: 'mdDeviceNumber',  level: 2, clos: 'metadataDeviceNumber',  args: 1, ],
-    [name: 'mdDeviceType',    level: 2, clos: 'metadataDeviceType',    args: 1, ],
-    [name: 'mdInventoryCode', level: 2, clos: 'metadataInventoryCode', args: 1, ],
-    [name: 'mdLocation',      level: 2, clos: 'metadataLocation',      args: 1, ],
-    [name: 'mdRoom',          level: 2, clos: 'metadataRoom',          args: 1, ],
-    [name: 'mdRoomNumber',    level: 2, clos: 'metadataRoomNumber',    args: 1, ],
-    [name: 'mdSubLocation',   level: 2, clos: 'metadataSubLocation',   args: 1, ],
-    [name: 'power',       level: 1, clos: 'powerSource',               args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs'],],
-    [name: 'source',      level: 2, clos: 'source',                    args: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3'],],
-    [name: 'status',      level: 1, clos: 'statusDevice',              args: 1, type: ['attribute', 'device', 'statDev', 'zwave', 'zwCCs'], parent: true,],
-    [name: 'statusHub',   level: 1, clos: 'statusHub',                 args: 0, type: ['local', 'statDev', 'statHub'],],
-    [name: 'tempScale',   level: 2, clos: 'tempScale',                 args: 0, type: ['local'],],
-    [name: 'timeZone',    level: 2, clos: 'timeZoneName',              args: 0, type: ['local'],],
-    [name: 'unit',        level: 1, clos: 'unit',                      args: 1, type: ['number', 'vector3'], esc: true,],
-    // [name: 'isDigital',   level: 0, clos: 'isDigital',                 args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],], // unused?
-    // [name: 'isPhysical',  level: 2, clos: 'isPhysical',                args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],], // unused?
+    [name: 'area',          level: 1, clos: 'locationName',              args: 0, type: ['all'], esc: true, ident: true,],
+    [name: 'areaId',        level: 2, clos: 'locationId',                args: 1, type: ['all'], parent: true,],
+    [name: 'building',      level: 1, clos: 'hubName',                   args: 0, type: ['all'], esc: true, ident: true,],
+    [name: 'buildingId',    level: 2, clos: 'hubId',                     args: 1, type: ['all'], parent: true,],
+    [name: 'chamber',       level: 1, clos: 'groupName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'device', 'enum', 'hub', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true,],
+    [name: 'chamberId',     level: 2, clos: 'groupId',                   args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true,],
+    [name: 'deviceCode',    level: 2, clos: 'deviceCode',                args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true, ident: true,],
+    [name: 'deviceHand',    level: 1, clos: 'deviceHandlerName',         args: 1, type: ['attribute', 'device', 'zwave', 'zwCCs'], parent: true, esc: true,],
+    [name: 'deviceId',      level: 2, clos: 'deviceId',                  args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true,],
+    [name: 'deviceLabel',   level: 1, clos: 'deviceLabel',               args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3', 'zwave', 'zwCCs'], parent: true, esc: true,],
+    [name: 'deviceType',    level: 1, clos: 'deviceType',                args: 1, type: ['device', 'statDev'],],
+    [name: 'event',         level: 1, clos: 'eventName',                 args: 1, type: ['attribute', 'colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],],
+    [name: 'eventType',     level: 1, clos: 'eventType',                 args: 1, type: ['attribute'],],
+    [name: 'hubType',       level: 1, clos: 'hubType',                   args: 0, type: ['local', 'statHub'],],
+    [name: 'identGlobal',   level: 1, clos: 'identifierGlobalEvent',     args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'], esc: true, ident: true,],
+    [name: 'identGlobal',   level: 1, clos: 'identifierGlobalHub',       args: 1, type: ['local', 'statHub'], esc: true, ident: true,],
+    [name: 'identGlobal',   level: 1, clos: 'identifierGlobalDevice',    args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs'], esc: true, ident: true,],
+    [name: 'identGlobal',   level: 1, clos: 'identifierGlobalAttribute', args: 2, type: ['attribute'], esc: true, ident: true,],
+    [name: 'identLocal',    level: 1, clos: 'identifierLocal',           args: 1, type: ['attribute', 'colorMap', 'device', 'enum', 'number', 'statDev', 'string', 'vector3'], parent: true, esc: true,  ident: true,],
+ // [name: 'isDigital',     level: 0, clos: 'isDigital',                 args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],],
+ // [name: 'isPhysical',    level: 2, clos: 'isPhysical',                args: 1, type: ['colorMap', 'day', 'enum', 'hub', 'number', 'string', 'vector3'],],
+    [name: 'listening',     level: 1, clos: 'listeningZwave',            args: 1, type: ['zwave', 'zwCCs'],],
+    [name: 'mdDeviceNo',    level: 2, clos: 'metadataDeviceNumber',      args: 1, type: [],],
+    [name: 'mdDeviceType',  level: 2, clos: 'metadataDeviceType',        args: 1, type: [], esc: true,],
+    [name: 'mdInventCode',  level: 2, clos: 'metadataInventoryCode',     args: 1, type: [], esc: true,],
+    [name: 'mdLocation',    level: 2, clos: 'metadataLocation',          args: 1, type: [], esc: true,],
+    [name: 'mdRoom',        level: 2, clos: 'metadataRoom',              args: 1, type: [], esc: true,],
+    [name: 'mdRoomNo',      level: 2, clos: 'metadataRoomNumber',        args: 1, type: [],],
+    [name: 'mdSubLocation', level: 2, clos: 'metadataSubLocation',       args: 1, type: [], esc: true,],
+    [name: 'power',         level: 1, clos: 'powerSource',               args: 1, type: ['device', 'statDev', 'zwave', 'zwCCs'],],
+    [name: 'source',        level: 2, clos: 'eventSource',                    args: 1, type: ['colorMap', 'enum', 'number', 'string', 'vector3'],],
+    [name: 'status',        level: 1, clos: 'statusDevice',              args: 1, type: ['attribute', 'device', 'statDev', 'zwave', 'zwCCs'], parent: true,],
+    [name: 'statusHub',     level: 1, clos: 'statusHub',                 args: 0, type: ['local', 'statDev', 'statHub'],],
+    [name: 'tempScale',     level: 2, clos: 'tempScale',                 args: 0, type: ['local'],],
+    [name: 'timeZone',      level: 2, clos: 'timeZoneName',              args: 0, type: ['local'],],
+    [name: 'unit',          level: 1, clos: 'unit',                      args: 1, type: ['number', 'vector3'], esc: true,],
 ] }
 
-/*
-getMetadataDeviceNumber
-getMetadataDeviceType
-getMetadataInventoryCode
-getMetadataLocation
-getMetadataRoom
-getMetadataRoomNumber
-getMetadataSubLocation
+/**
+ * getMetadataDeviceNumber - gets Device Number (if more than one in a room) entered via mobile app
+ * @return device number
+ */
+def getMetadataDeviceNumber() { return { it?.device?.getDataValue('metadataDeviceNumber') ?: '' } }
 
-[name: 'mdNotes', level: 2, clos: 'getMetadataNotes',],
-getMetadataNotes
-*/
+/**
+ * getMetadataDeviceType - gets Device Type entered via mobile app
+ * @return device type
+ */
+def getMetadataDeviceType() { return { it?.device?.getDataValue('metadataDeviceType') ?: '' } }
+
+/**
+ * getMetadataInventoryCode - gets device Inventory Code entered via mobile app
+ * @return inventory code
+ */
+def getMetadataInventoryCode() { return { it?.device?.getDataValue('metadataInventoryCode') ?: '' } }
+
+/**
+ * getMetadataLocation - gets device location within room entered via mobile app
+ * @return device location
+ */
+def getMetadataLocation() { return { it?.device?.getDataValue('metadataLocation') ?: '' } }
+
+/**
+ * getMetadataRoom - gets name of room device is installed in entered via mobile app
+ * @return room name
+ */
+def getMetadataRoom() { return { it?.device?.getDataValue('metadataRoom') ?: '' } }
+
+/**
+ * getMetadataRoomNumber - gets number of room (if more than one of same type) device is installed in entered via mobile app
+ * @return room number
+ */
+def getMetadataRoomNumber() { return { it?.device?.getDataValue('metadataRoomNumber') ?: '' } }
+
+/**
+ * getMetadataSubLocation - gets device sublocation within room entered via mobile app
+ * @return device sublocation
+ */
+def getMetadataSubLocation() { return { it?.device?.getDataValue('metadataSubLocation') ?: '' } }
+
+/**
+ * getMetadataNotes - gets any metadata notes regarding device installation entered via mobile app
+ * @return notes
+ */
+def getMetadataNotes() { return { it?.device?.getDataValue('metadataNotes') ?: '' } }
+
 
 /*****************************************************************************************************************
  *  Fields Map:
@@ -926,27 +962,27 @@ def fields() { [
     [name: 'iP',         level: 1, clos: 'hubIPaddress',             var: 'string',   args: 0, type: ['local', 'statHub'],],
     [name: 'latitude',   level: 1, clos: 'latitude',                 var: 'float',    args: 0, type: ['local'], ident: true,],
     [name: 'longitude',  level: 1, clos: 'longitude',                var: 'float',    args: 0, type: ['local'], ident: true,],
-    // [name: 'mdNotes', ],
+   // [name: 'mdNotes', level: 2, clos: 'getMetadataNotes', var: 'string', args: 1, type: [],],
     [name: 'messages',   level: 1, clos: 'messages',                 var: 'integer',  args: 1, type: ['statDev'],],
-    [name: 'nBin',       level: 2, clos: 'currentStateBinary',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub'],],
-    [name: 'nHue',       level: 1, clos: 'currentHue',               var: 'integer',  args: 1, type: ['colorMap'],],
-    [name: 'nLevel',     level: 1, clos: 'currentStateLevel',        var: 'integer',  args: 1, type: ['day', 'enum', 'hub'],],
-    [name: 'nSat',       level: 1, clos: 'currentSat',               var: 'integer',  args: 1, type: ['colorMap'],],
-    [name: 'nState',     level: 1, clos: 'currentState',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string'],],
-    [name: 'nText',      level: 3, clos: 'currentStateDescription',  var: 'string',   args: 1, type: ['enum'], ident: true,],
-    [name: 'nText',      level: 3, clos: 'currentValueDescription',  var: 'string',   args: 1, type: ['number'], ident: true,],
+    [name: 'nBin',       level: 2, clos: 'stateBinaryCurrent',       var: 'boolean',  args: 1, type: ['day', 'enum', 'hub'],],
+    [name: 'nHue',       level: 1, clos: 'hueCurrent',               var: 'integer',  args: 1, type: ['colorMap'],],
+    [name: 'nLevel',     level: 1, clos: 'stateLevelCurrent',        var: 'integer',  args: 1, type: ['day', 'enum', 'hub'],],
+    [name: 'nSat',       level: 1, clos: 'saturationCurrent',               var: 'integer',  args: 1, type: ['colorMap'],],
+    [name: 'nState',     level: 1, clos: 'stateCurrent',             var: 'string',   args: 1, type: ['day', 'enum', 'hub', 'string'],],
+    [name: 'nText',      level: 3, clos: 'stateDescriptionCurrent',  var: 'string',   args: 1, type: ['enum'], ident: true,],
+    [name: 'nText',      level: 3, clos: 'valueDescriptionCurrent',  var: 'string',   args: 1, type: ['number'], ident: true,],
     [name: 'nValue',     level: 1, clos: 'currentValue',             var: 'float',    args: 1, type: ['number'],],
-    [name: 'nValueRd',   level: 3, clos: 'currentValueRounded',      var: 'string',   args: 1, type: ['number'],],
-    [name: 'nX',         level: 1, clos: 'currentX',                 var: 'float',    args: 1, type: ['vector3'],],
-    [name: 'nY',         level: 1, clos: 'currentY',                 var: 'float',    args: 1, type: ['vector3'],],
-    [name: 'nZ',         level: 1, clos: 'currentZ',                 var: 'float',    args: 1, type: ['vector3'],],
+    [name: 'nValueRd',   level: 3, clos: 'valueRoundedCurrent',      var: 'string',   args: 1, type: ['number'],],
+    [name: 'nX',         level: 1, clos: 'xCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
+    [name: 'nY',         level: 1, clos: 'yCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
+    [name: 'nZ',         level: 1, clos: 'zCurrent',                 var: 'float',    args: 1, type: ['vector3'],],
     [name: 'onBattery',  level: 1, clos: 'onBattery',                var: 'boolean',  args: 0, type: ['statHub'],],
-    [name: 'pBin',       level: 2, clos: 'previousStateBinary',      var: 'boolean',  args: 1, type: ['enum'],],
-    [name: 'pLevel',     level: 1, clos: 'previousStateLevel',       var: 'integer',  args: 1, type: ['enum'],],
+    [name: 'pBin',       level: 2, clos: 'stateBinaryPrevious',      var: 'boolean',  args: 1, type: ['enum'],],
+    [name: 'pLevel',     level: 1, clos: 'stateLevelPrevious',       var: 'integer',  args: 1, type: ['enum'],],
     [name: 'pState',     level: 1, clos: 'previousState',            var: 'string',   args: 1, type: ['enum'],],
-    [name: 'pText',      level: 3, clos: 'previousStateDescription', var: 'string',   args: 1, type: ['enum'],],
-    [name: 'pText',      level: 3, clos: 'previousValueDescription', var: 'string',   args: 1, type: ['number'],],
-    [name: 'pValue',     level: 1, clos: 'previousValue',            var: 'float',    args: 1, type: ['number'],],
+    [name: 'pText',      level: 3, clos: 'stateDescriptionPrevious', var: 'string',   args: 1, type: ['enum'],],
+    [name: 'pText',      level: 3, clos: 'valueDescriptionPrevious', var: 'string',   args: 1, type: ['number'],],
+    [name: 'pValue',     level: 1, clos: 'valuePrevious',            var: 'float',    args: 1, type: ['number'],],
     [name: 'rDiff',      level: 1, clos: 'difference',               var: 'float',    args: 1, type: ['number'],],
     [name: 'rDiffText',  level: 3, clos: 'differenceText',           var: 'string',   args: 1, type: ['number'],],
     [name: 'sBin',       level: 2, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['device', 'statDev', 'zwave'],],
@@ -964,7 +1000,7 @@ def fields() { [
     [name: 'tElapText',  level: 3, clos: 'timeElapsedText',          var: 'string',   args: 1, type: ['enum', 'number'],],
     [name: 'tLastAct',   level: 1, clos: 'timeLastActivity',         var: 'integer',  args: 1, type: ['device'],],
     [name: 'tLastEvent', level: 1, clos: 'timeLastEvent',            var: 'integer',  args: 2, type: ['attribute'],],
-    [name: 'tOffset',    level: 2, clos: 'currentTimeOffset',        var: 'integer',  args: 1, type: ['enum'],],
+    [name: 'tOffset',    level: 2, clos: 'timeOffsetCurrent',        var: 'integer',  args: 1, type: ['enum'],],
     [name: 'tStamp',     level: 2, clos: 'timestamp',                var: 'integer',  args: 1, type: ['day', 'enum', 'hub', 'number', 'vector3'],],
     [name: 'tWrite',     level: 2, clos: 'timeWrite',                var: 'integer',  args: 0, type: ['enum', 'number', 'vector3'],],
     [name: 'vLastEvent', level: 1, clos: 'valueLastEvent',           var: 'string',   args: 2, type: ['attribute'],],
@@ -1101,7 +1137,7 @@ def getDeviceLabel() { return {
  * @return device type
  */
 def getDeviceType() { return {
-    if (zwInfo(it)) {
+    if (infoZwave(it)) {
         'zwave'
     }
     else if (it?.device?.zigbeeId) {
@@ -1175,10 +1211,10 @@ def getIsDigital() { return { it?.isDigital } }
 def getIsPhysical() { return { it?.isPhysical } }
 
 /**
- * getSource - indicates where event orignates from
- * @return even source
+ * getEventSource - indicates where event orignates from
+ * @return even event source
  */
-def getSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
+def getEventSource() { return { "${it?.source}".toLowerCase().replaceAll('_', '') } }
 
 /**
  * getUnit - unit for events that have them
@@ -1218,11 +1254,11 @@ def getIdentifierGlobalDevice() { return { "${locationName()} . ${hubName()} . $
 def getIdentifierGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
 
 /**
- * getZwaveListening - gets type of Zwave device
+ * getListeningZwave - gets type of Zwave device
  * @return zwave device type
  */
-def getZwaveListening() { return {
-    switch(zwInfo(it)?.zw.take(1)) {
+def getListeningZwave() { return {
+    switch(infoZwave(it)?.zw.take(1)) {
         case 'L':
             return 'listening'; break
         case 'S':
@@ -1235,10 +1271,10 @@ def getZwaveListening() { return {
 } }
 
 /**
- * getZwInfo - helper to get Zwave information about the device
+ * getInfoZwave - helper to get Zwave information about the device
  * @return zwave information object
  */
-def getZwInfo() { return { it?.getZwaveInfo() } }
+def getInfoZwave() { return { it?.getZwaveInfo() } }
 
 /**
  * getPowerSource - gets latest value of powerSource attribute for device
@@ -1289,16 +1325,16 @@ def getEventDescription() { return { it?.descriptionText?.replaceAll('\u00B0', '
 def getEventId() { return { it.id } }
 
 /**
- * getCurrentStateBinary - converts attribute level to a binary flag based on level value
+ * getStateBinaryCurrent - converts attribute level to a binary flag based on level value
  * @return attribute true/false
  */
-def getCurrentStateBinary() { return { currentStateLevel(it) > 0 ? 't' : 'f' } }
+def getStateBinaryCurrent() { return { stateLevelCurrent(it) > 0 ? 't' : 'f' } }
 
 /**
- * getCurrentStateLevel - gets level corresponding to current state of attribute
+ * getStateLevelCurrent - gets level corresponding to current state of attribute
  * @return attribute level
  */
-def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.key == currentState(it) }.value } }
+def getStateLevelCurrent() { return { attributeStates(it).find { level -> level.key == stateCurrent(it) }.value } }
 
 /**
  * getAttributeStates - helper - gets attribute levels from getEventDetails helper
@@ -1307,22 +1343,22 @@ def getCurrentStateLevel() { return { attributeStates(it).find { level -> level.
 def getAttributeStates() { return { eventDetails(it).levels } }
 
 /**
- * getCurrentState - current state of attribute with adjustment for sunrise and sunset events
+ * getStateCurrent - current state of attribute with adjustment for sunrise and sunset events
  * @return attribute state
  */
-def getCurrentState() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
+def getStateCurrent() { return { it?.name in ['sunrise', 'sunset'] ? it.name : it.value } }
 
 /**
- * getCurrentStateDescription - compiles a textual description for state events
+ * getStateDescriptionCurrent - compiles a textual description for state events
  * @return textual description for state events
  */
-def getCurrentStateDescription() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${currentState(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
+def getStateDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${stateCurrent(it)} in the ${groupName(it)}." } } // TODO - leave for now: 'sun has risen' / 'sun has set' for 'daylight' events
 
 /**
- * getCurrentValueDescription - compiles a textual description for value events
+ * getValueDescriptionCurrent - compiles a textual description for value events
  * @return textual description for value events
  */
-def getCurrentValueDescription() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${currentValueRounded(it)} ${unit(it)} in the ${groupName(it)}." } }
+def getValueDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${eventName(it)} is ${valueRoundedCurrent(it)} ${unit(it)} in the ${groupName(it)}." } }
 
 /**
  * getCurrentValue - some device handlers append unit to number, so any units will be removed
@@ -1359,10 +1395,10 @@ def removeUnit() { return {
 } }
 
 /**
- * getCurrentValueRounded - helper - rounds current event value
+ * getValueRoundedCurrent - helper - rounds current event value
  * @return rounder number
  */
-def getCurrentValueRounded() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+def getValueRoundedCurrent() { return { currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 /**
  * getDecimalPlaces - helper - gets decimal places to round to from getEventDetails
@@ -1371,16 +1407,16 @@ def getCurrentValueRounded() { return { currentValue(it).setScale(decimalPlaces(
 def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
 
 /**
- * getCurrentHue - gets hue value from color map event value
+ * getHueCurrent - gets hue value from color map event value
  * @return hue value
  */
-def getCurrentHue() { return { currentColorMap(it).hue } }
+def getHueCurrent() { return { currentColorMap(it).hue } }
 
 /**
- * getCurrentSat - gets saturation value from color map event value
+ * getSaturationCurrent - gets saturation value from color map event value
  * @return saturation value
  */
-def getCurrentSat() { return { currentColorMap(it).saturation } }
+def getSaturationCurrent() { return { currentColorMap(it).saturation } }
 
 /**
  * getCurrentColorMap - helper - parses json color map event value
@@ -1389,22 +1425,22 @@ def getCurrentSat() { return { currentColorMap(it).saturation } }
 def getCurrentColorMap() { return { parseJson(it) } }
 
 /**
- * getCurrentX - gets x value for 3-axis events, converted to g unit
+ * getXCurrent - gets x value for 3-axis events, converted to g unit
  * @return x value
  */
-def getCurrentX() { return { it.xyzValue.x / gravityFactor() } }
+def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
 
 /**
- * getCurrentY - gets y value for 3-axis events, converted to g unit
+ * getYCurrent - gets y value for 3-axis events, converted to g unit
  * @return y value
  */
-def getCurrentY() { return { it.xyzValue.y / gravityFactor() } }
+def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
 
 /**
- * getCurrentZ - gets z value for 3-axis events, converted to g unit
+ * getZCurrent - gets z value for 3-axis events, converted to g unit
  * @return z value
  */
-def getCurrentZ() { return { it.xyzValue.z / gravityFactor() } }
+def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
 
 /**
  * getGravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
@@ -1416,16 +1452,16 @@ def getGravityFactor() { return { -> (1024) } }
  *  Fields Event Details - Previous Event:
  *****************************************************************************************************************/
 /**
- * getPreviousStateBinary - converts attribute level to a binary flag based on level value
+ * getStateBinaryPrevious - converts attribute level to a binary flag based on level value
  * @return previous event attribute true/false
  */
-def getPreviousStateBinary() { return { previousStateLevel(it) > 0 ? 't' : 'f' } }
+def getStateBinaryPrevious() { return { stateLevelPrevious(it) > 0 ? 't' : 'f' } }
 
 /**
- * getPreviousStateLevel - gets level corresponding to current state of attribute
+ * getStateLevelPrevious - gets level corresponding to current state of attribute
  * @return previous event attribute level
  */
-def getPreviousStateLevel() { return { attributeStates(it)?.find { level -> level.key == previousState(it) }?.value } }
+def getStateLevelPrevious() { return { attributeStates(it)?.find { level -> level.key == previousState(it) }?.value } }
 
 /**
  * getPreviousState - previous state of attribute TODO Check sunrise/sunset conversion needed? - Don't think so.
@@ -1452,25 +1488,25 @@ def getPreviousEvent() { return {
 } }
 
 /**
- * getPreviousStateDescription - compiles a textual description of change from previous to current event
+ * getStateDescriptionPrevious - compiles a textual description of change from previous to current event
  * @return textual description of change for state events
  */
-def getPreviousStateDescription() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
+def getStateDescriptionPrevious() { return { "This is a change from ${previousState(it)} ${timeElapsedText(it)}." } }
 
 /**
- * getPreviousValueDescription - compiles a textual description of change from previous to current event
+ * getValueDescriptionPrevious - compiles a textual description of change from previous to current event
  * @return textual description of change for value events
  */
-def getPreviousValueDescription() { return {
+def getValueDescriptionPrevious() { return {
     def changeAbs = (differenceText(it) == 'unchanged') ? 'unchanged' : "${differenceText(it)} by ${difference(it).abs()} ${unit(it)}"
     "This is ${changeAbs} compared to ${timeElapsedText(it)}."
 } }
 
 /**
- * getPreviousValue - some device handlers append unit to number, so any units will be removed
+ * getValuePrevious - some device handlers append unit to number, so any units will be removed
  * @return previous event value as a number
  */
-def getPreviousValue() { return {
+def getValuePrevious() { return {
     try {
         previousEvent(it)?.numberValue.toBigDecimal()
     }
@@ -1493,7 +1529,7 @@ def getDifferenceText() { return { (difference(it) > 0) ? 'increased' : (differe
  * Used in text description, so rounded values are used for consistency.
  * @return change in value
  */
-def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - previousValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
+def getDifference() { return { (currentValue(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) - valuePrevious(it).setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN)).toBigDecimal().setScale(decimalPlaces(it), BigDecimal.ROUND_HALF_EVEN) } }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Time Difference:
@@ -1528,20 +1564,20 @@ def getTimeElapsedText() { return {
  * getTimeElapsed - gets the elapsed time (in milliseconds) between current and previous events
  * @return time difference in milliseconds
  */
-def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - previousTimeOffset(it) } }
+def getTimeElapsed() { return { timestamp(it) - previousEvent(it).date.time - timeOffsetPrevious(it) } }
 
 /**
  * getTimestamp - gets timestamp (in milliseconds) of event TODO Check the logic/reasoning for this.
  * The timestamps of motion events are adjusted by an offset amount to account for the response time of the sensor.
  * @return
  */
-def getTimestamp() { return { it.date.time - currentTimeOffset(it) } }
+def getTimestamp() { return { it.date.time - timeOffsetCurrent(it) } }
 
 /**
- * getCurrentTimeOffset - helper - calculates any time offset for current event
+ * getTimeOffsetCurrent - helper - calculates any time offset for current event
  * @return time offset for current event
  */
-def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
+def getTimeOffsetCurrent() { return { (eventName(it) == 'motion' && stateCurrent(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 /**
  * getTimeOffsetAmount - helper - returns motion sensor timestamp offset period
@@ -1550,10 +1586,10 @@ def getCurrentTimeOffset() { return { (eventName(it) == 'motion' && currentState
 def getTimeOffsetAmount() { return { -> (1000 * 10 / 2) } }
 
 /**
- * getPreviousTimeOffset - helper - calculates any time offset for previous event
+ * getTimeOffsetPrevious - helper - calculates any time offset for previous event
  * @return
  */
-def getPreviousTimeOffset() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
+def getTimeOffsetPrevious() { return { (eventName(it) == 'motion' && previousState(it) == 'inactive') ? timeOffsetAmount() : 0 } }
 
 /*****************************************************************************************************************
  *  Fields Event Details - Time Values:
@@ -1578,13 +1614,13 @@ def getTimeWrite() { return { -> new Date().time } }
  * getTimeWeightedLevel - calculates time-weighted value for state events using state level
  * @return time-weighted state level
  */
-def getTimeWeightedLevel() { return {  previousStateLevel(it) * timeElapsed(it) } }
+def getTimeWeightedLevel() { return {  stateLevelPrevious(it) * timeElapsed(it) } }
 
 /**
  * getTimeWeightedValue - calculates time-weighted value for value events
  * @return time-weighted value
  */
-def getTimeWeightedValue() { return {  previousValue(it) * timeElapsed(it) } }
+def getTimeWeightedValue() { return {  valuePrevious(it) * timeElapsed(it) } }
 
 /*****************************************************************************************************************
  *  Fields Metadata:
@@ -1671,7 +1707,7 @@ def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecuri
  * getZwaveSecure - gets whether device is securely included or not
  * @return true/false
  */
-def getZwaveSecure() { return { (zwInfo(it)?.zw.endsWith('s')) ? 't' : 'f' } }
+def getZwaveSecure() { return { (infoZwave(it)?.zw.endsWith('s')) ? 't' : 'f' } }
 
 /**
  * getSunrise - gets time of sunrise depending on hub location set in mobile app
@@ -1736,11 +1772,11 @@ def getZigbeePowerLevel() { return { -> hub().hub.getDataValue('zigbeePowerLevel
 def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel') } }
 
 /**
- * getCommandClassesList - for Zwave devices, gets report of Command Classes from zwInfo
+ * getCommandClassesList - for Zwave devices, gets report of Command Classes from infoZwave
  * @return zwave report
  */
 def getCommandClassesList() { return {
-    def info = zwInfo(it).clone()
+    def info = infoZwave(it).clone()
     def cc = info.cc
     if (info?.ccOut) cc.addAll(info.ccOut)
     if (info?.sec) cc.addAll(info.sec)

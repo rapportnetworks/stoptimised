@@ -136,6 +136,7 @@ def mainPage() {
                     type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
+                    required       : false,
             )
 
             input(
@@ -153,6 +154,7 @@ def mainPage() {
                     type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
+                    required       : false,
             )
 
             input(
@@ -162,6 +164,7 @@ def mainPage() {
                     type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
+                    required       : false,
             )
 
             input(
@@ -179,6 +182,7 @@ def mainPage() {
                     type           : 'text',
                     capitalization : 'none',
                     autoCorrect    : false,
+                    required       : false,
             )
 
             input(
@@ -186,6 +190,7 @@ def mainPage() {
                     title       : 'Authorisation Token (v2)',
                     description : '',
                     type        : 'password',
+                    required    : false,
             )
         }
 
@@ -200,7 +205,8 @@ def mainPage() {
                         null,
                 )
             }
-        } else {
+        }
+        else {
             devicesPageContent
         }
 
@@ -215,7 +221,8 @@ def mainPage() {
                         null,
                 )
             }
-        } else {
+        }
+        else {
             attributesPageContent
         }
     }
@@ -232,7 +239,6 @@ private getDevicesPageContent() {
         paragraph(
                 'Select devices to log. Each device only needs to be selected once and should be in either the Actuators or Sensors fields at the top.'
         )
-
         capabilities.each {
             try {
                 input(
@@ -240,9 +246,9 @@ private getDevicesPageContent() {
                                          "capability.${it.cap}", // ?not type
                         title          : "${it.title}",
                         multiple       : true,
-                        hideWhenEmpty  : false,
+                        hideWhenEmpty  : true,
                         submitOnChange : true,
-                        required       : true,
+                        required       : false,
                 )
             }
             catch (e) {
@@ -265,7 +271,6 @@ private getAttributesPageContent() {
             paragraph(
                     'Select all the events that should get logged, depending on the devices supporting them.'
             )
-
             input(
                     name           : 'loggedAttributes',
                     title          : 'Events to log',
@@ -279,7 +284,8 @@ private getAttributesPageContent() {
 
             )
         }
-    } else {
+    }
+    else {
         section('Choose Events') {
             paragraph(
                     'You need to select devices before you can choose events.'
@@ -387,20 +393,20 @@ def updated() {
      * check if devices and events selected by user
      */
     if (getSelectedDevices()) {
-        logger('updated: Configured - Devices Selected.', 'trace')
+        logger('updated: Configured - Devices Selected.', 'info')
         state.devicesConfigured = true
     }
     else {
-        logger('updated: Unconfigured - Choose Devices.', 'debug')
+        logger('updated: Unconfigured - Choose Devices.', 'warn')
         state.devicesConfigured = false
     }
 
     if (settings?.loggedAttributes) {
-        logger('updated: Configured - Events Selected.', 'trace')
+        logger('updated: Configured - Events Selected.', 'info')
         state.attributesConfigured = true
     }
     else {
-        logger('updated: Unconfigured - Choose Events.', 'debug')
+        logger('updated: Unconfigured - Choose Events.', 'warn')
         state.attributesConfigured = false
     }
 
@@ -448,9 +454,9 @@ private generateGroupNamesMap() {
         def groupId
         def groupName
         settings.bridgePref.each {
-            if (it.name?.take(1) == '~') {
+            if (it.displayName?.take(1) == '~') {
                 groupId   = it.device?.groupId
-                groupName = it.name?.drop(1)
+                groupName = it.displayName?.drop(1)
                 if (groupId) state.groupNames << [(groupId): groupName]
             }
         }
@@ -568,7 +574,7 @@ def pollStatusHubs() {
 def pollStatusDevices() {
     logger('pollStatusDevices: running now.', 'trace')
     if (state?.logStatuses) {
-        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, 'pollDevices', 'statDev', 'statuses')
     }
 }
@@ -595,7 +601,7 @@ def pollLocations() {
 def pollDevices() {
     logger('pollDevices: running now.', 'trace')
     if (state?.logMetadata) {
-        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') }
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, 'devices', 'device', 'metadata', 'metadata')
     }
 }
@@ -607,7 +613,7 @@ def pollDevices() {
 def pollAttributes() {
     logger('pollAttributes: running now.', 'trace')
     if (state?.logMetadata) {
-        selectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
+        getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
             def parentItem = dev
             def items = getDeviceAttributesSelected(dev)
             if (items) influxLineProtocol(items, 'attributes', 'attribute', 'metadata', 'metadata', parentItem)
@@ -622,7 +628,7 @@ def pollAttributes() {
 def pollZwavesCCs() {
     logger('pollZwavesCCs: running now', 'trace')
     if (state?.logConfigs) {
-        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
         if (items) influxLineProtocol(items, 'zwaveCCs', 'zwCCs', 'configs', 'metadata')
     }
 }
@@ -634,7 +640,7 @@ def pollZwavesCCs() {
 def pollZwaves() {
     logger('pollZwaves: running now', 'trace')
     if (state?.logConfigs) {
-        def items = selectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
+        def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
         if (items) influxLineProtocol(items, 'zwave', 'zwave', 'configs', 'metadata')
     }
 }
@@ -644,7 +650,7 @@ def pollZwaves() {
  *****************************************************************************************************************/
 def influxLineProtocol(items, measurementName, measurementType, bucket = 'events', retentionPolicy = 'autogen', parentItem = false) {
     def influxLP = new StringBuilder()
-    def lpt      = lineProtocolTemplateMap().measurementType
+    def lpt      = lineProtocolTemplateMap()?."${measurementType}"
     logger("influxLineProtocol: measurementType - ${measurementType}, template - ${lpt}.", 'debug')
     def eventId  = 'notEvent'
     items.each { item ->
@@ -1087,11 +1093,12 @@ def getDeviceLabel() { return {
         else if (eventName(it) == 'hubStatus') {
             'Hub'
         }
-        else if (metadataDeviceType(it?.device?.device)) {
-            "${metadataDeviceType(it?.device?.device)}" + "${metadataDeviceNumber(it?.device?.device)}" + "${metadataLocation(it?.device?.device)}" + "${metadataSubLocation(it?.device?.device)}"
+        else if (metadataDeviceType(it)) {
+            "${metadataDeviceType(it)}" + "${metadataDeviceNumber(it)}" + "${metadataLocation(it)}" + "${metadataSubLocation(it)}"
         }
         else {
-            it?.device?.device?.label ?: 'unassigned'
+            // it?.device?.device?.label ?: 'unassigned'
+            it?.device?.device?.displayName ?: 'unassigned'
         }
     }
     else {
@@ -1099,7 +1106,8 @@ def getDeviceLabel() { return {
             "${metadataDeviceType(it)}" + "${metadataDeviceNumber(it)}" + "${metadataLocation(it)}" + "${metadataSubLocation(it)}"
         }
         else {
-            it?.label ?: 'unassigned'
+            // it?.label ?: 'unassigned'
+            it?.displayName ?: 'unassigned'
         }
     }
 } }
@@ -1233,7 +1241,7 @@ def getGroupId() { return {
  */
 def getGroupName() { return {
     if (metadataRoom(it)) {
-        "${metadataRoom(it)}" + (metadataRoomNumber(it)) ? " ${metadataRoomNumber(it)}" : ''
+        "${metadataRoom(it)}" + ((metadataRoomNumber(it)) ? " ${metadataRoomNumber(it)}" : '')
     }
     else {
         state?.groupNames?."${groupId(it)}" ?: state.dwellingType
@@ -1405,49 +1413,105 @@ def getMessagesSent() { return { it?.device?.getDataValue('messagesSent') ?: '' 
  * getMetadataDeviceNumber - gets Device Number (if more than one in a room) entered via mobile app
  * @return device number
  */
-def getMetadataDeviceNumber() { return { it?.device?.getDataValue('metadataDeviceNumber') ?: '' } }
+def getMetadataDeviceNumber() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataDeviceNumber') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataDeviceNumber') ?: ''
+    }
+} }
 
 /**
  * getMetadataDeviceType - gets Device Type entered via mobile app
  * @return device type
  */
-def getMetadataDeviceType() { return { it?.device?.getDataValue('metadataDeviceType') ?: '' } }
+def getMetadataDeviceType() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataDeviceType') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataDeviceType') ?: ''
+    }
+} }
 
 /**
  * getMetadataInventoryCode - gets device Inventory Code entered via mobile app
  * @return inventory code
  */
-def getMetadataInventoryCode() { return { it?.device?.getDataValue('metadataInventoryCode') ?: '' } }
+def getMetadataInventoryCode() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataInventoryCode') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataInventoryCode') ?: ''
+    }
+} }
 
 /**
  * getMetadataLocation - gets device location within room entered via mobile app
  * @return device location
  */
-def getMetadataLocation() { return { it?.device?.getDataValue('metadataLocation') ?: '' } }
+def getMetadataLocation() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataLocation') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataLocation') ?: ''
+    }
+} }
 
 /**
  * getMetadataNotes - gets any metadata notes regarding device installation entered via mobile app
  * @return notes
  */
-def getMetadataNotes() { return { it?.device?.getDataValue('metadataNotes') ?: '' } }
+def getMetadataNotes() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataNotes') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataNotes') ?: ''
+    }
+} }
 
 /**
  * getMetadataRoom - gets name of room device is installed in entered via mobile app
  * @return room name
  */
-def getMetadataRoom() { return { it?.device?.getDataValue('metadataRoom') ?: '' } }
+def getMetadataRoom() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataRoom') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataRoom') ?: ''
+    }
+} }
 
 /**
  * getMetadataRoomNumber - gets number of room (if more than one of same type) device is installed in entered via mobile app
  * @return room number
  */
-def getMetadataRoomNumber() { return { it?.device?.getDataValue('metadataRoomNumber') ?: '' } }
+def getMetadataRoomNumber() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataRoomNumber') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataRoomNumber') ?: ''
+    }
+} }
 
 /**
  * getMetadataSubLocation - gets device sublocation within room entered via mobile app
  * @return device sublocation
  */
-def getMetadataSubLocation() { return { it?.device?.getDataValue('metadataSubLocation') ?: '' } }
+def getMetadataSubLocation() { return {
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataSubLocation') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataSubLocation') ?: ''
+    }
+} }
 
 /**
  * getNetworkSecurityLevel - gets network security level for the device as reported by SmartThings system
@@ -1459,7 +1523,7 @@ def getNetworkSecurityLevel() { return { it?.device?.getDataValue('networkSecuri
  * getPowerSource - gets latest value of powerSource attribute for device
  * @return powerSource attribute
  */
-def getPowerSource() { return { it?.latestValue('powerSource').toLowerCase() ?: 'unknown' } }
+def getPowerSource() { return { it?.latestValue('powerSource')?.toLowerCase() ?: 'unknown' } }
 
 /**
  * getSaturationCurrent - gets saturation value from color map event value
@@ -2082,8 +2146,8 @@ private logger(String msg, String level = 'debug') {
 private getSelectedDeviceNames() {
     def listSelectedDeviceNames = []
     try {
-        // listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort()
-        listSelectedDeviceNames = selectedDevices()?.collect { deviceLabel(it) }?.sort()
+        listSelectedDeviceNames = getSelectedDevices()?.collect { it?.displayName }?.sort()
+        // listSelectedDeviceNames = getSelectedDevices()?.collect { getDeviceLabel(it) }?.sort()
     }
     catch (e) {
         logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')
@@ -2118,7 +2182,7 @@ private getAttributesSupported() {
     def listAttributesSupported = []
     def devices = getSelectedDevices()
     if (devices) {
-        attributesAll()?.each { attr ->
+        getAttributesAll()?.each { attr ->
             try {
                 if (devices?.find { dev -> dev?.hasAttribute(attr) } ) {
                     listAttributesSupported << attr

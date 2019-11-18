@@ -1052,14 +1052,7 @@ def getDecimalPlaces() { return { eventDetails(it)?.decimalPlaces } }
  * Accessed via an event object, otherwise get via device object.
  * @return device code (name)
  */
-def getDeviceCode() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.name ?: 'unassigned'
-    }
-    else {
-        it?.name ?: 'unassigned'
-    }
-} }
+def getDeviceCode() { return { (isEventObject(it)) ? (it?.device?.device?.name ?: 'unassigned') : (it?.name ?: 'unassigned') } }
 
 /**
  * getDeviceConfiguredProfile - gets the data value 'configuredProfile' reported by the device handler for the device
@@ -1079,7 +1072,7 @@ def getDeviceHandlerName() { return { it?.typeName } }
  * Contained within an event object, otherwise get via device object.
  * @return device id
  */
-def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
+def getDeviceId() { return { (isEventObject(it)) ? it?.deviceId : it?.id } }
 
 /**
  * getDeviceLabel - label of device (used in mobile app)
@@ -1097,9 +1090,9 @@ def getDeviceLabel() { return {
         }
         else if (metadataDeviceType(it)) {
             "${metadataDeviceType(it)}"
-            + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
-            + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
-            + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
+            // + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
+            // + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
+            // + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
         }
         else {
             // it?.device?.device?.label ?: 'unassigned'
@@ -1109,9 +1102,9 @@ def getDeviceLabel() { return {
     else {
         if (metadataDeviceType(it)) {
             "${metadataDeviceType(it)}"
-            + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
-            + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
-            + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
+            // + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
+            // + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
+            // + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
         }
         else {
             // it?.label ?: 'unassigned'
@@ -1233,8 +1226,12 @@ def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
  * @return
  */
 def getGroupId() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".groupId ?: 'unassigned'
+    if (isEventObject(it)) {
+        it?.device?.device?.groupId ?: 'unassigned'
+    }
+    else {
+        it?.device?.groupId ?: 'unassigned'
+    }
 } }
 
 /**
@@ -1264,7 +1261,7 @@ def getHub() { return { -> location.hubs[0] } }
  * Contained within an event object, otherwise get via hub object.
  * @return hub id
  */
-def getHubId() { return { (isEventObject(it)) ? it.hubId : hub().id } }
+def getHubId() { return { (isEventObject(it)) ? it?.hubId : hub()?.id } }
 
 /**
  * getHubIPaddress - gets IP address of hub on local network
@@ -1418,8 +1415,12 @@ def getMessagesSent() { return { it?.device?.getDataValue('messagesSent') ?: '' 
  * @return device number
  */
 def getMetadataDeviceNumber() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataDeviceNumber') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataDeviceNumber') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataDeviceNumber') ?: ''
+    }
 } }
 
 /**
@@ -1427,8 +1428,12 @@ def getMetadataDeviceNumber() { return {
  * @return device type
  */
 def getMetadataDeviceType() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataDeviceType') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataDeviceType') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataDeviceType') ?: ''
+    }
 } }
 
 /**
@@ -1436,8 +1441,12 @@ def getMetadataDeviceType() { return {
  * @return inventory code
  */
 def getMetadataInventoryCode() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataInventoryCode') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataInventoryCode') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataInventoryCode') ?: ''
+    }
 } }
 
 /**
@@ -1445,8 +1454,12 @@ def getMetadataInventoryCode() { return {
  * @return device location
  */
 def getMetadataLocation() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataLocation') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataLocation') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataLocation') ?: ''
+    }
 } }
 
 /**
@@ -1454,8 +1467,12 @@ def getMetadataLocation() { return {
  * @return notes
  */
 def getMetadataNotes() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataNotes') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataNotes') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataNotes') ?: ''
+    }
 } }
 
 /**
@@ -1463,8 +1480,12 @@ def getMetadataNotes() { return {
  * @return room name
  */
 def getMetadataRoom() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataRoom') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataRoom') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataRoom') ?: ''
+    }
 } }
 
 /**
@@ -1472,8 +1493,12 @@ def getMetadataRoom() { return {
  * @return room number
  */
 def getMetadataRoomNumber() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataRoomNumber') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataRoomNumber') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataRoomNumber') ?: ''
+    }
 } }
 
 /**
@@ -1481,8 +1506,12 @@ def getMetadataRoomNumber() { return {
  * @return device sublocation
  */
 def getMetadataSubLocation() { return {
-    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
-    it?."${device}".getDataValue('metadataSubLocation') ?: ''
+    if (isEventObject(it)) {
+        it?.device?.device?.getDataValue('metadataSubLocation') ?: ''
+    }
+    else {
+        it?.device?.getDataValue('metadataSubLocation') ?: ''
+    }
 } }
 
 /**

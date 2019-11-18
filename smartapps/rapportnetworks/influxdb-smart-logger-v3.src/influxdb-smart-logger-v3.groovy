@@ -40,12 +40,12 @@ def mainPage() {
     ) {
         section('Logger settings') {
             input(
-                    name               : 'logLevelIDE',
-                    title              : 'IDE Logging Level',
+                    name               : 'logLevelDB',
+                    title              : 'Database Logging Level',
                     description        : '',
                     type               : 'enum',
-                    options            : [0 : 'None', 1 : 'Error', 2 : 'Warning', 3 : 'Info', 4 : 'Debug', 5 : 'Trace'],
-                    defaultValue       : 3,
+                    options            : [1 : 'Minimal', 2 : 'Intermediate', 3 : 'All'],
+                    defaultValue       : 1,
                     displayDuringSetup : true,
             )
 
@@ -59,12 +59,12 @@ def mainPage() {
             )
 
             input(
-                    name               : 'logLevelDB',
-                    title              : 'Database Logging Level',
+                    name               : 'logLevelIDE',
+                    title              : 'IDE Logging Level',
                     description        : '',
                     type               : 'enum',
-                    options            : [1 : 'Minimal', 2 : 'Intermediate', 3 : 'All'],
-                    defaultValue       : 1,
+                    options            : [0 : 'None', 1 : 'Error', 2 : 'Warning', 3 : 'Info', 4 : 'Debug', 5 : 'Trace'],
+                    defaultValue       : 3,
                     displayDuringSetup : true,
             )
         }
@@ -195,7 +195,7 @@ def mainPage() {
         }
 
         if (state.devicesConfigured) {
-            section('User Selected Devices') {
+            section('Selected Devices') {
                 getPageLink(
                         'devicesPageLink',
                         'Tap to change',
@@ -211,7 +211,7 @@ def mainPage() {
         }
 
         if (state.attributesConfigured) {
-            section('User Selected Events') {
+            section('Selected Events') {
                 getPageLink(
                         'attributesPageLink',
                         'Tap to change',
@@ -325,7 +325,7 @@ private buildSummary(items) {
  */
 def installed() {
     state.logLevelIDE = 5
-    logger("installed: ${app.label} installed with settings: ${settings}.", 'trace')
+    logger("installed: ${app.label} installed with settings: ${settings}.", 'info')
 }
 
 /**
@@ -333,7 +333,7 @@ def installed() {
  * @return
  */
 def uninstalled() {
-    logger("uninstalled: ${app.label} has be removed.", 'trace')
+    logger("uninstalled: ${app.label} has be removed.", 'info')
 }
 
 /**
@@ -341,9 +341,9 @@ def uninstalled() {
  * @return
  */
 def updated() {
-    logger("updated: ${app.label} has been updated.", 'trace')
+    logger("updated: ${app.label} has been updated.", 'info')
 
-    logger('updated: Setting IDE logging level.', 'trace')
+    logger('updated: Setting IDE logging level.', 'info')
     state.logLevelIDE = (settings?.logLevelIDE) ? settings.logLevelIDE.toInteger() : 3
 
     /**
@@ -430,7 +430,7 @@ def updated() {
      */
     generateGroupNamesMap()
 
-    logger('updated: Scheduling first run of poll methods.', 'trace')
+    logger('updated: Scheduling first run of poll methods.', 'info')
     def runInTime     = 30
     def runInInterval = 30
     pollingMethods().each {
@@ -448,7 +448,7 @@ def updated() {
  * @return
  */
 private generateGroupNamesMap() {
-    logger('generateGroupNamesMap: Creating map of group Ids and group names.', 'debug')
+    logger('generateGroupNamesMap: Creating map of group Ids and group names.', 'info')
     state.groupNames = [:]
     if (settings?.bridgePref) {
         def groupId
@@ -510,6 +510,7 @@ def handleStringEvent(evt) {
 
 /**
  * handleColorMapEvent
+ * TODO - Should this be to a separate measurement (eg color)?
  * @param evt
  * @return
  */
@@ -560,7 +561,7 @@ def pollStatus() {
  * @return
  */
 def pollStatusHubs() {
-    logger('pollStatusHubs: running now.', 'trace')
+    logger('pollStatusHubs: running now.', 'info')
     if (state?.logStatuses) {
         def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
         influxLineProtocol(items, 'pollHubs', 'statHub', 'statuses')
@@ -572,7 +573,7 @@ def pollStatusHubs() {
  * @return
  */
 def pollStatusDevices() {
-    logger('pollStatusDevices: running now.', 'trace')
+    logger('pollStatusDevices: running now.', 'info')
     if (state?.logStatuses) {
         def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, 'pollDevices', 'statDev', 'statuses')
@@ -587,7 +588,7 @@ def pollStatusDevices() {
  * @return
  */
 def pollLocations() {
-    logger('pollLocations: running now.', 'trace')
+    logger('pollLocations: running now.', 'info')
     if (state?.logMetadata) {
         def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
         influxLineProtocol(items, 'areas', 'local', 'metadata', 'metadata')
@@ -599,7 +600,7 @@ def pollLocations() {
  * @return
  */
 def pollDevices() {
-    logger('pollDevices: running now.', 'trace')
+    logger('pollDevices: running now.', 'info')
     if (state?.logMetadata) {
         def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }
         if (items) influxLineProtocol(items, 'devices', 'device', 'metadata', 'metadata')
@@ -611,7 +612,7 @@ def pollDevices() {
  * @return
  */
 def pollAttributes() {
-    logger('pollAttributes: running now.', 'trace')
+    logger('pollAttributes: running now.', 'info')
     if (state?.logMetadata) {
         getSelectedDevices()?.findAll { !it.displayName.startsWith('~') }.each { dev ->
             def parentItem = dev
@@ -638,7 +639,7 @@ def pollZwavesCCs() {
  * @return
  */
 def pollZwaves() {
-    logger('pollZwaves: running now', 'trace')
+    logger('pollZwaves: running now', 'info')
     if (state?.logConfigs) {
         def items = getSelectedDevices()?.findAll { !it.displayName.startsWith('~') && it?.getZwaveInfo().containsKey('zw') }
         if (items) influxLineProtocol(items, 'zwave', 'zwave', 'configs', 'metadata')
@@ -808,7 +809,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
         "postToInfluxDB${state.dbLocation}"(influxLP.toString(), retentionPolicy, bucket, eventId)
     }
     else {
-        logger("influxLineProtocol: ${influxLP.toString()}", 'debug')
+        logger("influxLineProtocol: ${influxLP.toString()}", 'info')
     }
 }
 
@@ -889,7 +890,7 @@ def fields() { [
     [name: 'iP',            level: 1, clos: 'hubIPaddress',             var: 'string',   args: 0, type: ['l','p']],
     [name: 'latitude',      level: 1, clos: 'latitude',                 var: 'float',    args: 0, type: ['l'], ident: true],
     [name: 'longitude',     level: 1, clos: 'longitude',                var: 'float',    args: 0, type: ['l'], ident: true],
-    [name: 'mdNotes',       level: 2, clos: 'getMetadataNotes',         var: 'string',   args: 1, type: ['f']],
+    [name: 'mdNotes',       level: 2, clos: 'metadataNotes',            var: 'string',   args: 1, type: ['f']],
     [name: 'mReceived',     level: 1, clos: 'messagesReceived',         var: 'integer',  args: 1, type: ['q']],
     [name: 'mSent',         level: 1, clos: 'messagesSent',             var: 'integer',  args: 1, type: ['q']],
     [name: 'nBin',          level: 2, clos: 'stateBinaryCurrent',       var: 'boolean',  args: 1, type: ['d','e','h']],
@@ -1020,12 +1021,13 @@ def getConfigure() { return { it?.latestValue('configure') ?: '' } }
 /**
  * getConfiguredParametersList - gets the data value 'configuredParameters' reported by the device handler for the device
  * Series of configuration parameter numbers and their values reported for the device.
+ * Prefixed 'c' in front for compatibility with Grafana.
  * @return comma-separated series of configuration values
  */
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
     if (params) {
-        params.replaceAll(',', 'i,') + 'i'
+        'c' + params.replaceAll(',', 'i,c') + 'i'
     }
     else {
         ''
@@ -1094,7 +1096,10 @@ def getDeviceLabel() { return {
             'Hub'
         }
         else if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}" + "${metadataDeviceNumber(it)}" + "${metadataLocation(it)}" + "${metadataSubLocation(it)}"
+            "${metadataDeviceType(it)}"
+            + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
+            + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
+            + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
         }
         else {
             // it?.device?.device?.label ?: 'unassigned'
@@ -1103,7 +1108,10 @@ def getDeviceLabel() { return {
     }
     else {
         if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}" + "${metadataDeviceNumber(it)}" + "${metadataLocation(it)}" + "${metadataSubLocation(it)}"
+            "${metadataDeviceType(it)}"
+            + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
+            + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
+            + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
         }
         else {
             // it?.label ?: 'unassigned'
@@ -1225,12 +1233,8 @@ def getFirmwareVersion() { return { -> hub().firmwareVersionString } }
  * @return
  */
 def getGroupId() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.groupId ?: 'unassigned'
-    }
-    else {
-        it?.device?.groupId ?: 'unassigned'
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".groupId ?: 'unassigned'
 } }
 
 /**
@@ -1414,12 +1418,8 @@ def getMessagesSent() { return { it?.device?.getDataValue('messagesSent') ?: '' 
  * @return device number
  */
 def getMetadataDeviceNumber() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataDeviceNumber') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataDeviceNumber') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataDeviceNumber') ?: ''
 } }
 
 /**
@@ -1427,12 +1427,8 @@ def getMetadataDeviceNumber() { return {
  * @return device type
  */
 def getMetadataDeviceType() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataDeviceType') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataDeviceType') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataDeviceType') ?: ''
 } }
 
 /**
@@ -1440,12 +1436,8 @@ def getMetadataDeviceType() { return {
  * @return inventory code
  */
 def getMetadataInventoryCode() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataInventoryCode') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataInventoryCode') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataInventoryCode') ?: ''
 } }
 
 /**
@@ -1453,12 +1445,8 @@ def getMetadataInventoryCode() { return {
  * @return device location
  */
 def getMetadataLocation() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataLocation') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataLocation') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataLocation') ?: ''
 } }
 
 /**
@@ -1466,12 +1454,8 @@ def getMetadataLocation() { return {
  * @return notes
  */
 def getMetadataNotes() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataNotes') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataNotes') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataNotes') ?: ''
 } }
 
 /**
@@ -1479,12 +1463,8 @@ def getMetadataNotes() { return {
  * @return room name
  */
 def getMetadataRoom() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataRoom') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataRoom') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataRoom') ?: ''
 } }
 
 /**
@@ -1492,12 +1472,8 @@ def getMetadataRoom() { return {
  * @return room number
  */
 def getMetadataRoomNumber() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataRoomNumber') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataRoomNumber') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataRoomNumber') ?: ''
 } }
 
 /**
@@ -1505,12 +1481,8 @@ def getMetadataRoomNumber() { return {
  * @return device sublocation
  */
 def getMetadataSubLocation() { return {
-    if (isEventObject(it)) {
-        it?.device?.device?.getDataValue('metadataSubLocation') ?: ''
-    }
-    else {
-        it?.device?.getDataValue('metadataSubLocation') ?: ''
-    }
+    def device = (isEventObject(it)) ? 'device?.device?' : 'device?'
+    it?."${device}".getDataValue('metadataSubLocation') ?: ''
 } }
 
 /**
@@ -1583,6 +1555,7 @@ def getStatePrevious() { return { eventPrevious(it)?.value } }
 
 /**
  * getStatusDevice - gets status of device
+ * TODO - Convert active/inactive to online/offline? - Leave for now.
  * @return device status
  */
 def getStatusDevice() { return { "${it?.status}".toLowerCase().replaceAll('_', '') } }
@@ -1917,7 +1890,7 @@ private postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
 
     def options = [callback : handleInfluxDBResponseLocal]
 
-    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'debug')
+    logger("postToInfluxDBhubAction: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'trace')
     sendHubCommand(new physicalgraph.device.HubAction(params, null, options))
 }
 
@@ -1974,7 +1947,7 @@ private postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
 
     def passData = [eventId : eventId]
 
-    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'debug')
+    logger("postToInfluxDBasynchttp: Posting data to InfluxDB: Host: ${state.uri}${params.path} Data: ${data}", 'trace')
     asynchttp_v1.post(handleInfluxDBResponseRemote, params, passData)
 }
 
@@ -2001,7 +1974,7 @@ private handleInfluxDBResponseRemote(response, passData) {
  * @return
  */
 private manageSubscriptions() {
-    logger('manageSubscriptions: Subscribing listeners to events.', 'debug')
+    logger('manageSubscriptions: Subscribing listeners to events.', 'info')
     unsubscribe()
     getSelectedDevices()?.each { dev ->
         if (!dev.displayName.startsWith("~")) {
@@ -2046,11 +2019,11 @@ private manageSubscriptions() {
         }
     }
 
-    logger("manageSubscriptions: Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events.", 'trace')
+    logger("manageSubscriptions: Subscribing 'handleDaylight' listener to 'Sunrise' and 'Sunset' events.", 'info')
     subscribe(location, 'sunrise', handleDaylight)
     subscribe(location, 'sunset', handleDaylight)
 
-    logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events.", 'trace')
+    logger("manageSubscriptions: Subscribing 'handleHubStatus' listener to 'Hub Status' events.", 'info')
     subscribe(location.hubs[0], 'hubStatus', handleHubStatus)
 }
 
@@ -2059,7 +2032,7 @@ private manageSubscriptions() {
  * @return
  */
 private manageSchedules() {
-    logger('manageSchedules: Schedulling polling methods.', 'trace')
+    logger('manageSchedules: Schedulling polling methods.', 'info')
     pollingMethods().each {
         try {
             unschedule(it.key)

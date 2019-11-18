@@ -421,7 +421,6 @@ def updated() {
 
     /**
      * create a map of room (group) names
-     * TODO Run this as a scheduled method so as to capture any changes outside updated()
      */
     generateGroupNamesMap()
 
@@ -439,6 +438,7 @@ def updated() {
  *****************************************************************************************************************/
 /**
  * generateGroupNamesMap
+ * Scheduled to run every 3 hours so as to capture any updates to rooms and/or devices.
  * @return
  */
 private generateGroupNamesMap() {
@@ -847,7 +847,8 @@ def tags() { [
     [name: 'identGlobal',   level: 1, clos: 'identGlobalDevice',     args: 1, type: ['f','q','y','z'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalAttribute',  args: 2, type: ['b'], esc: true, ident: true],
     [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], esc: true,  ident: true, parent: true],
- // [name: 'isDigital',     level: 0, clos: 'isDigital',             args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
+ // [name: 'isChange',      level: 2, clos: 'isChange',              args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
+ // [name: 'isDigital',     level: 2, clos: 'isDigital',             args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
  // [name: 'isPhysical',    level: 2, clos: 'isPhysical',            args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
     [name: 'listening',     level: 1, clos: 'listeningZwave',        args: 1, type: ['y','z']],
     [name: 'mdDeviceNo',    level: 2, clos: 'metadataDeviceNumber',  args: 1, type: ['f']],
@@ -956,7 +957,7 @@ def getBatteryChangeDate() { return { it?.latestState('batteryChange')?.date?.ti
 
 /**
  * getBatteryPower - gets whether or not hub is running on batteries (v2 hub)
- * TODO - Drop this as no longer much use?
+ * TODO - Drop this as no longer much use (v2 hubs only)?
  * @return true/false
  */
 def getBatteryPower() { return { ->
@@ -984,6 +985,7 @@ def getColorMapCurrent() { return { parseJson(it) } }
 
 /**
  * getCommandClassesList - for Zwave devices, gets report of Command Classes from infoZwave
+ * TODO - Endpoint information - leave for now until understand data format better.
  * @return zwave report
  */
 def getCommandClassesList() { return {
@@ -996,7 +998,7 @@ def getCommandClassesList() { return {
     info.remove('cc')
     if (info?.ccOut) info.remove('ccOut')
     if (info?.sec) info.remove('sec')
-    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '') TODO - Need to sort this out - leave for now until understand data format better
+    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '')
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join ',' }
     info = toKeyValue(info) + ',' + "${ccList}"
@@ -1074,6 +1076,7 @@ def getDeviceId() { return { (isEventObject(it)) ? it.deviceId : it?.id } }
 /**
  * getDeviceLabel - label of device (used in mobile app)
  * Contained within an event object (except for daylight and hubStatus events), otherwise get via device object.
+ * TODO - Check metadata.
  * @return device label
  */
 def getDeviceLabel() { return {
@@ -1084,11 +1087,20 @@ def getDeviceLabel() { return {
         else if (eventName(it) == 'hubStatus') {
             'Hub'
         }
+        else if (metadataDeviceType(it?.device?.device)) {
+            "${metadataDeviceType(it?.device?.device)}" + "${metadataDeviceNumber(it?.device?.device)}" + "${metadataLocation(it?.device?.device)}" + "${metadataSubLocation(it?.device?.device)}"
+        }
         else {
             it?.device?.device?.label ?: 'unassigned'
         }
-    } else {
-        it?.label ?: 'unassigned'
+    }
+    else {
+        if (metadataDeviceType(it)) {
+            "${metadataDeviceType(it)}" + "${metadataDeviceNumber(it)}" + "${metadataLocation(it)}" + "${metadataSubLocation(it)}"
+        }
+        else {
+            it?.label ?: 'unassigned'
+        }
     }
 } }
 
@@ -1163,15 +1175,16 @@ def getEventName() { return {
 
 /**
  * getEventPrevious - helper
- * TODO - Check that date is the correct field?
+ * TODO - Check that previous event pulled from data field correctly (not implemented by handler yet).
  * @return previous event or null if no previous event (i.e. first event for a given device.attribute)
  */
 def getEventPrevious() { return {
     def eventPrevious
     def eventData = parseJson(it?.data)
     if (eventData?.previous) {
-        eventPrevious = [value: eventData?.previous?.value, date: it?.data?.previous?.date] // Is date the correct field?
-    } else {
+        eventPrevious = [value: eventData?.previous?.value, date: it?.data?.previous?.date]
+    }
+    else {
         def history = it?.device?.statesSince("${it.name}", it.date - 7, [max: 5])
         if (history) {
             eventPrevious = history.sort { a, b -> b.date.time <=> a.date.time }.find { previous -> previous.date.time < it.date.time }
@@ -1214,10 +1227,18 @@ def getGroupId() { return {
 
 /**
  * getGroupName - gets name of group (room) device is allocated to via map lookup
- * If not assigned to a group, returns value of state.dwellingType
+ * If room metadata is available, uses it.
+ * Else uses an assigned group or if not assigned to a group, returns the value of state.dwellingType
  * @return name of group (room)
  */
-def getGroupName() { return { state?.groupNames?."${groupId(it)}" ?: state.dwellingType } }
+def getGroupName() { return {
+    if (metadataRoom(it)) {
+        "${metadataRoom(it)}" + (metadataRoomNumber(it)) ? " ${metadataRoomNumber(it)}" : ''
+    }
+    else {
+        state?.groupNames?."${groupId(it)}" ?: state.dwellingType
+    }
+} }
 
 /**
  * getHub - helper - potentially more than one hub at a given location, but currently restricted to one.
@@ -1265,35 +1286,30 @@ def getHueCurrent() { return { colorMapCurrent(it).hue } }
 
 /**
  * getIdentGlobalAttribute
- * TODO - check/change
  * @return
  */
-def getIdentGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${groupName(dev)} . ${deviceLabel(dev)} . ${attr.capitalize()}" } }
+def getIdentGlobalAttribute() { return { dev, attr -> "${locationName()} . ${hubName()} . ${identLocal(dev)} . ${attr.capitalize()}" } }
 
 /**
  * getIdentGlobalDevice
- * TODO - check/change
  * @return
  */
 def getIdentGlobalDevice() { return { "${locationName()} . ${hubName()} . ${identLocal(it)}" } }
 
 /**
  * getIdentGlobalEvent
- * TODO - check/change
  * @return
  */
-def getIdentGlobalEvent() { return { "${locationName()} . ${hubName()} . ${identLocal(it)} . ${eventName(it).capitalize()}" } } // added capitalize()
+def getIdentGlobalEvent() { return { "${locationName()} . ${hubName()} . ${identLocal(it)} . ${eventName(it).capitalize()}" } }
 
 /**
  * getIdentGlobalHub
- * TODO - check/change
  * @return
  */
 def getIdentGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
 
 /**
  * getIdentLocal
- * TODO - check/change
  * @return
  */
 def getIdentLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
@@ -1306,7 +1322,7 @@ def getInfoZwave() { return { it?.getZwaveInfo() } }
 
 /**
  * getIsChange - indicates whether or not attribute value has changed/forced report
- * TODO Check unused?
+ * Unused.
  * @return
  */
 def getIsChange() { return { it?.isStateChange } }
@@ -1471,7 +1487,7 @@ def getStateCurrent() { return { it?.name in ['sunrise', 'sunset'] ? it.name : i
 
 /**
  * getStateDescriptionCurrent - compiles a textual description for state events
- * TODO - Leave for now: 'sun has risen' / 'sun has set' for 'daylight' events.
+ * TODO - 'sun has risen' / 'sun has set' for 'daylight' events - leave for now.
  * @return textual description for state events
  */
 def getStateDescriptionCurrent() { return { "At ${locationName()}, in ${hubName()}, ${deviceLabel(it)} is ${stateCurrent(it)} in the ${groupName(it)}." } }
@@ -1496,7 +1512,7 @@ def getStateLevelPrevious() { return { attributeStates(it)?.find { level -> leve
 
 /**
  * getStatePrevious - previous state of attribute
- * TODO Check sunrise/sunset conversion needed? - Don't think so.
+ * TODO - Check sunrise/sunset conversion needed? - Don't think so.
  * @return previous event attribute state
  */
 def getStatePrevious() { return { eventPrevious(it)?.value } }
@@ -1627,7 +1643,6 @@ def getTimeOffsetPrevious() { return { (eventName(it) == 'motion' && statePrevio
 
 /**
  * getTimestamp - gets timestamp (in milliseconds) of event
- * TODO Check the logic/reasoning for this.
  * The timestamps of motion events are adjusted by an offset amount to account for the response time of the sensor.
  * @return
  */
@@ -1698,8 +1713,7 @@ def getValueDescriptionPrevious() { return {
 
 /**
  * getValueLastEvent - gets latest value for each attribute reported by a device
- * TODO What about 3axis events etc?
- * TODO Should it be '' rather than 'null'? - ?'null' gets logged to InfluxDB, whereas '' doesn't? - but indicates not reported
+ * TODO - What about 3axis events etc?
  * @return value
  */
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
@@ -2000,12 +2014,13 @@ private manageSchedules() {
  */
 private pollingMethods() {
     [
-        pollStatus     : 'runEvery1Hour',
-        pollLocations  : 'runEvery3Hours',
-        pollDevices    : 'runEvery3Hours',
-        pollAttributes : 'runEvery3Hours',
-        pollZwavesCCs  : 'runEvery3Hours',
-        pollZwaves     : 'runEvery3Hours'
+        pollStatus            : 'runEvery1Hour',
+        pollLocations         : 'runEvery3Hours',
+        pollDevices           : 'runEvery3Hours',
+        pollAttributes        : 'runEvery3Hours',
+        pollZwavesCCs         : 'runEvery3Hours',
+        pollZwaves            : 'runEvery3Hours',
+        generateGroupNamesMap : 'runEvery3Hours',
     ]
 }
 
@@ -2061,13 +2076,14 @@ private logger(String msg, String level = 'debug') {
  *****************************************************************************************************************/
 /**
  * getSelectedDeviceNames - creates list of device names from list of device objects selected by user
- * TODO Could this be groupName . displayName to be more helpful?
+ * TODO - Check metadata.
  * @return
  */
 private getSelectedDeviceNames() {
     def listSelectedDeviceNames = []
     try {
-        listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort()
+        // listSelectedDeviceNames = selectedDevices()?.collect { it?.displayName }?.sort()
+        listSelectedDeviceNames = selectedDevices()?.collect { deviceLabel(it) }?.sort()
     }
     catch (e) {
         logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')

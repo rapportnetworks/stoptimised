@@ -1089,10 +1089,7 @@ def getDeviceLabel() { return {
             'Hub'
         }
         else if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}"
-            // + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
-            // + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
-            // + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
+            "${metadataDeviceType(it)}" + ((metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : '') + ((metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : '') + ((metadataLocation(it)) ? " ${metadataLocation(it)}" : '')
         }
         else {
             // it?.device?.device?.label ?: 'unassigned'
@@ -1101,10 +1098,7 @@ def getDeviceLabel() { return {
     }
     else {
         if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}"
-            // + (metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : ''
-            // + (metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : ''
-            // + (metadataLocation(it)) ? " ${metadataLocation(it)}" : ''
+            "${metadataDeviceType(it)}" + ((metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : '') + ((metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : '') + ((metadataLocation(it)) ? " ${metadataLocation(it)}" : '')
         }
         else {
             // it?.label ?: 'unassigned'

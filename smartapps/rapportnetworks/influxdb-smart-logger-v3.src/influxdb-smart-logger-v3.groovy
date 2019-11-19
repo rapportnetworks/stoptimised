@@ -2142,14 +2142,13 @@ private logger(String msg, String level = 'debug') {
  *****************************************************************************************************************/
 /**
  * getSelectedDeviceNames - creates list of device names from list of device objects selected by user
- * TODO - Check metadata.
  * @return
  */
 private getSelectedDeviceNames() {
     def listSelectedDeviceNames = []
     try {
-        listSelectedDeviceNames = getSelectedDevices()?.collect { it?.displayName }?.sort()
-        // listSelectedDeviceNames = getSelectedDevices()?.collect { getDeviceLabel(it) }?.sort()
+        // listSelectedDeviceNames = getSelectedDevices()?.collect { it?.displayName }?.sort()
+        listSelectedDeviceNames = getSelectedDevices()?.collect { deviceLabel(it) }?.sort()
     }
     catch (e) {
         logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')

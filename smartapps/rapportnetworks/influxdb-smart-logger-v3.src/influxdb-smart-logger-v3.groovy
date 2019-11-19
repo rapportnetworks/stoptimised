@@ -510,7 +510,6 @@ def handleStringEvent(evt) {
 
 /**
  * handleColorMapEvent
- * TODO - Should this be to a separate measurement (eg color)?
  * @param evt
  * @return
  */
@@ -699,7 +698,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                         break
                 }
 
-                if (tag.Value) {
+                if (tag?.Value) {
                     influxLP.append(",${tag.name}=")
                     if (tag?.esc) {
                         influxLP.append("${tag.Value.replaceAll("'", '').replaceAll('"', '').replaceAll(',', '').replaceAll('=', '').replaceAll(' ', '\\\\ ')}")
@@ -756,7 +755,7 @@ def influxLineProtocol(items, measurementName, measurementType, bucket = 'events
                         break
                 }
 
-                if (field.Value || field.Value == 0) {
+                if (field?.Value || field?.Value == 0) {
 
                     influxLP.append((fieldCount) ? ',' : '')
 
@@ -902,9 +901,9 @@ def fields() { [
     [name: 'nText',         level: 3, clos: 'valueDescriptionCurrent',  var: 'string',   args: 1, type: ['n'], ident: true],
     [name: 'nValue',        level: 1, clos: 'valueCurrent',             var: 'float',    args: 1, type: ['n']],
     [name: 'nValueRd',      level: 3, clos: 'valueRoundedCurrent',      var: 'string',   args: 1, type: ['n']],
-    [name: 'nX',            level: 1, clos: 'xCurrent',                 var: 'float',    args: 1, type: ['v']],
-    [name: 'nY',            level: 1, clos: 'yCurrent',                 var: 'float',    args: 1, type: ['v']],
-    [name: 'nZ',            level: 1, clos: 'zCurrent',                 var: 'float',    args: 1, type: ['v']],
+    [name: 'nX',            level: 1, clos: 'xxxCurrent',               var: 'float',    args: 1, type: ['v']],
+    [name: 'nY',            level: 1, clos: 'yyyCurrent',               var: 'float',    args: 1, type: ['v']],
+    [name: 'nZ',            level: 1, clos: 'zzzCurrent',               var: 'float',    args: 1, type: ['v']],
     [name: 'onBattery',     level: 1, clos: 'batteryPower',             var: 'boolean',  args: 0, type: ['p']],
     [name: 'pBin',          level: 2, clos: 'stateBinaryPrevious',      var: 'boolean',  args: 1, type: ['e']],
     [name: 'pLevel',        level: 1, clos: 'stateLevelPrevious',       var: 'integer',  args: 1, type: ['e']],
@@ -992,7 +991,6 @@ def getColorMapCurrent() { return { parseJson(it) } }
 
 /**
  * getCommandClassesList - for Zwave devices, gets report of Command Classes from infoZwave
- * TODO - Endpoint information - leave for now until understand data format better.
  * @return zwave report
  */
 def getCommandClassesList() { return {
@@ -1077,7 +1075,6 @@ def getDeviceId() { return { (isEventObject(it)) ? it?.deviceId : it?.id } }
 /**
  * getDeviceLabel - label of device (used in mobile app)
  * Contained within an event object (except for daylight and hubStatus events), otherwise get via device object.
- * TODO - Check metadata.
  * @return device label
  */
 def getDeviceLabel() { return {
@@ -1783,7 +1780,6 @@ def getValueDescriptionPrevious() { return {
 
 /**
  * getValueLastEvent - gets latest value for each attribute reported by a device
- * TODO - What about 3axis events etc?
  * @return value
  */
 def getValueLastEvent() { return { dev, attr -> "${dev?.latestValue(attr)}" ?: 'null' } }
@@ -1817,22 +1813,19 @@ def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?:
  * getXCurrent - gets x value for 3-axis events, converted to g unit
  * @return x value
  */
-def getXCurrent() { return { it.value?.x / gravityFactor() } }
-// def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
+def getXxxCurrent() { return { it.xyzValue?.x / getGravityFactor() ?: 0 } }
 
 /**
  * getYCurrent - gets y value for 3-axis events, converted to g unit
  * @return y value
  */
-def getYCurrent() { return { it.value?.y / gravityFactor() } }
-// def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
+def getYyyCurrent() { return { it.xyzValue?.y / getGravityFactor() ?: 0 } }
 
 /**
  * getZCurrent - gets z value for 3-axis events, converted to g unit
  * @return z value
  */
-def getZCurrent() { return { it.value?.z / gravityFactor() } }
-// def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
+def getZzzCurrent() { return { it.xyzValue?.z / getGravityFactor() ?: 0 } }
 
 /**
  * getZigbeePowerLevel - power level for Zigbee devices
@@ -1853,10 +1846,10 @@ def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel')
 def getZwaveSecure() { return { (infoZwave(it)?.zw.endsWith('s')) ? 't' : 'f' } }
 
 /**
- * gravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
+ * getGravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
  * @return g unit conversion factor value
  */
-def gravityFactor() { return { -> (1024) } }
+def getGravityFactor() { return { -> (1024) } }
 
 /**
  * removeUnit - helper - removes any units appending to end of event value by a device handler

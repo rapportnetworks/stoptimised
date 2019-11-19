@@ -1813,19 +1813,19 @@ def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?:
  * getXCurrent - gets x value for 3-axis events, converted to g unit
  * @return x value
  */
-def getXxxCurrent() { return { it.xyzValue?.x / getGravityFactor() ?: 0 } }
+def getXxxCurrent() { return { it.xyzValue?.x / gravityFactor() ?: 0 } }
 
 /**
  * getYCurrent - gets y value for 3-axis events, converted to g unit
  * @return y value
  */
-def getYyyCurrent() { return { it.xyzValue?.y / getGravityFactor() ?: 0 } }
+def getYyyCurrent() { return { it.xyzValue?.y / gravityFactor() ?: 0 } }
 
 /**
  * getZCurrent - gets z value for 3-axis events, converted to g unit
  * @return z value
  */
-def getZzzCurrent() { return { it.xyzValue?.z / getGravityFactor() ?: 0 } }
+def getZzzCurrent() { return { it.xyzValue?.z / gravityFactor() ?: 0 } }
 
 /**
  * getZigbeePowerLevel - power level for Zigbee devices

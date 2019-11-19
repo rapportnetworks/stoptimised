@@ -842,7 +842,7 @@ def tags() { [
     [name: 'chamber',       level: 1, clos: 'groupName',             args: 1, type: ['b','c','d','e','f','h','n','q','s','v','y','z'], esc: true, parent: true],
     [name: 'chamberId',     level: 2, clos: 'groupId',               args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true],
     [name: 'deviceCode',    level: 2, clos: 'deviceCode',            args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], esc: true, ident: true, parent: true],
-    [name: 'deviceHand',    level: 1, clos: 'deviceHandlerName',     args: 1, type: ['b','f','y','z'], esc: true, parent: true],
+    [name: 'deviceHand',    level: 1, clos: 'deviceHandlerName',     args: 1, type: ['b','f','q','y','z'], esc: true, parent: true],
     [name: 'deviceId',      level: 2, clos: 'deviceId',              args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], parent: true],
     [name: 'deviceLabel',   level: 1, clos: 'deviceLabel',           args: 1, type: ['b','c','e','f','n','q','s','v','y','z'], esc: true, parent: true],
     [name: 'deviceType',    level: 1, clos: 'deviceType',            args: 1, type: ['f','q']],
@@ -1003,9 +1003,9 @@ def getCommandClassesList() { return {
     def ccList = 'zz' + cc.sort().join('=t,zz') + '=t' // 't' is InfluxLP for 'true'
     info.remove('zw')
     info.remove('cc')
+    info.remove('endpointInfo')
     if (info?.ccOut) info.remove('ccOut')
     if (info?.sec) info.remove('sec')
-    // info.endpointInfo.replaceAll(',', '') // .replaceAll("'", '')
     info = info.sort()
     def toKeyValue = { it.collect { /$it.key="$it.value"/ } join ',' }
     info = toKeyValue(info) + ',' + "${ccList}"
@@ -1089,7 +1089,12 @@ def getDeviceLabel() { return {
             'Hub'
         }
         else if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}" + ((metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : '') + ((metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : '') + ((metadataLocation(it)) ? " ${metadataLocation(it)}" : '')
+            def label = metadataDeviceType(it)
+            label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
+            label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
+            label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''
+            label += metadataLocation(it) ? " ${metadataLocation(it)}" : ''
+            label
         }
         else {
             // it?.device?.device?.label ?: 'unassigned'
@@ -1098,7 +1103,12 @@ def getDeviceLabel() { return {
     }
     else {
         if (metadataDeviceType(it)) {
-            "${metadataDeviceType(it)}" + ((metadataDeviceNumber(it)) ? " ${metadataDeviceNumber(it)} " : '') + ((metadataSubLocation(it)) ? ". ${metadataSubLocation(it)}" : '') + ((metadataLocation(it)) ? " ${metadataLocation(it)}" : '')
+            def label = metadataDeviceType(it)
+            label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
+            label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
+            label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''
+            label += metadataLocation(it) ? " ${metadataLocation(it)}" : ''
+            label
         }
         else {
             // it?.label ?: 'unassigned'
@@ -1807,19 +1817,22 @@ def getWakeUpInterval() { return { it?.device?.getDataValue('wakeUpInterval') ?:
  * getXCurrent - gets x value for 3-axis events, converted to g unit
  * @return x value
  */
-def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
+def getXCurrent() { return { it.value?.x / gravityFactor() } }
+// def getXCurrent() { return { it.xyzValue.x / gravityFactor() } }
 
 /**
  * getYCurrent - gets y value for 3-axis events, converted to g unit
  * @return y value
  */
-def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
+def getYCurrent() { return { it.value?.y / gravityFactor() } }
+// def getYCurrent() { return { it.xyzValue.y / gravityFactor() } }
 
 /**
  * getZCurrent - gets z value for 3-axis events, converted to g unit
  * @return z value
  */
-def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
+def getZCurrent() { return { it.value?.z / gravityFactor() } }
+// def getZCurrent() { return { it.xyzValue.z / gravityFactor() } }
 
 /**
  * getZigbeePowerLevel - power level for Zigbee devices
@@ -1922,7 +1935,7 @@ private postToInfluxDBLocal(data, retentionPolicy, bucket, eventId) {
  * @param hubResponse
  * @return
  */
-private handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
+def handleInfluxDBResponseLocal(physicalgraph.device.HubResponse hubResponse) {
     if (hubResponse.status == 204) {
         logger("postToInfluxDBLocal: Success! Code: ${hubResponse.status}", 'trace')
     }
@@ -1980,7 +1993,7 @@ private postToInfluxDBRemote(data, retentionPolicy, bucket, eventId) {
  * @param passData
  * @return
  */
-private handleInfluxDBResponseRemote(response, passData) {
+def handleInfluxDBResponseRemote(response, passData) {
     if (response.status == 204) {
         logger("postToInfluxDBRemote: Success! Code: ${response.status} (id: ${passData.eventId})", 'trace')
     }

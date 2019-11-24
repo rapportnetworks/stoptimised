@@ -14,14 +14,14 @@
  *****************************************************************************************************************/
 
 definition (
-        name        : 'Configurator',
+        name        : 'Configurator v2',
         namespace   : 'rapportnetwork',
         author      : 'Alasdair Thin',
         description : 'Configure SmartThings Devices',
         category    : 'My Apps',
-        iconUrl     : 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
-        iconX2Url   : 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
-        iconX3Url   : 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
+        iconUrl     : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals.png',
+        iconX2Url   : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals@2x.png',
+        iconX3Url   : 'https://s3.amazonaws.com/smartapp-icons/HealthAndWellness/App-30DayGoals@2x.png',
 )
 
 preferences {
@@ -38,39 +38,42 @@ def mainPage() {
         section {
             input(
                     name           : 'configurationPref',
-                    title          : 'Select Devices with Configuration capability:',
+                    title          : 'Select Devices with Configuration capability',
                     type           : 'capability.configuration',
                     multiple       : true,
-                    required       : false,
+                    required       : true,
                     submitOnChange : true,
             )
         }
 
         section {
-            paragraph('Select Configuration Profiles for Devices')
+            paragraph('Select Configuration Profiles for Selected Devices')
             settings?.configurationPref?.each {
+                def configureCommands = getConfigureCommands(it)
+                def configured = it?.device?.getDataValue('configuredProfile') ?: 'unknown'
                 input(
-                        // TODO see about pulling metadata in from device to be able to distinguish between devices with the same name
-                        // TODO rework as a paragraph for each item - use dynamic methods to get info
-                        name           : "profile-${it}",
+                        name           : "device-${it.id}",
                         type           : 'enum',
-                        title          : "${it}\n(${it?.typeName})\n[${it?.device?.getDataValue('configuredProfile') ?: 'unknown'}]",
-                        options        : getConfigureCommands(it),
+                        title          : "${it}\n(${it?.typeName})\n${configureCommands ?: '[unknown]'}\n[${configured}]",
+                        options        : getConfigureCommandsOptions(configureCommands, configured),
                         required       : false,
                 )
             }
         }
 
+        /*
         section {
             paragraph(
                     title : 'Details of Selected Devices',
                     "${createSummary(selectedDeviceNames)}"
             )
         }
+        */
+
         section {
             input(
                     name         : 'loggingPref',
-                    title        : 'Log Smart App activity.',
+                    title        : 'Log Smart App activity',
                     type         : 'bool',
                     defaultValue : false,
                     required     : false,
@@ -81,9 +84,17 @@ def mainPage() {
 
 def getConfigureCommands(device) {
     device?.supportedCommands?.findAll {
-        command -> command?.name?.matches("configure(.+)") // .startsWith('configure')
+        it?.name?.matches("configure(.+)")
+        }?.collect {
+        command -> (command.name - 'configure')
+        }
+}
+
+def getConfigureCommandsOptions(configureCommands, configured) {
+    configureCommands?.findAll {
+        it != configured
         }?.collectEntries {
-        configureCommand -> [(configureCommand.name) : (configureCommand.name - 'configure')]
+        command -> [('configure' + command) : command]
         }
 }
 
@@ -160,12 +171,24 @@ def controller() {
 
 }
 
+/*
 def sendCommand() {
     logger('sendCommand: Called.', 'trace')
     settings?.configurationPref?.each {
         if (it.id in state?.selectedDevices) {
             logger("sendCommand: Sending Configure command to ${it?.displayName} [${it.id}]", 'info')
             it.configure()
+        }
+    }
+}
+*/
+
+def sendCommand() {
+    logger('sendCommand: Called.', 'trace')
+    settings?.configurationPref?.each {
+        if (it.id in state?.selectedDevices) { // key
+        logger("sendCommand: Sending Configure command ${it?.value} to device ${it?.key}.", 'info')
+        "configure"
         }
     }
 }
@@ -191,7 +214,12 @@ def checkReceived() { // need to put a time limit on checking currentState - so 
  *  Private Helper Functions:
  *****************************************************************************************************************/
 private getSelectedDeviceIds() {
-    settings?.configurationPref?.findResults { it?.hasAttribute('configure') ? it.id : null }
+    // settings?.configurationPref?.findResults { it?.hasAttribute('configure') ? it.id : null }
+    settings?.findAll {
+        it?.key?.matches("device-(.+)") && it?.value != null
+        }?.collectEntries {
+        [(it?.key - 'device-') : it?.value]
+        }
 }
 
 private logger(message, level = 'debug') {

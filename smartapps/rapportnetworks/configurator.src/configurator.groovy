@@ -47,22 +47,25 @@ def mainPage() {
         }
 
         section {
-            settings?.configurationPref?.each { device ->
+            paragraph('Select Configuration Profiles for Devices')
+            settings?.configurationPref?.each {
                 input(
                         // TODO see about pulling metadata in from device to be able to distinguish between devices with the same name
                         // TODO rework as a paragraph for each item - use dynamic methods to get info
-                        name           : "profile-${device}",
+                        name           : "profile-${it}",
                         type           : 'enum',
-                        title          : "Profile for Device: ${device}",
-                        options        : getConfigureCommands(device),
+                        title          : "${it}\n(${it?.typeName})\n[${it?.device?.getDataValue('configuredProfile') ?: 'unknown'}]",
+                        options        : getConfigureCommands(it),
                         required       : false,
-                        submitOnChange : true,
                 )
             }
         }
 
         section {
-            paragraph(title : 'Details of Selected Devices:', "${createSummary(selectedDeviceNames)}")
+            paragraph(
+                    title : 'Details of Selected Devices',
+                    "${createSummary(selectedDeviceNames)}"
+            )
         }
         section {
             input(
@@ -76,13 +79,11 @@ def mainPage() {
     }
 }
 
-// TODO Convert this to a closure
 def getConfigureCommands(device) {
     device?.supportedCommands?.findAll {
-        // command -> command.name.startsWith('configure')
-        command -> command.name.matches("configure(.+)")
+        command -> command?.name?.matches("configure(.+)") // .startsWith('configure')
         }?.collectEntries {
-        configureCommand -> [(configureCommand.name) : configureCommand.name]
+        configureCommand -> [(configureCommand.name) : (configureCommand.name - 'configure')]
         }
 }
 

@@ -1322,7 +1322,7 @@ def getIdentGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.d
  * getIdentLocal
  * @return
  */
-def getIdentLocal() { return { "${groupName(it)} . ${deviceLabel(it)}" } }
+def getIdentLocal() { return { "${groupName(it)} . ${deviceLabel(it) - ~/.+\s?+\.+\s?+/}" } }
 
 /**
  * getInfoZwave - helper to get Zwave information about the device

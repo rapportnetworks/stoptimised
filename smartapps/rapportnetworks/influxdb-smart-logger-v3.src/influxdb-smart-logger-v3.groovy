@@ -1307,7 +1307,9 @@ def getIdentGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.d
  */
 def getIdentLocal() { return {
     if (metadataDeviceType(it)) {
-        def label = "${metadataRoom(it)} . ${metadataDeviceType(it)}"
+        def label = metadataRoom(it)
+        label += metadataRoomNumber(it) ? " ${metadataRoomNumber(it)} " : ''
+        label += " . ${metadataDeviceType(it)}"
         label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
         label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
         label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''

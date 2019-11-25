@@ -1024,7 +1024,7 @@ def getConfigure() { return { it?.latestValue('configure') ?: '' } }
  */
 def getConfiguredParametersList() { return {
     def params = it?.device?.getDataValue('configuredParameters')
-    if (params) {
+    if (params && params != 'null') {
         'c' + params.replaceAll(',', 'i,c') + 'i'
     }
     else {

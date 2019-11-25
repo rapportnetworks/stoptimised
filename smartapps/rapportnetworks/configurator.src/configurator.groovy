@@ -157,8 +157,8 @@ def checkReceived() {
         def id = it?.id
         if (id in state?.selectedDevicesConfigueCommands) {
             def configure = it?.currentState('configure')
-            if (configure.date.time >= state.startTime && configure.value ==~ /(queued.*|syncing.*|pending.*)/) {
-                logger("checkReceived: Device - ${it?.displayName} [${id}], configure value - '${configure.value}'.", 'debug')
+            if (configure?.date?.time >= state?.startTime && configure?.value ==~ /(queued.*|syncing.*|pending.*)/) {
+                logger("checkReceived: Device - ${it?.displayName} [${id}], configure value - '${configure?.value}'.", 'debug')
                 logger("checkReceived: Deselecting device - ${it?.displayName} [${id}].", 'info')
                 removalList << id
             }

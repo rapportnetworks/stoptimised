@@ -30,14 +30,13 @@ preferences {
             install   : true,
             uninstall : true,
     )
-
 }
 
 def mainPage() {
     dynamicPage(name : 'mainPage') {
         section {
             input(
-                    name           : 'configurationPref',
+                    name           : 'selectedDevices',
                     title          : 'Select Devices with Configuration capability',
                     type           : 'capability.configuration',
                     multiple       : true,
@@ -48,31 +47,22 @@ def mainPage() {
 
         section {
             paragraph('Select Configuration Profiles for Selected Devices')
-            settings?.configurationPref?.each {
-                def configureCommands = getConfigureCommands(it)
+            settings?.selectedDevices?.each {
+                def commands = configureCommands(it)
                 def configured = it?.device?.getDataValue('configuredProfile') ?: 'unknown'
                 input(
-                        name           : "device-${it.id}",
+                        name           : it.id,
                         type           : 'enum',
-                        title          : "${it}\n(${it?.typeName})\n${configureCommands ?: '[unknown]'}\n[${configured}]",
-                        options        : getConfigureCommandsOptions(configureCommands, configured),
+                        title          : "${it}\n(${it?.typeName})\n${commands ?: '[unknown]'}\n[${configured}]",
+                        options        : configureOptions(commands, configured),
                         required       : false,
                 )
             }
         }
 
-        /*
-        section {
-            paragraph(
-                    title : 'Details of Selected Devices',
-                    "${createSummary(selectedDeviceNames)}"
-            )
-        }
-        */
-
         section {
             input(
-                    name         : 'loggingPref',
+                    name         : 'logging',
                     title        : 'Log Smart App activity',
                     type         : 'bool',
                     defaultValue : false,
@@ -90,7 +80,7 @@ def getConfigureCommands(device) {
         }
 }
 
-def getConfigureCommandsOptions(configureCommands, configured) {
+def getConfigureOptions(configureCommands, configured) {
     configureCommands?.findAll {
         it != configured
         }?.collectEntries {
@@ -98,47 +88,25 @@ def getConfigureCommandsOptions(configureCommands, configured) {
         }
 }
 
-private getSelectedDeviceNames() {
-    settings?.configurationPref?.collect {
-        def items
-        if (it?.currentState('syncPending')?.date?.time > it?.currentState('configure')?.date?.time) {
-            items = it.currentState('syncPending')?.value
-        }
-        else {
-            items = '?' // TODO Show configured profile instead
-        }
-
-        // "${it?.displayName}(${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [$items]"
-        // GString
-        // "${it?.displayName} (${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [${items}] ${it?.supportedCommands.findAll { command -> command.name.startsWith('configure') } }"
-        def name = it?.displayName
-        def profile = settings?."profile-${name}"
-        "${name} (${it?.getZwaveInfo()?.zw?.take(1)}) > ${it?.currentState('configure')?.date?.format('yyyy/MM/dd-HH:mm')} [${items}] -> ${profile}"
-    }
-}
-
-private createSummary(items) {
-    def summary = ''
-    items?.each {
-        summary += summary ? '\n' : ''
-        summary += "$it"
-    }
-    summary
-}
-
 /*****************************************************************************************************************
  *  SmartThings System Commands:
  *****************************************************************************************************************/
 def installed() {
     logger("installed: ${app.label} installed with settings: ${settings}.", 'trace')
-    state.selectedDevices = selectedDeviceIds
+    state.selectedDevicesIds = selectedDevicesIds
+    logger("installed: selectedDevicesIds - ${state.selectedDevicesIds}", 'debug')
+    state.selectedDevicesConfigueCommands = selectedDevicesConfigureCommands
+    logger("installed: selectedDevicesConfigueCommands - ${state.selectedDevicesConfigueCommands}", 'debug')
     subscribe(app, handleAppTouch)
     state.sendCounter = 3
 }
 
 def updated() {
     logger("updated: ${app.label} updated with settings: ${settings}.", 'trace')
-    state.selectedDevices = selectedDeviceIds
+    state.selectedDevicesIds = selectedDevicesIds
+    logger("updated: selectedDevicesIds - ${state.selectedDevicesIds}", 'debug')
+    state.selectedDevicesConfigueCommands = selectedDevicesConfigureCommands
+    logger("updated: selectedDevicesConfigueCommands - ${state.selectedDevicesConfigueCommands}", 'debug')
     subscribe(app, handleAppTouch)
     state.sendCounter = 3
 }
@@ -151,7 +119,7 @@ def uninstalled() {
  *  Event Handlers:
  *****************************************************************************************************************/
 def handleAppTouch(event) { // SmartApp Touch event
-    logger("handleAppTouch: App trigger event: $event", 'trace')
+    logger("handleAppTouch: App trigger event: ${event}.", 'trace')
     state.startTime = now() - 200_000
     unsubscribe()
     controller()
@@ -161,7 +129,7 @@ def handleAppTouch(event) { // SmartApp Touch event
  *  Main Commands:
  *****************************************************************************************************************/
 def controller() {
-    logger("controller: Called. sendCounter = $state.sendCounter", 'trace')
+    logger("controller: Called. sendCounter = ${state.sendCounter}.", 'trace')
     if (state.sendCounter > 0) {
         checkReceived()
         sendCommand()
@@ -171,59 +139,58 @@ def controller() {
 
 }
 
-/*
 def sendCommand() {
     logger('sendCommand: Called.', 'trace')
-    settings?.configurationPref?.each {
-        if (it.id in state?.selectedDevices) {
-            logger("sendCommand: Sending Configure command to ${it?.displayName} [${it.id}]", 'info')
-            it.configure()
-        }
-    }
-}
-*/
-
-def sendCommand() {
-    logger('sendCommand: Called.', 'trace')
-    settings?.configurationPref?.each {
-        if (it.id in state?.selectedDevices) { // key
-        logger("sendCommand: Sending Configure command ${it?.value} to device ${it?.key}.", 'info')
-        "configure"
+    settings?.selectedDevices?.each {
+        def id = it?.id
+        if (id in state?.selectedDevicesConfigueCommands) {
+            def command = state?.selectedDevicesConfigueCommands?."${id}"?.value
+            logger("sendCommand: Sending Configure command ${command} to device ${id}.", 'info')
+            it."configure${command}"()
         }
     }
 }
 
-def checkReceived() { // need to put a time limit on checking currentState - so that isn't long time ago
+def checkReceived() {
     def removalList = []
-    settings?.configurationPref?.each {
-        if (it.id in state?.selectedDevices) {
+    settings?.selectedDevices?.each {
+        def id = it?.id
+        if (id in state?.selectedDevicesConfigueCommands) {
             def configure = it?.currentState('configure')
-            if (configure.value in ['received', 'queued', 'completed'] && configure.date.time >= state.startTime) {
-                logger("checkReceived: Deselecting device ${it?.displayName} [${it.id}].", 'info')
-                removalList << it.id
+            // TODO Need to sort value logic
+            if (configure.date.time >= state.startTime && configure.value in ['received', 'queued', 'completed']) {
+                logger("checkReceived: Deselecting device ${it?.displayName} [${id}].", 'info')
+                removalList << id
             }
             else {
-                logger("checkReceived: Configure command not received by ${it?.displayName} [${it.id}].", 'info')
+                logger("checkReceived: Configure command not received by ${it?.displayName} [${id}].", 'info')
             }
         }
     }
-    if (removalList) state.selectedDevices = state.selectedDevices - removalList
+    if (removalList) {
+        removalList.each { removeId ->
+            state?.selectedDevicesConfigueCommands.remove(removeId)
+        }
+    }
 }
 
 /*****************************************************************************************************************
  *  Private Helper Functions:
  *****************************************************************************************************************/
-private getSelectedDeviceIds() {
-    // settings?.configurationPref?.findResults { it?.hasAttribute('configure') ? it.id : null }
+private getSelectedDevicesIds() {
+    settings?.selectedDevices?.collect { it.id }
+}
+
+private getSelectedDevicesConfigureCommands() {
     settings?.findAll {
-        it?.key?.matches("device-(.+)") && it?.value != null
-        }?.collectEntries {
-        [(it?.key - 'device-') : it?.value]
-        }
+        it?.key in state.selectedDevicesIds && it?.value != null
+    }?.collectEntries {
+        [(it?.key) : it?.value]
+    }
 }
 
 private logger(message, level = 'debug') {
-    if (loggingPref) log."${level}" message
+    if (settings?.logging) log."${level}" message
 }
 
 /*

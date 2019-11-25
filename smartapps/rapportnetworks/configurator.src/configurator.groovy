@@ -48,13 +48,13 @@ def mainPage() {
         section {
             paragraph('Select Configuration Profiles for Selected Devices')
             settings?.selectedDevices?.each {
-                def commands = configureCommands(it)
+                def commands = getConfigureCommands(it)
                 def configured = it?.device?.getDataValue('configuredProfile') ?: 'unknown'
                 input(
                         name           : it.id,
                         type           : 'enum',
                         title          : "${it}\n(${it?.typeName})\n${commands ?: '[unknown]'}\n[${configured}]",
-                        options        : configureOptions(commands, configured),
+                        options        : getConfigureOptions(commands, configured),
                         required       : false,
                 )
             }
@@ -132,7 +132,7 @@ def controller() {
     logger("controller: Called. sendCounter = ${state.sendCounter}.", 'trace')
     if (state.sendCounter > 0) {
         checkReceived()
-        sendCommand()
+        if (state?.selectedDevicesConfigueCommands) sendCommand()
         runIn(60, controller)
         state.sendCounter = state.sendCounter - 1
     }
@@ -145,8 +145,8 @@ def sendCommand() {
         def id = it?.id
         if (id in state?.selectedDevicesConfigueCommands) {
             def command = state?.selectedDevicesConfigueCommands?."${id}"?.value
-            logger("sendCommand: Sending Configure command ${command} to device ${id}.", 'info')
-            it."configure${command}"()
+            logger("sendCommand: Sending Configure command '${command}' to device - ${it?.displayName} [${id}].", 'info')
+            it."${command}"()
         }
     }
 }
@@ -158,8 +158,8 @@ def checkReceived() {
         if (id in state?.selectedDevicesConfigueCommands) {
             def configure = it?.currentState('configure')
             if (configure.date.time >= state.startTime && configure.value ==~ /(queued.*|syncing.*|pending.*)/) {
-                logger("checkReceived: Device ${id}, configure value - ${configure.value}", 'debug')
-                logger("checkReceived: Deselecting device ${it?.displayName} [${id}].", 'info')
+                logger("checkReceived: Device - ${it?.displayName} [${id}], configure value - '${configure.value}'.", 'debug')
+                logger("checkReceived: Deselecting device - ${it?.displayName} [${id}].", 'info')
                 removalList << id
             }
             else {

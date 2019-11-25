@@ -1075,6 +1075,7 @@ def getDeviceId() { return { (isEventObject(it)) ? it?.deviceId : it?.id } }
 /**
  * getDeviceLabel - label of device (used in mobile app)
  * Contained within an event object (except for daylight and hubStatus events), otherwise get via device object.
+ * Uses .displayName instead of .label (in case label not set).
  * @return device label
  */
 def getDeviceLabel() { return {
@@ -1085,32 +1086,12 @@ def getDeviceLabel() { return {
         else if (eventName(it) == 'hubStatus') {
             'Hub'
         }
-        else if (metadataDeviceType(it)) {
-            def label = metadataDeviceType(it)
-            label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
-            label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
-            label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''
-            label += metadataLocation(it) ? " ${metadataLocation(it)}" : ''
-            label
-        }
         else {
-            // it?.device?.device?.label ?: 'unassigned'
             it?.device?.device?.displayName ?: 'unassigned'
         }
     }
     else {
-        if (metadataDeviceType(it)) {
-            def label = metadataDeviceType(it)
-            label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
-            label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
-            label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''
-            label += metadataLocation(it) ? " ${metadataLocation(it)}" : ''
-            label
-        }
-        else {
-            // it?.label ?: 'unassigned'
-            it?.displayName ?: 'unassigned'
-        }
+        it?.displayName ?: 'unassigned'
     }
 } }
 
@@ -1319,10 +1300,24 @@ def getIdentGlobalEvent() { return { "${locationName()} . ${hubName()} . ${ident
 def getIdentGlobalHub() { return { "${locationName()} . ${hubName()} . ${state.dwellingType} . Hub" } }
 
 /**
- * getIdentLocal
+ * getIdentLocal - creates local identifier for device
+ * If there is metadata entered in device handler, uses metadata.
+ * Otherwise uses details from Group Names.
  * @return
  */
-def getIdentLocal() { return { "${groupName(it)} . ${deviceLabel(it) - ~/.+\s?+\.+\s?+/}" } }
+def getIdentLocal() { return {
+    if (metadataDeviceType(it)) {
+        def label = "${metadataRoom(it)} . ${metadataDeviceType(it)}"
+        label += metadataDeviceNumber(it) ? " ${metadataDeviceNumber(it)} " : ''
+        label += (metadataLocation(it) || metadataSubLocation(it)) ? ' .' : ''
+        label += metadataSubLocation(it) ? " ${metadataSubLocation(it)}" : ''
+        label += metadataLocation(it) ? " ${metadataLocation(it)}" : ''
+        label
+    }
+    else {
+        "${groupName(it)} . ${deviceLabelShort(it)}"
+    }
+} }
 
 /**
  * getInfoZwave - helper to get Zwave information about the device
@@ -1846,6 +1841,13 @@ def getZwavePowerLevel() { return { -> hub().hub.getDataValue('zwavePowerLevel')
 def getZwaveSecure() { return { (infoZwave(it)?.zw.endsWith('s')) ? 't' : 'f' } }
 
 /**
+ * getDeviceLabelShort - removes room name at start of device label
+ * (Up to space after dot.) eg Kitchen . Drawer 1
+ * @return
+ */
+def getDeviceLabelShort() { return { deviceLabel(it) - ~/.+\s?+\.+\s?+/ } }
+
+/**
  * getGravityFactor - helper - returns conversion factor to g unit (for Smartsense 3-axis sensor).
  * @return g unit conversion factor value
  */
@@ -2148,7 +2150,8 @@ private getSelectedDeviceNames() {
     def listSelectedDeviceNames = []
     try {
         // listSelectedDeviceNames = getSelectedDevices()?.collect { it?.displayName }?.sort()
-        listSelectedDeviceNames = getSelectedDevices()?.collect { deviceLabel(it) }?.sort()
+        // listSelectedDeviceNames = getSelectedDevices()?.collect { deviceLabel(it) }?.sort()
+        listSelectedDeviceNames = getSelectedDevices()?.collect { identLocal(it) }?.sort()
     }
     catch (e) {
         logger("selectedDeviceNames: Error while getting selected device names: ${e.message}.", 'warn')

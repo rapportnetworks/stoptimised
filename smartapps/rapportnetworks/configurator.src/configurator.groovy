@@ -157,8 +157,8 @@ def checkReceived() {
         def id = it?.id
         if (id in state?.selectedDevicesConfigueCommands) {
             def configure = it?.currentState('configure')
-            // TODO Need to sort value logic
-            if (configure.date.time >= state.startTime && configure.value in ['received', 'queued', 'completed']) {
+            if (configure.date.time >= state.startTime && configure.value ==~ /(queued.*|syncing.*|pending.*)/) {
+                logger("checkReceived: Device ${id}, configure value - ${configure.value}", 'debug')
                 logger("checkReceived: Deselecting device ${it?.displayName} [${id}].", 'info')
                 removalList << id
             }
@@ -192,26 +192,3 @@ private getSelectedDevicesConfigureCommands() {
 private logger(message, level = 'debug') {
     if (settings?.logging) log."${level}" message
 }
-
-/*
-def configureCommand() {
-    getSelectedDevices()?.each  { dev ->
-        if (!dev.displayName.startsWith("~")) {
-            if (dev.hasCapability("Configuration")) {
-                log.debug "${device.deviceLabel} has Configuration Capability"
-                if (dev.hasCommand("configure")) {
-                    log.debug "${device.deviceLabel} has configure Command"
-                    dev.configure()
-                    log.debug "configure Command sent to ${device.deviceLabel}"
-                }
-                else {
-                    log.debug "${device.deviceLabel} does not have configure Command"
-                }
-            }
-            else {
-                log.debug "${device.deviceLabel} does not have Configuration Capability"
-            }
-        }
-    }
-}
-*/

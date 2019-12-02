@@ -852,7 +852,7 @@ def tags() { [
     [name: 'identGlobal',   level: 1, clos: 'identGlobalHub',        args: 1, type: ['l','p'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalDevice',     args: 1, type: ['f','q','y','z'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalAttribute',  args: 2, type: ['b'], esc: true, ident: true],
-    [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], esc: true,  ident: true, parent: true],
+    [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], esc: true, ident: true, parent: true],
  // [name: 'isChange',      level: 2, clos: 'isChange',              args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
  // [name: 'isDigital',     level: 2, clos: 'isDigital',             args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
  // [name: 'isPhysical',    level: 2, clos: 'isPhysical',            args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],

@@ -8,12 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/code_fields.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/code_tags.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/map_fields.txt" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/map_fields.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -115,13 +110,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
-    </task>
-    <task id="LOCAL-00131" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1551819449563</created>
-      <option name="number" value="00131" />
-      <option name="presentableId" value="LOCAL-00131" />
-      <option name="project" value="LOCAL" />
-      <updated>1551819449564</updated>
     </task>
     <task id="LOCAL-00132" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1551889834765</created>
@@ -459,7 +447,14 @@
       <option name="project" value="LOCAL" />
       <updated>1574695622536</updated>
     </task>
-    <option name="localTasksCounter" value="180" />
+    <task id="LOCAL-00180" summary="Updates">
+      <created>1575369441569</created>
+      <option name="number" value="00180" />
+      <option name="presentableId" value="LOCAL-00180" />
+      <option name="project" value="LOCAL" />
+      <updated>1575369441570</updated>
+    </task>
+    <option name="localTasksCounter" value="181" />
     <servers />
   </component>
   <component name="Vcs.Log.History.Properties">
@@ -514,9 +509,17 @@
     <option name="LAST_COMMIT_MESSAGE" value="Updates" />
   </component>
   <component name="WindowStateProjectService">
+    <state x="577" y="149" key="CommitChangelistDialog2" timestamp="1575369441223">
+      <screen x="0" y="23" width="1920" height="1057" />
+    </state>
+    <state x="577" y="149" key="CommitChangelistDialog2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369441223" />
     <state x="109" y="28" width="1720" height="857" key="DiffContextDialog" timestamp="1575369371216">
       <screen x="0" y="23" width="1920" height="1057" />
     </state>
     <state x="109" y="28" width="1720" height="857" key="DiffContextDialog/0.23.1920.1057@0.23.1920.1057" timestamp="1575369371216" />
+    <state x="561" y="291" key="Vcs.Push.Dialog.v2" timestamp="1575369444361">
+      <screen x="0" y="23" width="1920" height="1057" />
+    </state>
+    <state x="561" y="291" key="Vcs.Push.Dialog.v2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369444361" />
   </component>
 </project>

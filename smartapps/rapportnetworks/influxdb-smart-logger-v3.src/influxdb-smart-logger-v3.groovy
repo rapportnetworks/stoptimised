@@ -5,7 +5,7 @@
  *
  *  Date: 2019-11-15
  *
- *  Version: 3.1
+ *  Version: 3.2
  *
  *  Author: Alasdair Thin
  *

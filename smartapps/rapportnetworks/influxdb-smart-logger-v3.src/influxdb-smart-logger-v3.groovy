@@ -1119,7 +1119,7 @@ def getDeviceType() { return {
 
 /**
  * getDeviceUse - gets data value 'deviceUse' which indicates what device is being used for
- * TODO - Drop this as no longer used in new device handlers?
+ * No longer in use.
  * @return device use name
  */
 def getDeviceUse() { return { it?.device?.getDataValue('deviceUse') ?: '' } }

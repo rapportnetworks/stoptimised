@@ -14,7 +14,7 @@
  *
  */
 metadata {
-	definition (name: "Room Name Virtual Device", namespace: "rapportnetworks", author: "Alasdair Thin") {
+	definition (name: "Room Name Virtual Device", namespace: "rapportnetwork", author: "Alasdair Thin") {
 		capability "Bridge"
 	}
 

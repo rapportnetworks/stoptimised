@@ -598,8 +598,7 @@ def pollLocations() {
     logger('pollLocations: running now.', 'info')
     if (state?.logMetadata) {
         def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
-        // TODO ?change measurementName to 'buildings'?
-        influxLineProtocol(items, 'areas', 'local', 'metadata', 'metadata')
+        influxLineProtocol(items, 'buildings', 'local', 'metadata', 'metadata')
     }
 }
 

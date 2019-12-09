@@ -8,6 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d05561cc-79f6-40c0-a972-9c185fa69e8f" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" beforeDir="false" afterPath="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src/influxdb-smart-logger-v3.groovy" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -44,7 +45,14 @@
   </component>
   <component name="ProjectId" id="1OjUjJEGuRyJKyhA8mflQcUAvvX" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="autoscrollToSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="com.android.tools.idea.instantapp.provision.ProvisionBeforeRunTaskProvider.myTimeStamp" value="1552909140951" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src" />
@@ -55,13 +63,14 @@
     <property name="settings.editor.selected.configurable" value="preferences.sourceCode.Groovy" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/devicetypes/rapportnetworks" />
-      <recent name="$PROJECT_DIR$/devicetypes/rapportnetworks/icons" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/smartapps/rapportnetworks/influxdb-smart-logger-v3.src" />
       <recent name="$PROJECT_DIR$/gradle_templates/impl/template" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/smartapps/rapportnetworks/lineProtocol" />
+      <recent name="$PROJECT_DIR$/devicetypes/rapportnetworks" />
+      <recent name="$PROJECT_DIR$/devicetypes/rapportnetworks/icons" />
     </key>
   </component>
   <component name="RunManager">
@@ -110,13 +119,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1543056060277</updated>
-    </task>
-    <task id="LOCAL-00132" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
-      <created>1551889834765</created>
-      <option name="number" value="00132" />
-      <option name="presentableId" value="LOCAL-00132" />
-      <option name="project" value="LOCAL" />
-      <updated>1551889834766</updated>
     </task>
     <task id="LOCAL-00133" summary="Merge remote-tracking branch 'origin/reporting-refactored' into reporting-refactored&#10;&#10;# Conflicts:&#10;#&#9;smartapps/rapportnetworks/influxdb-smart-logger.src/influxdb-smart-logger.groovy">
       <created>1552414216062</created>
@@ -454,7 +456,14 @@
       <option name="project" value="LOCAL" />
       <updated>1575369441570</updated>
     </task>
-    <option name="localTasksCounter" value="181" />
+    <task id="LOCAL-00181" summary="Updates">
+      <created>1575369483601</created>
+      <option name="number" value="00181" />
+      <option name="presentableId" value="LOCAL-00181" />
+      <option name="project" value="LOCAL" />
+      <updated>1575369483601</updated>
+    </task>
+    <option name="localTasksCounter" value="182" />
     <servers />
   </component>
   <component name="Vcs.Log.History.Properties">
@@ -509,17 +518,25 @@
     <option name="LAST_COMMIT_MESSAGE" value="Updates" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="577" y="149" key="CommitChangelistDialog2" timestamp="1575369441223">
+    <state x="577" y="149" key="CommitChangelistDialog2" timestamp="1575369483471">
       <screen x="0" y="23" width="1920" height="1057" />
     </state>
-    <state x="577" y="149" key="CommitChangelistDialog2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369441223" />
-    <state x="109" y="28" width="1720" height="857" key="DiffContextDialog" timestamp="1575369371216">
+    <state x="577" y="149" key="CommitChangelistDialog2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369483471" />
+    <state x="109" y="28" width="1720" height="857" key="DiffContextDialog" timestamp="1575893986753">
       <screen x="0" y="23" width="1920" height="1057" />
     </state>
-    <state x="109" y="28" width="1720" height="857" key="DiffContextDialog/0.23.1920.1057@0.23.1920.1057" timestamp="1575369371216" />
-    <state x="561" y="291" key="Vcs.Push.Dialog.v2" timestamp="1575369444361">
+    <state x="109" y="28" width="1720" height="857" key="DiffContextDialog/0.23.1920.1057@0.23.1920.1057" timestamp="1575893986753" />
+    <state x="561" y="291" key="Vcs.Push.Dialog.v2" timestamp="1575369485443">
       <screen x="0" y="23" width="1920" height="1057" />
     </state>
-    <state x="561" y="291" key="Vcs.Push.Dialog.v2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369444361" />
+    <state x="561" y="291" key="Vcs.Push.Dialog.v2/0.23.1920.1057@0.23.1920.1057" timestamp="1575369485443" />
+    <state x="639" y="384" key="com.intellij.ide.util.TipDialog" timestamp="1575892972972">
+      <screen x="0" y="23" width="1920" height="1057" />
+    </state>
+    <state x="639" y="384" key="com.intellij.ide.util.TipDialog/0.23.1920.1057@0.23.1920.1057" timestamp="1575892972972" />
+    <state x="709" y="475" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1575890572431">
+      <screen x="0" y="23" width="1920" height="1057" />
+    </state>
+    <state x="709" y="475" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.23.1920.1057@0.23.1920.1057" timestamp="1575890572431" />
   </component>
 </project>

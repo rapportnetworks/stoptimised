@@ -3,9 +3,9 @@
  *
  *  Name: InfluxDB Smart Logger
  *
- *  Date: 2019-11-15
+ *  Date: 2019-12-09
  *
- *  Version: 3.2
+ *  Version: 3-2-1
  *
  *  Author: Alasdair Thin
  *
@@ -38,6 +38,14 @@ def mainPage() {
             uninstall : true,
             install   : true,
     ) {
+        section('Smart App Version') {
+            paragraph("${smartAppVersion()}")
+        }
+
+        section('Hub Id') {
+            paragraph("${hubId('dummyObject')}")
+        }
+
         section('Logger settings') {
             input(
                     name               : 'logLevelDB',
@@ -514,7 +522,7 @@ def handleStringEvent(evt) {
  * @return
  */
 def handleColorMapEvent(evt) {
-    if (state?.logEvents) influxLineProtocol(evt, 'values', 'colorMap')
+    if (state?.logEvents) influxLineProtocol(evt, 'colors', 'colorMap')
 }
 
 /**
@@ -590,6 +598,7 @@ def pollLocations() {
     logger('pollLocations: running now.', 'info')
     if (state?.logMetadata) {
         def items = ['placeholder'] // (only 1 location where Smart App is installed, so placeholder is needed)
+        // TODO ?change measurementName to 'buildings'?
         influxLineProtocol(items, 'areas', 'local', 'metadata', 'metadata')
     }
 }
@@ -848,14 +857,11 @@ def tags() { [
     [name: 'event',         level: 1, clos: 'eventName',             args: 1, type: ['b','c','d','e','h','n','s','v']],
     [name: 'eventType',     level: 1, clos: 'eventType',             args: 1, type: ['b']],
     [name: 'hubType',       level: 1, clos: 'hubType',               args: 0, type: ['l','p']],
+    [name: 'identGlobal',   level: 1, clos: 'identGlobalAttribute',  args: 2, type: ['b'], esc: true, ident: true],
+    [name: 'identGlobal',   level: 1, clos: 'identGlobalDevice',     args: 1, type: ['f','q','y','z'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalEvent',      args: 1, type: ['c','d','e','h','n','s','v'], esc: true, ident: true],
     [name: 'identGlobal',   level: 1, clos: 'identGlobalHub',        args: 1, type: ['l','p'], esc: true, ident: true],
-    [name: 'identGlobal',   level: 1, clos: 'identGlobalDevice',     args: 1, type: ['f','q','y','z'], esc: true, ident: true],
-    [name: 'identGlobal',   level: 1, clos: 'identGlobalAttribute',  args: 2, type: ['b'], esc: true, ident: true],
     [name: 'identLocal',    level: 1, clos: 'identLocal',            args: 1, type: ['b','c','e','f','n','q','s','v'], esc: true, ident: true, parent: true],
- // [name: 'isChange',      level: 2, clos: 'isChange',              args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
- // [name: 'isDigital',     level: 2, clos: 'isDigital',             args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
- // [name: 'isPhysical',    level: 2, clos: 'isPhysical',            args: 1, type: ['c', 'd', 'e', 'h', 'n', 's', 'v']],
     [name: 'listening',     level: 1, clos: 'listeningZwave',        args: 1, type: ['y','z']],
     [name: 'mdDeviceNo',    level: 2, clos: 'metadataDeviceNumber',  args: 1, type: ['f']],
     [name: 'mdDeviceType',  level: 2, clos: 'metadataDeviceType',    args: 1, type: ['f'], esc: true],
@@ -878,11 +884,11 @@ def tags() { [
  *****************************************************************************************************************/
 def fields() { [
     [name: '',              level: 2, clos: 'configuredParametersList', var: 'multiple', args: 1, type: ['z']],
+    [name: 'app',           level: 1, clos: 'smartAppVersion',          var: 'string',   args: 0, type: ['l']],
     [name: 'battery',       level: 1, clos: 'battery',                  var: 'integer',  args: 1, type: ['f','q']],
     [name: 'checkInt',      level: 1, clos: 'checkInterval',            var: 'integer',  args: 1, type: ['q','z']],
     [name: 'configProfile', level: 1, clos: 'deviceConfiguredProfile',  var: 'string',   args: 1, type: ['z']],
     [name: 'configure',     level: 1, clos: 'configure',                var: 'string',   args: 1, type: ['f','q','z']],
-    [name: 'deviceUse',     level: 1, clos: 'deviceUse',                var: 'string',   args: 1, type: ['z']],
     [name: 'eventId',       level: 1, clos: 'eventId',                  var: 'string',   args: 1, type: ['c','d','e','h','n','s','v']],
     [name: 'eventText',     level: 3, clos: 'eventDescription',         var: 'string',   args: 1, type: ['c','d','e','h','n','s','v']],
     [name: 'firmware',      level: 1, clos: 'firmwareVersion',          var: 'string',   args: 0, type: ['l','p']],
@@ -916,7 +922,7 @@ def fields() { [
     [name: 'sBin',          level: 2, clos: 'statusDeviceBinary',       var: 'boolean',  args: 1, type: ['f','q','z']],
     [name: 'sBin',          level: 2, clos: 'statusHubBinary',          var: 'boolean',  args: 0, type: ['l','p']],
     [name: 'secLevel',      level: 1, clos: 'networkSecurityLevel',     var: 'string',   args: 1, type: ['z']],
-    [name: 'secure',        level: 1, clos: 'zwaveSecure',              var: 'boolean',  args: 1, type: ['y','z']],
+    [name: 'secure',        level: 1, clos: 'zwaveSecure',              var: 'boolean',  args: 1, type: ['z']],
     [name: 'sLevel',        level: 1, clos: 'statusDeviceLevel',        var: 'integer',  args: 1, type: ['f','q','z']],
     [name: 'sLevel',        level: 1, clos: 'statusHubLevel',           var: 'integer',  args: 0, type: ['l','p']],
     [name: 'sunrise',       level: 1, clos: 'sunrise',                  var: 'string',   args: 0, type: ['l'], ident: true],
@@ -1529,6 +1535,12 @@ def getPowerSource() { return { it?.latestValue('powerSource')?.toLowerCase() ?:
  * @return saturation value
  */
 def getSaturationCurrent() { return { colorMapCurrent(it).saturation } }
+
+/**
+ * getSmartAppVersion - current version number of Smart App
+ * @return Smart App version number string
+ */
+def getSmartAppVersion() { return { -> '3-2-1' } }
 
 /**
  * getStateBinaryCurrent - converts attribute level to a binary flag based on level value
